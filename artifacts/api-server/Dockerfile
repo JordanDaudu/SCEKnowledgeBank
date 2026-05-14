@@ -3,10 +3,16 @@
 #
 # Stages:
 #   1. deps    — install all pnpm workspace dependencies (with dev deps; needed
-#                for the esbuild bundle step and for drizzle-kit/tsx at runtime).
+#                for the esbuild bundle step and for drizzle-kit/tsx in the
+#                migrate image).
 #   2. builder — produce the bundled server at artifacts/api-server/dist.
-#   3. runtime — minimal image that ships the bundled server + workspace
-#                sources needed for drizzle-kit migrations and the seed script.
+#   3. migrate — one-shot image used by the `api-init` compose service. Ships
+#                the workspace sources + node_modules needed to run
+#                `drizzle-kit push` and the tsx seed script, then exits.
+#   4. runtime — minimal image for the long-running API. Ships only the
+#                bundled dist/index.mjs plus tini and wget for healthchecks.
+#                Everything the bundled server needs is already inlined by
+#                esbuild, so no node_modules / source tree is copied in.
 
 ARG NODE_VERSION=24-alpine
 
@@ -45,28 +51,44 @@ COPY artifacts/api-server ./artifacts/api-server
 
 RUN pnpm --filter @workspace/api-server run build
 
-# ---------- runtime ----------
-FROM node:${NODE_VERSION} AS runtime
+# ---------- migrate (one-shot init image) ----------
+FROM node:${NODE_VERSION} AS migrate
 ENV NODE_ENV=production
-ENV PORT=8080
 ENV PNPM_HOME=/pnpm
 ENV PATH="${PNPM_HOME}:${PATH}"
-RUN corepack enable \
-    && apk add --no-cache wget tini
+RUN corepack enable
 
 WORKDIR /app
 
-# Copy the workspace + installed node_modules from the build stages. drizzle-kit
-# (for `pnpm --filter @workspace/db run push`) and tsx (for the seed script)
-# live in node_modules; the seed and schema files live under lib/ and
-# artifacts/api-server/src/. We keep them so the entrypoint can apply the
-# schema and seed on first boot.
+# Workspace sources + node_modules for drizzle-kit push and tsx seed script.
 COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json ./
 COPY --from=builder /app/tsconfig.base.json /app/tsconfig.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/lib ./lib
 COPY --from=builder /app/artifacts/api-server/package.json ./artifacts/api-server/
 COPY --from=builder /app/artifacts/api-server/src ./artifacts/api-server/src
+
+# Storage volume mount point (compose mounts kb_storage here so the seed
+# script can write seeded files alongside the API).
+RUN mkdir -p /data/storage
+
+COPY artifacts/api-server/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["migrate-and-seed"]
+
+# ---------- runtime (long-running API) ----------
+FROM node:${NODE_VERSION} AS runtime
+ENV NODE_ENV=production
+ENV PORT=8080
+RUN apk add --no-cache wget tini
+
+WORKDIR /app
+
+# Bundled server only. esbuild has inlined every dependency the request path
+# needs (pino workers are bundled by esbuild-plugin-pino), so no node_modules
+# or workspace source tree is required here.
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 
 # Storage volume mount point (compose mounts kb_storage here).

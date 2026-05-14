@@ -1,13 +1,17 @@
 #!/bin/sh
-# Entrypoint for the API container.
+# Entrypoint shared by the API runtime image and the api-init (migrate) image.
 #
-#   start          (default) — apply schema, seed once, then run the server
-#   migrate        — apply the drizzle schema and exit
-#   seed           — run the seed script and exit
-#   <anything>     — exec the given command verbatim
-#
-# The first-boot schema push + seed are gated by sentinel files written under
-# /data/storage so re-running the container does not re-seed.
+#   start              (default in runtime image) — exec the bundled API server.
+#                      Does not touch the schema; the api-init service handles
+#                      migrations and seeding before the API starts.
+#   migrate            — apply the drizzle schema and exit. Requires the
+#                      migrate image (drizzle-kit + workspace sources).
+#   seed               — run the seed script and exit. Requires the migrate
+#                      image (tsx + workspace sources).
+#   migrate-and-seed   (default in migrate image) — apply the schema, then run
+#                      the seed once (gated by a sentinel under /data/storage)
+#                      and exit. Used by the api-init compose service.
+#   <anything else>    — exec the given command verbatim.
 set -eu
 
 SEED_SENTINEL="${SEED_SENTINEL:-/data/storage/.seeded}"
@@ -24,14 +28,6 @@ run_seed() {
 
 case "${1:-start}" in
   start)
-    run_migrate
-    if [ ! -f "${SEED_SENTINEL}" ]; then
-      run_seed
-      mkdir -p "$(dirname "${SEED_SENTINEL}")"
-      date -u +"%Y-%m-%dT%H:%M:%SZ" > "${SEED_SENTINEL}"
-    else
-      echo "[entrypoint] seed sentinel ${SEED_SENTINEL} present; skipping seed"
-    fi
     echo "[entrypoint] starting API server on port ${PORT}"
     exec node --enable-source-maps ./artifacts/api-server/dist/index.mjs
     ;;
@@ -40,6 +36,16 @@ case "${1:-start}" in
     ;;
   seed)
     run_seed
+    ;;
+  migrate-and-seed)
+    run_migrate
+    if [ ! -f "${SEED_SENTINEL}" ]; then
+      run_seed
+      mkdir -p "$(dirname "${SEED_SENTINEL}")"
+      date -u +"%Y-%m-%dT%H:%M:%SZ" > "${SEED_SENTINEL}"
+    else
+      echo "[entrypoint] seed sentinel ${SEED_SENTINEL} present; skipping seed"
+    fi
     ;;
   *)
     exec "$@"

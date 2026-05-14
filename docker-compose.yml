@@ -26,12 +26,32 @@ services:
       psql -h db -U knowledge_bank -d knowledge_bank
       -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
+  api-init:
+    build:
+      context: .
+      dockerfile: artifacts/api-server/Dockerfile
+      target: migrate
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://knowledge_bank:knowledge_bank@db:5432/knowledge_bank
+      NODE_ENV: production
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in your environment}
+      SIGNED_URL_SECRET: ${SIGNED_URL_SECRET:?set SIGNED_URL_SECRET in your environment}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_ROOT: /data/storage
+    volumes:
+      - kb_storage:/data/storage
+    restart: "no"
+
   api:
     build:
       context: .
       dockerfile: artifacts/api-server/Dockerfile
+      target: runtime
     depends_on:
-      db-init:
+      api-init:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://knowledge_bank:knowledge_bank@db:5432/knowledge_bank
