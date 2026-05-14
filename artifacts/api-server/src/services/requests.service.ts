@@ -30,17 +30,13 @@ async function buildDTOs(
     .map((id) => byId.get(id))
     .filter((r): r is requestsRepo.RequestRow => !!r);
 
-  const [coursesMap, usersMap, voteRows] = await Promise.all([
+  const orderedIds = ordered.map((r) => r.id);
+  const [coursesMap, usersMap, voteCount, hasVotedSet] = await Promise.all([
     taxonomyService.loadCourses(ordered.map((r) => r.courseId)),
     usersService.loadUserSummaries(ordered.map((r) => r.requestedBy)),
-    requestsRepo.listAllVotes(),
+    requestsRepo.countVotesByRequestIds(orderedIds),
+    requestsRepo.findUserVotedRequestIds(currentUserId, orderedIds),
   ]);
-  const voteCount = new Map<string, number>();
-  const hasVotedSet = new Set<string>();
-  for (const v of voteRows) {
-    voteCount.set(v.requestId, (voteCount.get(v.requestId) ?? 0) + 1);
-    if (v.userId === currentUserId) hasVotedSet.add(v.requestId);
-  }
   return ordered.map((r) => {
     const dto: RequestDTO = {
       id: r.id,

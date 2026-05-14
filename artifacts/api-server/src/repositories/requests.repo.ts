@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { db, materialRequests, requestVotes } from "@workspace/db";
 
 export type RequestRow = typeof materialRequests.$inferSelect;
@@ -64,8 +64,40 @@ export async function updateRequestById(
     .where(eq(materialRequests.id, id));
 }
 
-export async function listAllVotes(): Promise<VoteRow[]> {
-  return db.select().from(requestVotes);
+export async function countVotesByRequestIds(
+  requestIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (requestIds.length === 0) return result;
+  const rows = await db
+    .select({
+      requestId: requestVotes.requestId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(requestVotes)
+    .where(inArray(requestVotes.requestId, requestIds))
+    .groupBy(requestVotes.requestId);
+  for (const r of rows) result.set(r.requestId, Number(r.count));
+  return result;
+}
+
+export async function findUserVotedRequestIds(
+  userId: string,
+  requestIds: string[],
+): Promise<Set<string>> {
+  const result = new Set<string>();
+  if (requestIds.length === 0) return result;
+  const rows = await db
+    .select({ requestId: requestVotes.requestId })
+    .from(requestVotes)
+    .where(
+      and(
+        eq(requestVotes.userId, userId),
+        inArray(requestVotes.requestId, requestIds),
+      ),
+    );
+  for (const r of rows) result.add(r.requestId);
+  return result;
 }
 
 export async function findVote(
