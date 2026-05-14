@@ -19,8 +19,10 @@ export default function Upload() {
   const [courseId, setCourseId] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [materialType, setMaterialType] = useState<string>("");
-  const [visibility, setVisibility] = useState<"public" | "restricted" | "private">("public");
-  const [semester, setSemester] = useState<"fall" | "spring" | "summer" | "">("");
+  type Visibility = "public" | "restricted" | "private";
+  type Semester = "fall" | "spring" | "summer" | "";
+  const [visibility, setVisibility] = useState<Visibility>("public");
+  const [semester, setSemester] = useState<Semester>("");
   const [academicYear, setAcademicYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   
@@ -69,7 +71,7 @@ export default function Upload() {
         categoryId: categoryId || undefined,
         materialType,
         visibility,
-        semester: semester as any || undefined,
+        semester: (semester || undefined) as Semester extends "" ? undefined : Exclude<Semester, "">,
         academicYear: academicYear ? parseInt(academicYear) : undefined,
         tagIds: selectedTags.length > 0 ? selectedTags : undefined
       }
@@ -78,8 +80,9 @@ export default function Upload() {
         toast({ title: "Upload complete", description: `Successfully uploaded ${data.results.filter(r => r.success).length} files.` });
         setTimeout(() => setLocation("/browse"), 1500);
       },
-      onError: (err: any) => {
-        toast({ variant: "destructive", title: "Upload failed", description: err?.message || "An error occurred during upload." });
+      onError: (err) => {
+        const data = (err as { data?: { error?: { message?: string } } })?.data;
+        toast({ variant: "destructive", title: "Upload failed", description: data?.error?.message || (err as Error)?.message || "An error occurred during upload." });
       }
     });
   };
@@ -178,7 +181,7 @@ export default function Upload() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Visibility</label>
-                <Select value={visibility} onValueChange={(val: any) => setVisibility(val)}>
+                <Select value={visibility} onValueChange={(val) => setVisibility(val as Visibility)}>
                   <SelectTrigger><SelectValue placeholder="Visibility" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="public">Public (Everyone)</SelectItem>
@@ -189,7 +192,7 @@ export default function Upload() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Semester</label>
-                <Select value={semester} onValueChange={(val: any) => setSemester(val)}>
+                <Select value={semester} onValueChange={(val) => setSemester(val === "none" ? "" : (val as Semester))}>
                   <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>

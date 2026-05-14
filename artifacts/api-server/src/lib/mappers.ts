@@ -1,4 +1,4 @@
-import { inArray, eq, isNull, and } from "drizzle-orm";
+import { inArray, eq, isNull, and, sql } from "drizzle-orm";
 import {
   db,
   users,
@@ -11,6 +11,7 @@ import {
   documentFiles,
   documentTags,
   comments,
+  materialViewHistory,
 } from "@workspace/db";
 
 export interface UserSummaryDTO {
@@ -180,6 +181,18 @@ export async function assembleDocuments(
     commentCounts.set(c.documentId, (commentCounts.get(c.documentId) ?? 0) + 1);
   }
 
+  // View counts (from material_view_history)
+  const viewRows = await db
+    .select({
+      documentId: materialViewHistory.documentId,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(materialViewHistory)
+    .where(inArray(materialViewHistory.documentId, ids))
+    .groupBy(materialViewHistory.documentId);
+  const viewCounts = new Map<string, number>();
+  for (const v of viewRows) viewCounts.set(v.documentId, v.n);
+
   // File map (pick latest if multiple)
   const filesByDoc = new Map<string, (typeof fileRows)[number]>();
   for (const f of fileRows) {
@@ -217,7 +230,7 @@ export async function assembleDocuments(
       uploader,
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
-      viewCount: 0,
+      viewCount: viewCounts.get(d.id) ?? 0,
       commentCount: commentCounts.get(d.id) ?? 0,
       tags: tagsByDoc.get(d.id) ?? [],
     };

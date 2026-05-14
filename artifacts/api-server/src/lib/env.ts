@@ -7,17 +7,38 @@ function num(name: string, fallback: number): number {
   return Number.isFinite(v) && v > 0 ? v : fallback;
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+
+function requireSecret(name: string, devFallback: string): string {
+  const v = process.env[name];
+  if (v && v.length >= 16) return v;
+  if (isProduction) {
+    throw new Error(
+      `Missing required environment variable ${name} (must be set to a strong secret in production).`,
+    );
+  }
+  return devFallback;
+}
+
+const webOriginRaw = process.env.WEB_ORIGIN ?? "";
+const webOrigins = webOriginRaw
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
-  isProduction: process.env.NODE_ENV === "production",
+  isProduction,
   port: Number(process.env.PORT ?? 8080),
-  webOrigin: process.env.WEB_ORIGIN ?? "",
-  sessionSecret:
-    process.env.SESSION_SECRET ??
-    "dev-session-secret-change-me-for-production-knowledge-bank",
-  signedUrlSecret:
-    process.env.SIGNED_URL_SECRET ??
-    "dev-signed-url-secret-change-me-for-production-knowledge-bank",
+  webOrigins,
+  sessionSecret: requireSecret(
+    "SESSION_SECRET",
+    "dev-session-secret-not-for-production-knowledge-bank-32chars",
+  ),
+  signedUrlSecret: requireSecret(
+    "SIGNED_URL_SECRET",
+    "dev-signed-url-secret-not-for-production-knowledge-bank-32chars",
+  ),
   signedUrlTtlSeconds: num("SIGNED_URL_TTL_SECONDS", 300),
   maxUploadMb: num("MAX_UPLOAD_MB", 50),
   allowedMimeTypes: (

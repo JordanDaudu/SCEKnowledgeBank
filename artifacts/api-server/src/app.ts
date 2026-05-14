@@ -35,7 +35,17 @@ app.use(
 
 app.use(
   cors({
-    origin: env.webOrigin || true,
+    origin: (origin, cb) => {
+      // Same-origin or non-browser (no Origin header) is allowed.
+      if (!origin) return cb(null, true);
+      if (env.webOrigins.length === 0) {
+        // No allowlist configured: dev convenience only.
+        if (env.isProduction) return cb(new Error("CORS: origin not allowed"));
+        return cb(null, true);
+      }
+      if (env.webOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error("CORS: origin not allowed"));
+    },
     credentials: true,
   }),
 );

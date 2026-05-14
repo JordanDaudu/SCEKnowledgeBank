@@ -85,7 +85,7 @@ export default function Browse() {
             </SelectContent>
           </Select>
 
-          <Select value={sort} onValueChange={(val: any) => { setSort(val); setPage(1); }}>
+          <Select value={sort} onValueChange={(val) => { setSort(val as typeof sort); setPage(1); }}>
             <SelectTrigger className="w-[140px] bg-background">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>

@@ -13,8 +13,8 @@ import {
   UpdateRequestParams,
   VoteRequestParams,
 } from "@workspace/api-zod";
-import { requireAuth, isLecturerOrAdmin } from "../middlewares/auth";
-import { badRequest, forbidden, notFound } from "../lib/errors";
+import { requireAuth, isAdmin, isLecturerOrAdmin } from "../middlewares/auth";
+import { badRequest, conflict, forbidden, notFound } from "../lib/errors";
 import { loadCourses, loadUserSummaries } from "../lib/mappers";
 import { audit } from "../lib/audit";
 
@@ -135,13 +135,14 @@ router.patch("/requests/:id", requireAuth, async (req, res, next) => {
     const r = found[0];
     if (!r) throw notFound("Request not found");
     const isOwner = r.requestedBy === req.authUser!.id;
-    // Lecturers/admins can change status; owner can edit title/description on open
+    // Status/fulfillment changes: author or admin only.
+    // Other edits (title/description): author or admin only.
     const wantsStatusChange =
       body.status !== undefined || body.fulfillingDocumentId !== undefined;
-    if (wantsStatusChange && !isLecturerOrAdmin(req.authUser)) {
-      throw forbidden("Only lecturers or admins can update status");
+    if (wantsStatusChange && !isOwner && !isAdmin(req.authUser)) {
+      throw forbidden("Only the request author or an admin can update status");
     }
-    if (!wantsStatusChange && !isOwner && !isLecturerOrAdmin(req.authUser)) {
+    if (!isOwner && !isAdmin(req.authUser)) {
       throw forbidden("Cannot edit this request");
     }
     if (body.fulfillingDocumentId) {
@@ -206,16 +207,12 @@ router.post("/requests/:id/vote", requireAuth, async (req, res, next) => {
       )
       .limit(1);
     if (existing[0]) {
-      await db
-        .delete(requestVotes)
-        .where(eq(requestVotes.id, existing[0].id));
-      await audit(req.authUser!.id, "request.unvote", "material_request", id);
-    } else {
-      await db
-        .insert(requestVotes)
-        .values({ requestId: id, userId: req.authUser!.id });
-      await audit(req.authUser!.id, "request.vote", "material_request", id);
+      throw conflict("You have already voted on this request");
     }
+    await db
+      .insert(requestVotes)
+      .values({ requestId: id, userId: req.authUser!.id });
+    await audit(req.authUser!.id, "request.vote", "material_request", id);
     const dto = await buildRequestDTO([id], req.authUser!.id);
     res.json(dto[0]);
   } catch (err) {

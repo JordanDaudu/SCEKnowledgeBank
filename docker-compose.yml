@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: knowledge_bank
+      POSTGRES_PASSWORD: knowledge_bank
+      POSTGRES_DB: knowledge_bank
+    ports:
+      - "5432:5432"
+    volumes:
+      - kb_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knowledge_bank"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db-init:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: knowledge_bank
+    command: >
+      psql -h db -U knowledge_bank -d knowledge_bank
+      -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+  api:
+    image: node:24-alpine
+    working_dir: /app
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://knowledge_bank:knowledge_bank@db:5432/knowledge_bank
+      NODE_ENV: production
+      PORT: 8080
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in your environment}
+      SIGNED_URL_SECRET: ${SIGNED_URL_SECRET:?set SIGNED_URL_SECRET in your environment}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_ROOT: /data/storage
+    volumes:
+      - .:/app
+      - kb_storage:/data/storage
+    ports:
+      - "8080:8080"
+    command: >
+      sh -c "corepack enable && pnpm install --frozen-lockfile &&
+             pnpm --filter @workspace/db run push &&
+             pnpm --filter @workspace/api-server run seed &&
+             pnpm --filter @workspace/api-server run build &&
+             pnpm --filter @workspace/api-server run start"
+
+  web:
+    image: node:24-alpine
+    working_dir: /app
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE: http://localhost:8080
+    volumes:
+      - .:/app
+    ports:
+      - "5173:5173"
+    command: >
+      sh -c "corepack enable && pnpm install --frozen-lockfile &&
+             pnpm --filter @workspace/web run dev --host 0.0.0.0"
+
+volumes:
+  kb_db_data:
+  kb_storage:

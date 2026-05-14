@@ -21,7 +21,6 @@ import {
   documentTags,
   materialViewHistory,
   courses,
-  tags as tagsTable,
 } from "@workspace/db";
 import {
   DocumentSuggestionsQueryParams,
@@ -45,6 +44,7 @@ import { signToken, verifyToken } from "../lib/sign-url";
 import { audit } from "../lib/audit";
 import { getStorage } from "../lib/storage";
 import { env } from "../lib/env";
+import { mimeMatchesContent } from "../lib/mime-sniff";
 
 const router: IRouter = Router();
 
@@ -161,23 +161,6 @@ router.get("/documents", requireAuth, async (req, res, next) => {
       );
     }
 
-    let order;
-    switch (q.sort) {
-      case "oldest":
-        order = asc(documents.createdAt);
-        break;
-      case "title":
-        order = asc(documents.title);
-        break;
-      case "popularity":
-        order = desc(documents.updatedAt);
-        break;
-      case "newest":
-      default:
-        order = desc(documents.createdAt);
-        break;
-    }
-
     const where = and(...filters);
     const countRows = await db
       .select({ c: sql<number>`count(*)::int` })
@@ -185,13 +168,50 @@ router.get("/documents", requireAuth, async (req, res, next) => {
       .where(where);
     const total = countRows[0]?.c ?? 0;
 
-    const rows = await db
-      .select()
-      .from(documents)
-      .where(where)
-      .orderBy(order)
-      .limit(q.pageSize)
-      .offset((q.page - 1) * q.pageSize);
+    let rows: (typeof documents.$inferSelect)[];
+    if (q.sort === "popularity") {
+      // Sort by aggregated view count from material_view_history (desc), tiebreak newest.
+      const result = await db
+        .select({
+          doc: documents,
+          views: sql<number>`coalesce(count(${materialViewHistory.id}), 0)::int`,
+        })
+        .from(documents)
+        .leftJoin(
+          materialViewHistory,
+          eq(materialViewHistory.documentId, documents.id),
+        )
+        .where(where)
+        .groupBy(documents.id)
+        .orderBy(
+          desc(sql`coalesce(count(${materialViewHistory.id}), 0)`),
+          desc(documents.createdAt),
+        )
+        .limit(q.pageSize)
+        .offset((q.page - 1) * q.pageSize);
+      rows = result.map((r) => r.doc);
+    } else {
+      let order;
+      switch (q.sort) {
+        case "oldest":
+          order = asc(documents.createdAt);
+          break;
+        case "title":
+          order = asc(documents.title);
+          break;
+        case "newest":
+        default:
+          order = desc(documents.createdAt);
+          break;
+      }
+      rows = await db
+        .select()
+        .from(documents)
+        .where(where)
+        .orderBy(order)
+        .limit(q.pageSize)
+        .offset((q.page - 1) * q.pageSize);
+    }
 
     const items = await assembleDocuments(rows);
     res.json({ items, total, page: q.page, pageSize: q.pageSize });
@@ -246,13 +266,12 @@ router.get("/documents/recent", requireAuth, async (req, res, next) => {
 router.get("/documents/suggestions", requireAuth, async (req, res, next) => {
   try {
     const q = DocumentSuggestionsQueryParams.parse(req.query);
-    const like = `%${q.q}%`;
+    const term = q.q;
+    // Use pg_trgm similarity for ranking; require a minimum similarity threshold
+    // (the % operator uses pg_trgm.similarity_threshold, default 0.3).
     const suggestionFilters = [
       isNull(documents.deletedAt),
-      or(
-        ilike(documents.title, like),
-        ilike(documents.description, like),
-      )!,
+      sql`(${documents.title} % ${term} OR ${documents.description} % ${term} OR ${documents.title} ILIKE ${"%" + term + "%"})`,
     ];
     if (!isAdmin(req.authUser)) {
       suggestionFilters.push(
@@ -269,10 +288,14 @@ router.get("/documents/suggestions", requireAuth, async (req, res, next) => {
         title: documents.title,
         materialType: documents.materialType,
         courseId: documents.courseId,
+        score: sql<number>`greatest(similarity(${documents.title}, ${term}), similarity(coalesce(${documents.description}, ''), ${term}))`,
       })
       .from(documents)
       .where(and(...suggestionFilters))
-      .orderBy(desc(documents.createdAt))
+      .orderBy(
+        desc(sql`greatest(similarity(${documents.title}, ${term}), similarity(coalesce(${documents.description}, ''), ${term}))`),
+        desc(documents.createdAt),
+      )
       .limit(q.limit);
     const courseIds = rows
       .map((r) => r.courseId)
@@ -339,6 +362,40 @@ router.post(
       const storage = getStorage();
       const results: Array<Record<string, unknown>> = [];
 
+      // Track originalFilename collisions within the current uploader's docs
+      // so we can suffix " (2)", " (3)", etc.
+      const existingNamesRows = await db
+        .select({ name: documentFiles.originalFilename })
+        .from(documentFiles)
+        .innerJoin(documents, eq(documents.id, documentFiles.documentId))
+        .where(
+          and(
+            eq(documents.uploaderId, req.authUser!.id),
+            isNull(documents.deletedAt),
+          ),
+        );
+      const usedNames = new Set(existingNamesRows.map((r) => r.name));
+
+      function uniquify(name: string): string {
+        if (!usedNames.has(name)) {
+          usedNames.add(name);
+          return name;
+        }
+        const dot = name.lastIndexOf(".");
+        const base = dot > 0 ? name.slice(0, dot) : name;
+        const ext = dot > 0 ? name.slice(dot) : "";
+        for (let i = 2; i < 1000; i++) {
+          const candidate = `${base} (${i})${ext}`;
+          if (!usedNames.has(candidate)) {
+            usedNames.add(candidate);
+            return candidate;
+          }
+        }
+        const candidate = `${base}-${uuidv4().slice(0, 8)}${ext}`;
+        usedNames.add(candidate);
+        return candidate;
+      }
+
       for (const file of files) {
         try {
           if (
@@ -350,6 +407,15 @@ router.post(
               success: false,
               error: `Disallowed mime type: ${file.mimetype}`,
               errorCode: "disallowed_mime",
+            });
+            continue;
+          }
+          if (!mimeMatchesContent(file.mimetype, file.buffer)) {
+            results.push({
+              originalFilename: file.originalname,
+              success: false,
+              error: `File content does not match declared type ${file.mimetype}`,
+              errorCode: "mime_mismatch",
             });
             continue;
           }
@@ -396,9 +462,10 @@ router.post(
             .values(insertValues)
             .returning();
 
+          const uniqueOriginalName = uniquify(file.originalname);
           await db.insert(documentFiles).values({
             documentId: docId,
-            originalFilename: file.originalname,
+            originalFilename: uniqueOriginalName,
             storedFilename: key.split("/").pop() ?? key,
             mimeType: file.mimetype,
             sizeBytes: file.size,
