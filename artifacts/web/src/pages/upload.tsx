@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { apiUrl } from "@/lib/api-url";
 
 type Visibility = "public" | "restricted" | "private";
 type Semester = "fall" | "spring" | "summer" | "";
@@ -31,19 +32,27 @@ interface QueueItem {
   progress: number;
   error?: string;
   errorCode?: string;
-  storedFilename?: string;
+  displayFilename?: string;
   documentId?: string;
 }
 
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+// Keep in sync with the backend MAX_UPLOAD_MB / ALLOWED_MIME_TYPES env config.
+// Web-side defaults match the server defaults (50 MB, listed mime types).
+// Override at build time with VITE_MAX_UPLOAD_MB if the backend is configured
+// differently.
+const MAX_UPLOAD_MB = Number(import.meta.env.VITE_MAX_UPLOAD_MB ?? 50);
+const MAX_FILE_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+// File extensions whose content the backend's magic-byte sniffer can actually
+// verify (mime-sniff.ts). gif/webp are deliberately excluded — the server has
+// no sniff branch for them and would reject any upload as mime_mismatch.
 const ALLOWED_EXTENSIONS = [
   "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx",
-  "txt", "md", "csv", "png", "jpg", "jpeg", "gif", "webp", "zip",
+  "txt", "md", "csv", "png", "jpg", "jpeg", "zip",
 ];
 
 function validateFile(file: File): string | null {
   if (file.size > MAX_FILE_BYTES) {
-    return `File exceeds 50MB limit (${(file.size / 1024 / 1024).toFixed(1)} MB).`;
+    return `File exceeds ${MAX_UPLOAD_MB}MB limit (${(file.size / 1024 / 1024).toFixed(1)} MB).`;
   }
   if (file.size === 0) {
     return "File is empty.";
@@ -71,7 +80,7 @@ function uploadOne(
     }
     for (const t of tagIds) form.append("tagIds", t);
 
-    xhr.open("POST", "/api/documents/upload");
+    xhr.open("POST", apiUrl("/api/documents/upload"));
     xhr.withCredentials = true;
     xhr.responseType = "json";
     xhr.upload.onprogress = (e) => {
@@ -193,14 +202,14 @@ export default function Upload() {
         const fileResult = result.results[0];
         if (fileResult?.success && fileResult.document) {
           const doc = fileResult.document as ApiDocument;
-          const stored = doc.file?.originalFilename;
-          const renamed = stored && stored !== item.file.name;
+          const display = doc.file?.displayFilename;
+          const renamed = display && display !== item.file.name;
           if (renamed) renamedCount++;
           okCount++;
           updateItem(item.id, {
             status: "success",
             progress: 100,
-            storedFilename: stored,
+            displayFilename: display,
             documentId: doc.id,
           });
         } else {
@@ -264,7 +273,7 @@ export default function Upload() {
           <CardHeader>
             <CardTitle>Files</CardTitle>
             <CardDescription>
-              Drag & drop or select files to upload. PDF, DOCX, PPTX, XLSX, images and more — up to 50MB each.
+              Drag & drop or select files to upload. PDF, DOCX, PPTX, XLSX, images and more — up to {MAX_UPLOAD_MB}MB each.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -354,10 +363,10 @@ export default function Upload() {
                     )}
 
                     {item.status === "success" &&
-                      item.storedFilename &&
-                      item.storedFilename !== item.file.name && (
+                      item.displayFilename &&
+                      item.displayFilename !== item.file.name && (
                         <p className="text-xs text-muted-foreground pl-8" data-testid="upload-rename">
-                          Uploaded as <span className="font-mono">{item.storedFilename}</span> to avoid duplicate name.
+                          Uploaded as <span className="font-mono">{item.displayFilename}</span> to avoid a duplicate name. Your original filename (<span className="font-mono">{item.file.name}</span>) is preserved on the record.
                         </p>
                       )}
                   </li>

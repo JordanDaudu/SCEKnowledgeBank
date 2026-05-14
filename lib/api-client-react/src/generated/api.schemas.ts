@@ -91,7 +91,10 @@ export const DocumentStatus = {
 
 export interface DocumentFileMeta {
   id: string;
+  /** The exact filename as the user uploaded it. */
   originalFilename: string;
+  /** The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. "notes (2).pdf". Use this for the rename notice. */
+  displayFilename: string;
   mimeType: string;
   sizeBytes: number;
   uploadedAt: string;

@@ -53,6 +53,7 @@ A scholarly document repository for university communities — upload, browse, s
 - **Signed-URL HMAC tokens** for `/preview` and `/download`. Token payload binds `{documentId, action, userId, exp}`; the streaming endpoints verify the HMAC and TTL. Treat tokens as short-lived bearer credentials (TTL via `SIGNED_URL_TTL_SECONDS`, default 5 min).
 - **Visibility model.** `public` and `restricted` docs visible to any authenticated user; `private` docs visible only to uploader, owner, or admin. The same predicate gates list queries, search suggestions, detail fetch, comments, and token issuance.
 - **Storage abstraction.** All file IO goes through `getStorage()` (`put`, `getStream`). Local driver is default; an S3 driver can be added without route changes.
+- **One API-URL helper on the web.** The server returns relative signed URLs (`/api/documents/:id/preview?token=...`). The web app resolves them through `artifacts/web/src/lib/api-url.ts` which prefixes `VITE_API_BASE` when set, so the iframe `src`, the download `window.open`, and the upload XHR all hit the API origin even when the web and API are served from different hosts. There are no hardcoded `/api/...` strings in pages.
 - **Soft deletes** for documents and comments (`deletedAt`); nested comment threads are reassembled in-app from a flat parent-id list.
 - **Audit log** captures auth, uploads, edits, deletes, comments, requests, votes, and downloads (`audit_logs`).
 - **Idempotent seed** uses deterministic upserts by natural keys so demos can be re-run safely.
@@ -62,8 +63,8 @@ A scholarly document repository for university communities — upload, browse, s
 - Login with quick-login chips for the three demo roles.
 - Browse / search / filter documents (course code, lecturer, tags, material type, semester, year, full-text on title+description).
 - Document detail with inline preview (signed URL), download, threaded comments, edit/delete for uploader+admin.
-- Upload (lecturer/admin only) with multi-file batch, mime allowlist, size limit (413 on overflow).
-- Material requests board with voting (toggle), status workflow (open → fulfilled/declined) restricted to lecturer/admin.
+- Upload (lecturer/admin only) with multi-file batch, mime allowlist, size limit (413 on overflow). Duplicate filenames are accepted: the exact uploaded name is preserved on `documentFiles.originalFilename`, and a separate `displayFilename` is suffixed (`notes (2).pdf`, `notes (3).pdf`, …) so the user can tell them apart in lists.
+- Material requests board with voting (toggle). Status changes (e.g. fulfill) are open to the request author, lecturers, and admins; editing the request title/description is restricted to the author or an admin. RBAC is enforced server-side in `requests.service.updateRequest`.
 - Admin: user list with role management.
 
 ## User preferences

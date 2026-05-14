@@ -84,6 +84,7 @@ export const documentFiles = pgTable(
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
     originalFilename: text("original_filename").notNull(),
+    displayFilename: text("display_filename").notNull(),
     storedFilename: text("stored_filename").notNull(),
     mimeType: text("mime_type").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),

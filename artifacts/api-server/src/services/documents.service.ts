@@ -34,6 +34,7 @@ export interface DocumentDTO {
   file?: {
     id: string;
     originalFilename: string;
+    displayFilename: string;
     mimeType: string;
     sizeBytes: number;
     uploadedAt: string;
@@ -134,6 +135,7 @@ export async function assembleDocuments(
       dto.file = {
         id: file.id,
         originalFilename: file.originalFilename,
+        displayFilename: file.displayFilename,
         mimeType: file.mimeType,
         sizeBytes: file.sizeBytes,
         uploadedAt: file.uploadedAt.toISOString(),
@@ -361,7 +363,7 @@ export async function uploadDocuments(
   const storage = getStorage();
   const results: UploadResultEntry[] = [];
 
-  const existingNames = await docsRepo.findUploaderOriginalFilenames(user.id);
+  const existingNames = await docsRepo.findUploaderDisplayFilenames(user.id);
   const usedNames = new Set(existingNames);
 
   function uniquify(name: string): string {
@@ -447,10 +449,11 @@ export async function uploadDocuments(
 
       const insertedDoc = await docsRepo.insertDocument(insertValues);
 
-      const uniqueOriginalName = uniquify(file.originalname);
+      const displayName = uniquify(file.originalname);
       await docsRepo.insertDocumentFile({
         documentId: docId,
-        originalFilename: uniqueOriginalName,
+        originalFilename: file.originalname,
+        displayFilename: displayName,
         storedFilename: key.split("/").pop() ?? key,
         mimeType: file.mimetype,
         sizeBytes: file.size,

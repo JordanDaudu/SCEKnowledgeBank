@@ -40,6 +40,7 @@ import {
   FileText, Download, Clock, User, MessageSquare, Trash2, Reply, Edit, FileQuestion, Hash, X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api-url";
 
 type Visibility = NonNullable<UpdateDocumentRequest["visibility"]>;
 type Semester = NonNullable<UpdateDocumentRequest["semester"]>;
@@ -102,7 +103,7 @@ export default function DocumentDetail() {
   const handleDownload = async () => {
     try {
       const data = await getDocumentDownloadToken(id);
-      window.open(data.url, "_blank");
+      window.open(apiUrl(data.url), "_blank");
     } catch {
       toast({ variant: "destructive", title: "Download failed", description: "Could not generate download link." });
     }
@@ -271,7 +272,7 @@ export default function DocumentDetail() {
               </div>
             ) : previewToken?.url ? (
               <iframe
-                src={previewToken.url}
+                src={apiUrl(previewToken.url)}
                 className="w-full h-full border-0"
                 title="Document Preview"
               />

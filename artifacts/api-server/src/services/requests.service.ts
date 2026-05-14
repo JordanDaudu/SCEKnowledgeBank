@@ -101,13 +101,20 @@ export async function updateRequest(
   if (!r) throw notFound("Request not found");
   const isOwner = r.requestedBy === user.id;
   const isAdmin = user.roles.includes("admin");
+  const isLecturer = user.roles.includes("lecturer");
   const wantsStatusChange =
     body.status !== undefined || body.fulfillingDocumentId !== undefined;
-  if (wantsStatusChange && !isOwner && !isAdmin) {
-    throw forbidden("Only the request author or an admin can update status");
+  const wantsContentChange =
+    body.title !== undefined || body.description !== undefined;
+  // Status fulfillment is open to lecturer/admin (they curate the library);
+  // editing title/description stays restricted to the author or an admin.
+  if (wantsStatusChange && !isOwner && !isAdmin && !isLecturer) {
+    throw forbidden(
+      "Only the request author, a lecturer, or an admin can change request status",
+    );
   }
-  if (!isOwner && !isAdmin) {
-    throw forbidden("Cannot edit this request");
+  if (wantsContentChange && !isOwner && !isAdmin) {
+    throw forbidden("Only the request author or an admin can edit this request");
   }
   if (body.fulfillingDocumentId) {
     const doc = await docsRepo.findByIdAlive(body.fulfillingDocumentId);

@@ -8,7 +8,7 @@ vi.mock("../repositories/documents.repo", () => ({
   findFilesByDocumentIds: vi.fn().mockResolvedValue([]),
   findTagLinksForDocuments: vi.fn().mockResolvedValue([]),
   findDocumentIdsByTagIds: vi.fn(),
-  findUploaderOriginalFilenames: vi.fn(),
+  findUploaderDisplayFilenames: vi.fn(),
   insertDocument: vi.fn(),
   insertDocumentFile: vi.fn().mockResolvedValue(undefined),
   addDocumentTags: vi.fn().mockResolvedValue(undefined),
@@ -76,8 +76,8 @@ const findDocIdsByTagIds = vi.mocked(docsRepo.findDocumentIdsByTagIds);
 const findCourseIdsByCodeOrLecturer = vi.mocked(
   taxonomyRepo.findCourseIdsByCodeOrLecturer,
 );
-const findUploaderOriginalFilenames = vi.mocked(
-  docsRepo.findUploaderOriginalFilenames,
+const findUploaderDisplayFilenames = vi.mocked(
+  docsRepo.findUploaderDisplayFilenames,
 );
 const insertDocument = vi.mocked(docsRepo.insertDocument);
 const insertDocumentFile = vi.mocked(docsRepo.insertDocumentFile);
@@ -98,7 +98,7 @@ beforeEach(() => {
   listDocsRepo.mockResolvedValue([]);
   countDocsRepo.mockResolvedValue(0);
   mimeMatches.mockReturnValue(true);
-  findUploaderOriginalFilenames.mockResolvedValue([]);
+  findUploaderDisplayFilenames.mockResolvedValue([]);
 });
 
 describe("listDocuments visibility scoping", () => {
@@ -244,8 +244,8 @@ describe("uploadDocuments", () => {
     expect(insertDocument).not.toHaveBeenCalled();
   });
 
-  it("uniquifies duplicate original filenames against the uploader's existing files", async () => {
-    findUploaderOriginalFilenames.mockResolvedValueOnce(["notes.pdf"]);
+  it("preserves originalFilename and suffixes displayFilename when the uploader already has the same name", async () => {
+    findUploaderDisplayFilenames.mockResolvedValueOnce(["notes.pdf"]);
     insertDocument.mockImplementation(async (v) => ({
       ...v,
       createdAt: new Date(),
@@ -265,7 +265,10 @@ describe("uploadDocuments", () => {
     );
     expect(result[0].success).toBe(true);
     expect(insertDocumentFile).toHaveBeenCalledWith(
-      expect.objectContaining({ originalFilename: "notes (2).pdf" }),
+      expect.objectContaining({
+        originalFilename: "notes.pdf",
+        displayFilename: "notes (2).pdf",
+      }),
     );
   });
 

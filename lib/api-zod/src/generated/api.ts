@@ -122,7 +122,14 @@ export const ListDocumentsResponse = zod.object({
       file: zod
         .object({
           id: zod.string().uuid(),
-          originalFilename: zod.string(),
+          originalFilename: zod
+            .string()
+            .describe("The exact filename as the user uploaded it."),
+          displayFilename: zod
+            .string()
+            .describe(
+              'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+            ),
           mimeType: zod.string(),
           sizeBytes: zod.number(),
           uploadedAt: zod.coerce.date(),
@@ -212,7 +219,14 @@ export const ListRecentDocumentsResponseItem = zod.object({
   file: zod
     .object({
       id: zod.string().uuid(),
-      originalFilename: zod.string(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
       mimeType: zod.string(),
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
@@ -300,7 +314,14 @@ export const GetDocumentResponse = zod.object({
   file: zod
     .object({
       id: zod.string().uuid(),
-      originalFilename: zod.string(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
       mimeType: zod.string(),
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
@@ -372,7 +393,14 @@ export const UpdateDocumentResponse = zod.object({
   file: zod
     .object({
       id: zod.string().uuid(),
-      originalFilename: zod.string(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
       mimeType: zod.string(),
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),

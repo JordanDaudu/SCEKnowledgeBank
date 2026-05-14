@@ -175,6 +175,7 @@ async function ensureDocument(
   await db.insert(documentFiles).values({
     documentId: doc.id,
     originalFilename: opts.filename,
+    displayFilename: opts.filename,
     storedFilename: key.split("/").pop() ?? key,
     mimeType: opts.mimeType ?? "application/octet-stream",
     sizeBytes: body.length,

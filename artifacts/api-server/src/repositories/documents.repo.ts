@@ -281,11 +281,11 @@ export async function findFilesByDocumentIds(
     .where(inArray(documentFiles.documentId, ids));
 }
 
-export async function findUploaderOriginalFilenames(
+export async function findUploaderDisplayFilenames(
   uploaderId: string,
 ): Promise<string[]> {
   const rows = await db
-    .select({ name: documentFiles.originalFilename })
+    .select({ name: documentFiles.displayFilename })
     .from(documentFiles)
     .innerJoin(documents, eq(documents.id, documentFiles.documentId))
     .where(
