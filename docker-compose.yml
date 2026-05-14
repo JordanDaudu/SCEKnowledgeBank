@@ -27,8 +27,9 @@ services:
       -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
   api:
-    image: node:24-alpine
-    working_dir: /app
+    build:
+      context: .
+      dockerfile: artifacts/api-server/Dockerfile
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -42,31 +43,32 @@ services:
       STORAGE_DRIVER: local
       STORAGE_LOCAL_ROOT: /data/storage
     volumes:
-      - .:/app
       - kb_storage:/data/storage
     ports:
       - "8080:8080"
-    command: >
-      sh -c "corepack enable && pnpm install --frozen-lockfile &&
-             pnpm --filter @workspace/db run push &&
-             pnpm --filter @workspace/api-server run seed &&
-             pnpm --filter @workspace/api-server run build &&
-             pnpm --filter @workspace/api-server run start"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
 
   web:
-    image: node:24-alpine
-    working_dir: /app
+    build:
+      context: .
+      dockerfile: artifacts/web/Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8080}
     depends_on:
-      - api
-    environment:
-      VITE_API_BASE: http://localhost:8080
-    volumes:
-      - .:/app
+      api:
+        condition: service_healthy
     ports:
-      - "5173:5173"
-    command: >
-      sh -c "corepack enable && pnpm install --frozen-lockfile &&
-             pnpm --filter @workspace/web run dev --host 0.0.0.0"
+      - "5173:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   kb_db_data:
