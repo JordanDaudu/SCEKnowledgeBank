@@ -63,10 +63,14 @@ export default function Requests() {
     });
   };
 
-  const handleVote = (id: string, currentVoteStatus: boolean) => {
+  const handleVote = (id: string) => {
     voteMutation.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListRequestsQueryKey({ status: statusTab }) });
+      },
+      onError: (err) => {
+        const data = (err as { data?: { error?: { message?: string } } })?.data;
+        toast({ variant: "destructive", title: "Could not vote", description: data?.error?.message || "Already voted or not allowed." });
       }
     });
   };
@@ -146,7 +150,7 @@ export default function Requests() {
         </Card>
       )}
 
-      <Tabs value={statusTab} onValueChange={(val: any) => setStatusTab(val)} className="w-full">
+      <Tabs value={statusTab} onValueChange={(val) => setStatusTab(val as typeof statusTab)} className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="open">Open</TabsTrigger>
           <TabsTrigger value="fulfilled">Fulfilled</TabsTrigger>
@@ -170,8 +174,9 @@ export default function Requests() {
                       variant="ghost" 
                       size="icon" 
                       className={`h-8 w-8 rounded-full ${req.hasVoted ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'hover:bg-secondary'}`}
-                      onClick={() => handleVote(req.id, req.hasVoted)}
-                      disabled={req.status !== 'open'}
+                      onClick={() => handleVote(req.id)}
+                      disabled={req.status !== 'open' || req.hasVoted || voteMutation.isPending}
+                      title={req.hasVoted ? "You have already voted" : "Upvote this request"}
                     >
                       <ArrowUp className="h-5 w-5" />
                     </Button>

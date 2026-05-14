@@ -66,7 +66,8 @@ export default function Upload() {
 
     uploadMutation.mutate({
       data: {
-        files: files as unknown as Blob[], // Orval expects Blob array
+        // Orval's generated type expects Blob[]; File extends Blob so this is safe.
+        files: files satisfies Blob[],
         courseId,
         categoryId: categoryId || undefined,
         materialType,

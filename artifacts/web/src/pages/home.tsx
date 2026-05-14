@@ -1,4 +1,4 @@
-import { useListRecentDocuments, useListDocuments } from "@workspace/api-client-react";
+import { useListRecentDocuments, useListDocuments, type Document } from "@workspace/api-client-react";
 import { SearchBar } from "@/components/search-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, FileText, ChevronRight, Clock, Library } from "lucide-react";
@@ -10,7 +10,7 @@ export default function Home() {
   const { data: recentDocs, isLoading: isLoadingRecent } = useListRecentDocuments({ limit: 4 });
   const { data: latestDocsPage, isLoading: isLoadingLatest } = useListDocuments({ sort: "newest", pageSize: 4 });
 
-  const renderDocumentCard = (doc: any) => (
+  const renderDocumentCard = (doc: Document) => (
     <Link key={doc.id} href={`/documents/${doc.id}`}>
       <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate">
         <CardContent className="p-5 flex flex-col h-full">

@@ -4,22 +4,23 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
+// PORT/BASE_PATH are required by the dev/preview server but not by `vite build`,
+// which only emits static assets. Allow builds to run without them so the
+// monorepo-wide `pnpm run build` succeeds in CI / containers.
+const isBuild = process.argv.includes("build");
 
-if (!rawPort) {
+const rawPort = process.env.PORT;
+if (!isBuild && !rawPort) {
   throw new Error(
     "PORT environment variable is required but was not provided.",
   );
 }
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
+const port = rawPort ? Number(rawPort) : 0;
+if (rawPort && (Number.isNaN(port) || port <= 0)) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
-
+const basePath = process.env.BASE_PATH ?? (isBuild ? "/" : "");
 if (!basePath) {
   throw new Error(
     "BASE_PATH environment variable is required but was not provided.",

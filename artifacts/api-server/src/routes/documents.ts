@@ -681,6 +681,16 @@ router.get("/documents/:id/preview", async (req, res, next) => {
     const { token } = PreviewDocumentQueryParams.parse(req.query);
     const result = verifyToken(token, id, "preview");
     if (!result.valid) throw unauthorized("Invalid or expired token");
+    // Record the preview in material_view_history (token carries the user id).
+    if (result.userId) {
+      try {
+        await db
+          .insert(materialViewHistory)
+          .values({ documentId: id, userId: result.userId });
+      } catch {
+        // Non-fatal: view tracking failure should not block the stream.
+      }
+    }
     await streamFile(id, res, "inline");
   } catch (err) {
     next(err);

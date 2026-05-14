@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useLogout, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
-import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2 } from "lucide-react";
+import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2, type LucideIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
@@ -23,7 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isLecturerOrAdmin = user?.roles?.includes("lecturer") || user?.roles?.includes("admin");
   const isAdmin = user?.roles?.includes("admin");
 
-  const NavLink = ({ href, icon: Icon, children }: { href: string, icon: any, children: React.ReactNode }) => {
+  const NavLink = ({ href, icon: Icon, children }: { href: string; icon: LucideIcon; children: React.ReactNode }) => {
     const isActive = location === href;
     return (
       <Link href={href} className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-secondary'}`}>

@@ -106,6 +106,12 @@ router.post("/documents/:id/comments", requireAuth, async (req, res, next) => {
       if (!parent[0] || parent[0].documentId !== id) {
         throw badRequest("Invalid parent comment");
       }
+      // Enforce single-level nesting: replies can only target a root comment.
+      if (parent[0].parentId) {
+        throw badRequest(
+          "Replies are limited to one level deep; reply to the top-level comment instead.",
+        );
+      }
     }
     const insertValues: typeof comments.$inferInsert = {
       documentId: id,
