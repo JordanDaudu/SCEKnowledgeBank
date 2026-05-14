@@ -360,7 +360,12 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Cookie-based sessions: always send credentials so authenticated
+  // endpoints work cross-origin (e.g. web:5173 -> api:8080) when a base
+  // URL is configured. For same-origin deployments this is a no-op.
+  const credentials: RequestCredentials = init.credentials ?? "include";
+
+  const response = await fetch(input, { ...init, method, headers, credentials });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

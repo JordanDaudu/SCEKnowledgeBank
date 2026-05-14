@@ -21,6 +21,7 @@ import {
   comments,
   materialRequests,
   requestVotes,
+  materialViewHistory,
 } from "@workspace/db";
 import { getStorage } from "../lib/storage";
 import { logger } from "../lib/logger";
@@ -278,6 +279,36 @@ async function main() {
     "Classical Mechanics",
     "Prof. Henry Okafor",
   );
+  const cs310 = await upsertCourse(
+    "CS310",
+    "Operating Systems",
+    "Dr. Morgan Reyes",
+  );
+  const cs350 = await upsertCourse(
+    "CS350",
+    "Databases",
+    "Prof. Aiko Tanaka",
+  );
+  const econ200 = await upsertCourse(
+    "ECON200",
+    "Microeconomics",
+    "Prof. Lars Bergstrom",
+  );
+  const stat230 = await upsertCourse(
+    "STAT230",
+    "Probability and Statistics",
+    "Prof. Elena Vasquez",
+  );
+  const courseList = [
+    cs101,
+    cs201,
+    math210,
+    phys150,
+    cs310,
+    cs350,
+    econ200,
+    stat230,
+  ];
 
   const catLectureNotes = await upsertCategory(
     "Lecture Notes",
@@ -311,6 +342,26 @@ async function main() {
   const tagTheory = await upsertTag("theory");
   const tagMidterm = await upsertTag("midterm");
   const tagFinal = await upsertTag("final");
+  const tagWorkedExamples = await upsertTag("worked-examples");
+  const tagAdvanced = await upsertTag("advanced");
+  const tagSummary = await upsertTag("summary");
+  const tagCheatSheet = await upsertTag("cheat-sheet");
+  const tagLab = await upsertTag("lab");
+  const tagSolutions = await upsertTag("solutions");
+  const tagList = [
+    tagFoundational,
+    tagExamPrep,
+    tagHandsOn,
+    tagTheory,
+    tagMidterm,
+    tagFinal,
+    tagWorkedExamples,
+    tagAdvanced,
+    tagSummary,
+    tagCheatSheet,
+    tagLab,
+    tagSolutions,
+  ];
 
   const doc1 = await ensureDocument(
     "CS101 Week 1 — Introduction & Computational Thinking",
@@ -442,6 +493,64 @@ async function main() {
     },
   );
 
+  // Bulk-generate additional documents to reach the demo threshold (>=30 total).
+  const categoryList = [
+    catLectureNotes,
+    catProblemSets,
+    catPastExams,
+    catSlides,
+    catProjects,
+  ];
+  const materialTypes = [
+    "lecture_notes",
+    "problem_set",
+    "exam",
+    "slides",
+    "review_notes",
+    "cheat_sheet",
+    "project_report",
+  ];
+  const semesters = ["fall", "spring", "summer"] as const;
+  const uploaders = [lecturer, admin];
+  const bulkDocs: (typeof documents.$inferSelect)[] = [];
+  let bulkIdx = 0;
+  for (const course of courseList) {
+    for (let week = 1; week <= 4; week++) {
+      const uploader = uploaders[bulkIdx % uploaders.length];
+      const cat = categoryList[bulkIdx % categoryList.length];
+      const mtype = materialTypes[bulkIdx % materialTypes.length];
+      const sem = semesters[bulkIdx % semesters.length];
+      const year = 2024 + (bulkIdx % 2);
+      const tagPick = [
+        tagList[bulkIdx % tagList.length].id,
+        tagList[(bulkIdx + 3) % tagList.length].id,
+      ];
+      const title = `${course.code} Week ${week} — ${cat.name}`;
+      const filename = `${course.code.toLowerCase()}-w${week}-${cat.slug}.pdf`;
+      const d = await ensureDocument(
+        title,
+        uploader.id,
+        minimalPdf(
+          title,
+          `Demo material for ${course.code} week ${week}.`,
+        ),
+        {
+          description: `Auto-generated demo ${cat.name.toLowerCase()} for ${course.code}, week ${week}.`,
+          courseId: course.id,
+          categoryId: cat.id,
+          materialType: mtype,
+          semester: sem,
+          academicYear: year,
+          tagIds: tagPick,
+          mimeType: "application/pdf",
+          filename,
+        },
+      );
+      bulkDocs.push(d);
+      bulkIdx++;
+    }
+  }
+
   // Comments on doc1
   const existingComments = await db
     .select()
@@ -469,6 +578,27 @@ async function main() {
       authorId: student.id,
       body: "Q3 is open-ended — should I cover both space and time complexity?",
     });
+  }
+
+  // Recent-view history so the "Continue Reading" section is populated.
+  // Idempotent per (user, document): only insert if that user has not viewed
+  // that document yet.
+  const allDocsForViews = [doc1, doc2, ...bulkDocs.slice(0, 12)];
+  for (let i = 0; i < allDocsForViews.length; i++) {
+    const viewers = [student.id];
+    if (i % 2 === 0) viewers.push(lecturer.id);
+    if (i % 3 === 0) viewers.push(admin.id);
+    for (const viewerId of viewers) {
+      const exists = await db
+        .select()
+        .from(materialViewHistory)
+        .where(eq(materialViewHistory.documentId, allDocsForViews[i].id))
+        .limit(50);
+      if (exists.some((e) => e.userId === viewerId)) continue;
+      await db
+        .insert(materialViewHistory)
+        .values({ documentId: allDocsForViews[i].id, userId: viewerId });
+    }
   }
 
   // Material requests
@@ -519,6 +649,62 @@ async function main() {
       .insert(requestVotes)
       .values({ requestId: r2[0].id, userId: admin.id })
       .onConflictDoNothing();
+  }
+
+  // Additional open requests so the requests board has substance.
+  // Idempotent on title.
+  {
+    const extraOpen: Array<{ title: string; description: string; courseId: string; requestedBy: string }> = [
+      {
+        title: "CS310 Lab handouts archive",
+        description: "Would love an archive of all CS310 lab handouts from last year.",
+        courseId: cs310.id,
+        requestedBy: student.id,
+      },
+      {
+        title: "STAT230 sample midterms",
+        description: "Sample midterms with worked solutions would massively help revision.",
+        courseId: stat230.id,
+        requestedBy: student.id,
+      },
+      {
+        title: "ECON200 textbook chapter summaries",
+        description: "Concise per-chapter summaries of the assigned textbook chapters.",
+        courseId: econ200.id,
+        requestedBy: student.id,
+      },
+      {
+        title: "CS350 SQL practice problem bank",
+        description: "A pool of SQL practice problems with answers for the upcoming final.",
+        courseId: cs350.id,
+        requestedBy: student.id,
+      },
+    ];
+    for (const r of extraOpen) {
+      const existing = await db
+        .select()
+        .from(materialRequests)
+        .where(eq(materialRequests.title, r.title))
+        .limit(1);
+      const row =
+        existing[0] ??
+        (
+          await db
+            .insert(materialRequests)
+            .values({ ...r, status: "open" })
+            .returning()
+        )[0];
+      await db
+        .insert(requestVotes)
+        .values({ requestId: row.id, userId: lecturer.id })
+        .onConflictDoNothing();
+      if (r.title.includes("STAT230")) {
+        await db
+          .insert(requestVotes)
+          .values({ requestId: row.id, userId: admin.id })
+          .onConflictDoNothing();
+      }
+    }
   }
 
   logger.info("Seed complete.");
