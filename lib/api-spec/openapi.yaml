@@ -1,36 +1,679 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 0.2.0
+  description: Knowledge Bank API
 servers:
   - url: /api
     description: Base API path
+
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: documents
+  - name: comments
+  - name: requests
+  - name: taxonomy
+  - name: users
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Demo login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204": { description: Logged out }
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the currently authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List documents with search, filters, sort, pagination
+      parameters:
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: courseId, schema: { type: string, format: uuid } }
+        - { in: query, name: courseCode, schema: { type: string } }
+        - { in: query, name: lecturerName, schema: { type: string } }
+        - { in: query, name: semester, schema: { type: string, enum: [fall, spring, summer] } }
+        - { in: query, name: academicYear, schema: { type: integer } }
+        - { in: query, name: materialType, schema: { type: string } }
+        - { in: query, name: categoryId, schema: { type: string, format: uuid } }
+        - in: query
+          name: tagIds
+          style: form
+          explode: true
+          schema: { type: array, items: { type: string, format: uuid } }
+        - { in: query, name: dateFrom, schema: { type: string, format: date } }
+        - { in: query, name: dateTo, schema: { type: string, format: date } }
+        - { in: query, name: sort, schema: { type: string, enum: [newest, oldest, title, popularity], default: newest } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Page of documents
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentPage" }
+
+  /documents/upload:
+    post:
+      operationId: uploadDocuments
+      tags: [documents]
+      summary: Upload one or more documents (multipart). Each file becomes its own Document.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+                courseId: { type: string, format: uuid }
+                categoryId: { type: string, format: uuid }
+                materialType: { type: string }
+                semester: { type: string, enum: [fall, spring, summer] }
+                academicYear: { type: integer }
+                visibility: { type: string, enum: [public, restricted, private] }
+                tagIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                # Optional title override; otherwise derived from filename
+                title: { type: string }
+                description: { type: string }
+      responses:
+        "201":
+          description: Per-file results (partial success possible)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadResult" }
+
+  /documents/recent:
+    get:
+      operationId: listRecentDocuments
+      tags: [documents]
+      summary: The current user's recently viewed documents
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 6 } }
+      responses:
+        "200":
+          description: Recent documents
+          content:
+            application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                type: array
+                items: { $ref: "#/components/schemas/Document" }
+
+  /documents/suggestions:
+    get:
+      operationId: documentSuggestions
+      tags: [documents]
+      summary: Search suggestions for autocomplete
+      parameters:
+        - { in: query, name: q, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 8 } }
+      responses:
+        "200":
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DocumentSuggestion" }
+
+  /documents/{id}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDetail" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    patch:
+      operationId: updateDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateDocumentRequest" }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDetail" }
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+
+  /documents/{id}/preview-token:
+    get:
+      operationId: getDocumentPreviewToken
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Signed token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignedTokenResponse" }
+
+  /documents/{id}/download-token:
+    get:
+      operationId: getDocumentDownloadToken
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Signed token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignedTokenResponse" }
+
+  /documents/{id}/preview:
+    get:
+      operationId: previewDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: File stream
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /documents/{id}/download:
+    get:
+      operationId: downloadDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: File stream
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /documents/{id}/comments:
+    get:
+      operationId: listDocumentComments
+      tags: [comments]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Comment" }
+    post:
+      operationId: createDocumentComment
+      tags: [comments]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCommentRequest" }
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
+
+  /comments/{commentId}:
+    delete:
+      operationId: deleteComment
+      tags: [comments]
+      parameters:
+        - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Deleted }
+
+  /requests:
+    get:
+      operationId: listRequests
+      tags: [requests]
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [open, fulfilled, closed] } }
+        - { in: query, name: courseId, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MaterialRequest" }
+    post:
+      operationId: createRequest
+      tags: [requests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRequestRequest" }
+      responses:
+        "201":
+          description: Created request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaterialRequest" }
+
+  /requests/{id}:
+    patch:
+      operationId: updateRequest
+      tags: [requests]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateRequestRequest" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaterialRequest" }
+
+  /requests/{id}/vote:
+    post:
+      operationId: voteRequest
+      tags: [requests]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Vote recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaterialRequest" }
+
+  /courses:
+    get:
+      operationId: listCourses
+      tags: [taxonomy]
+      responses:
+        "200":
+          description: Courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Course" }
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [taxonomy]
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Category" }
+
+  /tags:
+    get:
+      operationId: listTags
+      tags: [taxonomy]
+      responses:
+        "200":
+          description: Tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Tag" }
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: Admin-only list of users
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
 
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, minLength: 1 }
+        password: { type: string, minLength: 1 }
+
+    CurrentUser:
+      type: object
+      required: [id, email, displayName, roles, primaryRole]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        primaryRole: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+
+    UserSummary:
+      type: object
+      required: [id, email, displayName, roles, isActive, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    Course:
+      type: object
+      required: [id, code, title, lecturerName]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        lecturerName: { type: string }
+
+    Category:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+
+    Tag:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    Document:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - materialType
+        - visibility
+        - status
+        - uploader
+        - createdAt
+        - updatedAt
+        - viewCount
+        - commentCount
+        - tags
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        course: { $ref: "#/components/schemas/Course" }
+        category: { $ref: "#/components/schemas/Category" }
+        materialType: { type: string }
+        semester: { type: string, enum: [fall, spring, summer] }
+        academicYear: { type: integer }
+        visibility: { type: string, enum: [public, restricted, private] }
+        status: { type: string, enum: [draft, published, archived] }
+        uploader: { $ref: "#/components/schemas/UserSummary" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        viewCount: { type: integer }
+        commentCount: { type: integer }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/Tag" }
+        file: { $ref: "#/components/schemas/DocumentFileMeta" }
+
+    DocumentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Document"
+
+    DocumentFileMeta:
+      type: object
+      required: [id, originalFilename, mimeType, sizeBytes, uploadedAt]
+      properties:
+        id: { type: string, format: uuid }
+        originalFilename: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer }
+        uploadedAt: { type: string, format: date-time }
+        checksum: { type: string }
+
+    DocumentSuggestion:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        courseCode: { type: string }
+        materialType: { type: string }
+
+    DocumentPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Document" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    UpdateDocumentRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        courseId: { type: string, format: uuid }
+        categoryId: { type: string, format: uuid }
+        materialType: { type: string }
+        semester: { type: string, enum: [fall, spring, summer] }
+        academicYear: { type: integer }
+        visibility: { type: string, enum: [public, restricted, private] }
+        status: { type: string, enum: [draft, published, archived] }
+        tagIds:
+          type: array
+          items: { type: string, format: uuid }
+
+    UploadResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/UploadFileResult" }
+
+    UploadFileResult:
+      type: object
+      required: [originalFilename, success]
+      properties:
+        originalFilename: { type: string }
+        success: { type: boolean }
+        document: { $ref: "#/components/schemas/Document" }
+        error: { type: string }
+        errorCode: { type: string }
+
+    SignedTokenResponse:
+      type: object
+      required: [token, expiresAt, url]
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+        url: { type: string, description: "Fully-qualified URL with token already attached" }
+
+    Comment:
+      type: object
+      required: [id, documentId, body, author, createdAt, replies]
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        parentId: { type: string, format: uuid }
+        body: { type: string }
+        pageNumber: { type: integer }
+        author: { $ref: "#/components/schemas/UserSummary" }
+        createdAt: { type: string, format: date-time }
+        replies:
+          type: array
+          items: { $ref: "#/components/schemas/Comment" }
+
+    CreateCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1 }
+        parentId: { type: string, format: uuid }
+        pageNumber: { type: integer, minimum: 1 }
+
+    MaterialRequest:
+      type: object
+      required: [id, title, description, status, requestedBy, voteCount, hasVoted, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [open, fulfilled, closed] }
+        course: { $ref: "#/components/schemas/Course" }
+        requestedBy: { $ref: "#/components/schemas/UserSummary" }
+        voteCount: { type: integer }
+        hasVoted: { type: boolean }
+        fulfillingDocumentId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    CreateRequestRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        courseId: { type: string, format: uuid }
+
+    UpdateRequestRequest:
+      type: object
+      properties:
+        status: { type: string, enum: [open, fulfilled, closed] }
+        fulfillingDocumentId: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }

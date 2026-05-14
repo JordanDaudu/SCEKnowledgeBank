@@ -1,0 +1,4 @@
+Project Report — Distributed Cache
+Author: Riley Chen
+We implemented a consistent-hashing distributed cache with LRU eviction.
+Results show 3.2× throughput vs single-node cache under skewed load.

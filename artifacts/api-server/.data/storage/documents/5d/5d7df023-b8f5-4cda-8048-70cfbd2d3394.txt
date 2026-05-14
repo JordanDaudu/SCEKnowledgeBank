@@ -1,0 +1,4 @@
+Eigenvalues and Eigenvectors — quick reference
+Definition: Av = lambda v for non-zero v.
+Characteristic polynomial: det(A - lambda I) = 0
+Symmetric matrices have real eigenvalues and orthogonal eigenvectors.

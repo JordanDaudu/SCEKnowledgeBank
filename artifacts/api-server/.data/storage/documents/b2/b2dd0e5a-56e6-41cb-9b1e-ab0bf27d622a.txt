@@ -1,0 +1,4 @@
+CS101 — Problem Set 1
+1. Write pseudocode for finding the maximum value in a list.
+2. Trace the execution of a recursive factorial(5).
+3. Explain Big-O notation in your own words.
