@@ -4,6 +4,7 @@ import {
   useListCourses,
   useListCategories,
   useListTags,
+  getListDocumentsQueryKey,
   type ListDocumentsParams,
 } from "@workspace/api-client-react";
 import { useSearch } from "wouter";
@@ -17,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, FileText, BookOpen, X, SlidersHorizontal } from "lucide-react";
+import { Search, FileText, BookOpen, X, SlidersHorizontal, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 
 type Sort = "newest" | "oldest" | "title" | "popularity";
@@ -96,7 +97,62 @@ export default function Browse() {
     pageSize: 12,
   };
 
-  const { data: pageData, isLoading, isFetching } = useListDocuments(params);
+  const { data: pageData, isLoading, isFetching } = useListDocuments(params, {
+    query: {
+      queryKey: getListDocumentsQueryKey(params),
+      // Silently refetch every 30s while the tab is focused; React Query
+      // pauses refetchInterval automatically when the window is blurred
+      // (refetchIntervalInBackground defaults to false).
+      refetchInterval: 30_000,
+      refetchOnWindowFocus: true,
+    },
+  });
+
+  // Snapshot of the currently displayed page. When a background refetch
+  // brings in different items for the same filters, we show a banner
+  // instead of swapping the list under the user's cursor.
+  const paramsKey = useMemo(() => JSON.stringify(params), [params]);
+  const [displayedData, setDisplayedData] = useState<typeof pageData>(undefined);
+  const [displayedKey, setDisplayedKey] = useState<string>(paramsKey);
+  const [hasNewDocuments, setHasNewDocuments] = useState(false);
+
+  // When filters or page change, drop the old snapshot immediately so we
+  // don't briefly show stale results from the previous filter while the
+  // new query loads.
+  useEffect(() => {
+    if (paramsKey !== displayedKey) {
+      setDisplayedData(undefined);
+      setDisplayedKey(paramsKey);
+      setHasNewDocuments(false);
+    }
+  }, [paramsKey, displayedKey]);
+
+  useEffect(() => {
+    if (!pageData) return;
+    if (paramsKey !== displayedKey) return;
+    if (!displayedData) {
+      setDisplayedData(pageData);
+      return;
+    }
+    const sameItems =
+      displayedData.items.length === pageData.items.length &&
+      displayedData.items.every((d, i) => d.id === pageData.items[i]?.id);
+    if (!sameItems || displayedData.total !== pageData.total) {
+      // If the user is currently looking at an empty result set, just
+      // adopt the new data — there's nothing to preserve under their cursor.
+      if (displayedData.items.length === 0) {
+        setDisplayedData(pageData);
+        setHasNewDocuments(false);
+      } else {
+        setHasNewDocuments(true);
+      }
+    }
+  }, [pageData, paramsKey, displayedKey, displayedData]);
+
+  const showLatest = () => {
+    if (pageData) setDisplayedData(pageData);
+    setHasNewDocuments(false);
+  };
 
   const activeFilterCount =
     (courseId !== "all" ? 1 : 0) +
@@ -128,7 +184,8 @@ export default function Browse() {
     setTagIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   };
 
-  const totalPages = pageData ? Math.max(1, Math.ceil(pageData.total / pageData.pageSize)) : 1;
+  const viewData = displayedData ?? pageData;
+  const totalPages = viewData ? Math.max(1, Math.ceil(viewData.total / viewData.pageSize)) : 1;
 
   return (
     <div className="space-y-8">
@@ -348,16 +405,36 @@ export default function Browse() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-xl" />)}
           </div>
-        ) : pageData?.items && pageData.items.length > 0 ? (
+        ) : viewData?.items && viewData.items.length > 0 ? (
           <>
+            {hasNewDocuments && (
+              <div
+                className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2"
+                data-testid="browse-new-docs-banner"
+              >
+                <p className="text-sm text-foreground">
+                  New documents available
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={showLatest}
+                  className="gap-1.5 text-primary hover:text-primary"
+                  data-testid="browse-new-docs-refresh"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Refresh
+                </Button>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm text-muted-foreground">
-                {pageData.total} result{pageData.total === 1 ? "" : "s"}
+                {viewData.total} result{viewData.total === 1 ? "" : "s"}
                 {isFetching && " · refreshing…"}
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {pageData.items.map((doc) => (
+              {viewData.items.map((doc) => (
                 <Link key={doc.id} href={`/documents/${doc.id}`}>
                   <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate flex flex-col">
                     <CardContent className="p-5 flex flex-col flex-1">
@@ -386,7 +463,7 @@ export default function Browse() {
               ))}
             </div>
 
-            {pageData.total > pageData.pageSize && (
+            {viewData.total > viewData.pageSize && (
               <div className="flex justify-center mt-8 gap-2">
                 <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
                   Previous
