@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, inArray } from "drizzle-orm";
 import {
   db,
   materialRequests,
@@ -31,11 +31,10 @@ async function buildRequestDTO(
     .where(
       and(
         isNull(materialRequests.deletedAt),
-        eq(materialRequests.id, materialRequests.id),
+        inArray(materialRequests.id, ids),
       ),
     );
-  const filtered = rows.filter((r) => ids.includes(r.id));
-  const filteredById = new Map(filtered.map((r) => [r.id, r]));
+  const filteredById = new Map(rows.map((r) => [r.id, r]));
   const ordered = ids
     .map((id) => filteredById.get(id))
     .filter((r): r is (typeof rows)[number] => !!r);

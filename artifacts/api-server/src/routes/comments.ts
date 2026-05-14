@@ -35,13 +35,22 @@ async function assertDocumentReadable(
 
 const router: IRouter = Router();
 
+interface CommentAuthor {
+  id: string;
+  email: string;
+  displayName: string;
+  roles: string[];
+  isActive: boolean;
+  createdAt: string;
+}
+
 interface CommentDTO {
   id: string;
   documentId: string;
   parentId?: string;
   body: string;
   pageNumber?: number;
-  author: ReturnType<Map<string, never>["get"]> | unknown;
+  author: CommentAuthor;
   createdAt: string;
   replies: CommentDTO[];
 }
@@ -133,7 +142,14 @@ router.post("/documents/:id/comments", requireAuth, async (req, res, next) => {
       id: c.id,
       documentId: c.documentId,
       body: c.body,
-      author: authors.get(c.authorId),
+      author: authors.get(c.authorId) ?? {
+        id: c.authorId,
+        email: "",
+        displayName: "Unknown",
+        roles: [],
+        isActive: false,
+        createdAt: c.createdAt.toISOString(),
+      },
       createdAt: c.createdAt.toISOString(),
       replies: [],
     };

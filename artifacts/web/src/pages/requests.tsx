@@ -50,7 +50,11 @@ export default function Requests() {
     if (!newTitle) return;
 
     createMutation.mutate({
-      data: { title: newTitle, description: newDesc, courseId: newCourse || undefined }
+      data: {
+        title: newTitle,
+        description: newDesc,
+        courseId: newCourse && newCourse !== "none" ? newCourse : undefined,
+      },
     }, {
       onSuccess: () => {
         toast({ title: "Request created" });

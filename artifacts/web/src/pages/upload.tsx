@@ -69,7 +69,7 @@ export default function Upload() {
         // Orval's generated type expects Blob[]; File extends Blob so this is safe.
         files: files satisfies Blob[],
         courseId,
-        categoryId: categoryId || undefined,
+        categoryId: categoryId && categoryId !== "none" ? categoryId : undefined,
         materialType,
         visibility,
         semester: (semester || undefined) as Semester extends "" ? undefined : Exclude<Semester, "">,
