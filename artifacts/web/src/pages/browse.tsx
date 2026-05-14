@@ -1,45 +1,134 @@
-import { useState } from "react";
-import { useListDocuments, getListDocumentsQueryKey, useListCourses, useListCategories, useListTags } from "@workspace/api-client-react";
-import { useLocation, useSearch } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import {
+  useListDocuments,
+  useListCourses,
+  useListCategories,
+  useListTags,
+  type ListDocumentsParams,
+} from "@workspace/api-client-react";
+import { useSearch } from "wouter";
 import { formatDateTime } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQueryStateSync } from "@/hooks/use-query-state-sync";
+import { useDebounce } from "@/hooks/use-debounce";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, FileText, Filter, SlidersHorizontal, BookOpen } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, FileText, BookOpen, X, SlidersHorizontal } from "lucide-react";
 import { Link } from "wouter";
 
-export default function Browse() {
-  const searchParams = new URLSearchParams(useSearch());
-  const initialQuery = searchParams.get("q") || "";
-  
-  const [query, setQuery] = useState(initialQuery);
-  const [courseId, setCourseId] = useState<string>("all");
-  const [materialType, setMaterialType] = useState<string>("all");
-  const [sort, setSort] = useState<"newest" | "oldest" | "title" | "popularity">("newest");
-  const [page, setPage] = useState(1);
+type Sort = "newest" | "oldest" | "title" | "popularity";
+type Semester = "fall" | "spring" | "summer" | "";
 
-  const { data: courses } = useListCourses();
-  
-  const { data: pageData, isLoading } = useListDocuments({
-    q: query || undefined,
+const MATERIAL_TYPES = [
+  "lecture-notes", "problem-set", "exam", "syllabus", "slides", "project-report", "textbook",
+];
+
+export default function Browse() {
+  const initialSearch = useSearch();
+
+  // Initialize from URL (one-time read)
+  const initialParams = useMemo(() => new URLSearchParams(initialSearch), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [query, setQuery] = useState(initialParams.get("q") ?? "");
+  const [courseId, setCourseId] = useState<string>(initialParams.get("courseId") ?? "all");
+  const [lecturerName, setLecturerName] = useState<string>(initialParams.get("lecturerName") ?? "");
+  const [semester, setSemester] = useState<Semester>(
+    ((initialParams.get("semester") as Semester) || "") as Semester,
+  );
+  const [academicYear, setAcademicYear] = useState<string>(initialParams.get("academicYear") ?? "");
+  const [categoryId, setCategoryId] = useState<string>(initialParams.get("categoryId") ?? "all");
+  const [materialType, setMaterialType] = useState<string>(initialParams.get("materialType") ?? "all");
+  const [tagIds, setTagIds] = useState<string[]>(initialParams.getAll("tagIds"));
+  const [dateFrom, setDateFrom] = useState<string>(initialParams.get("dateFrom") ?? "");
+  const [dateTo, setDateTo] = useState<string>(initialParams.get("dateTo") ?? "");
+  const [sort, setSort] = useState<Sort>(((initialParams.get("sort") as Sort) || "newest") as Sort);
+  const [page, setPage] = useState<number>(Number(initialParams.get("page") ?? "1") || 1);
+
+  // Debounce free-text fields so we don't spam the API as the user types
+  const debouncedQuery = useDebounce(query, 300);
+  const debouncedLecturer = useDebounce(lecturerName, 300);
+
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [
+    debouncedQuery, debouncedLecturer, courseId, semester, academicYear,
+    categoryId, materialType, tagIds, dateFrom, dateTo, sort,
+  ]);
+
+  // Sync state back to URL so filters survive refresh / can be shared
+  useQueryStateSync({
+    q: debouncedQuery || undefined,
     courseId: courseId !== "all" ? courseId : undefined,
+    lecturerName: debouncedLecturer || undefined,
+    semester: semester || undefined,
+    academicYear: academicYear || undefined,
+    categoryId: categoryId !== "all" ? categoryId : undefined,
     materialType: materialType !== "all" ? materialType : undefined,
-    sort,
-    page,
-    pageSize: 12
+    tagIds: tagIds.length > 0 ? tagIds : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    sort: sort !== "newest" ? sort : undefined,
+    page: page > 1 ? page : undefined,
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const { data: courses } = useListCourses();
+  const { data: categories } = useListCategories();
+  const { data: tags } = useListTags();
+
+  const params: ListDocumentsParams = {
+    q: debouncedQuery || undefined,
+    courseId: courseId !== "all" ? courseId : undefined,
+    lecturerName: debouncedLecturer || undefined,
+    semester: (semester || undefined) as ListDocumentsParams["semester"],
+    academicYear: academicYear ? Number(academicYear) : undefined,
+    categoryId: categoryId !== "all" ? categoryId : undefined,
+    materialType: materialType !== "all" ? materialType : undefined,
+    tagIds: tagIds.length > 0 ? tagIds : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    sort,
+    page,
+    pageSize: 12,
+  };
+
+  const { data: pageData, isLoading, isFetching } = useListDocuments(params);
+
+  const activeFilterCount =
+    (courseId !== "all" ? 1 : 0) +
+    (debouncedLecturer ? 1 : 0) +
+    (semester ? 1 : 0) +
+    (academicYear ? 1 : 0) +
+    (categoryId !== "all" ? 1 : 0) +
+    (materialType !== "all" ? 1 : 0) +
+    tagIds.length +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0);
+
+  const clearAll = () => {
+    setQuery("");
+    setCourseId("all");
+    setLecturerName("");
+    setSemester("");
+    setAcademicYear("");
+    setCategoryId("all");
+    setMaterialType("all");
+    setTagIds([]);
+    setDateFrom("");
+    setDateTo("");
+    setSort("newest");
     setPage(1);
   };
 
-  const materialTypes = [
-    "lecture-notes", "problem-set", "exam", "syllabus", "slides", "project-report", "textbook"
-  ];
+  const toggleTag = (id: string) => {
+    setTagIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  };
+
+  const totalPages = pageData ? Math.max(1, Math.ceil(pageData.total / pageData.pageSize)) : 1;
 
   return (
     <div className="space-y-8">
@@ -50,42 +139,159 @@ export default function Browse() {
         </div>
       </div>
 
-      <div className="bg-card border rounded-xl p-4 flex flex-col md:flex-row gap-4 shadow-sm">
-        <form onSubmit={handleSearch} className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search titles, descriptions..." 
-            className="pl-9 w-full bg-background"
-          />
-        </form>
-        <div className="flex gap-2">
-          <Select value={courseId} onValueChange={(val) => { setCourseId(val); setPage(1); }}>
-            <SelectTrigger className="w-[160px] bg-background">
-              <SelectValue placeholder="All Courses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Courses</SelectItem>
-              {courses?.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.code}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="bg-card border rounded-xl p-4 space-y-4 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search titles, descriptions..."
+              className="pl-9 w-full bg-background"
+              data-testid="browse-search"
+            />
+          </div>
 
-          <Select value={materialType} onValueChange={(val) => { setMaterialType(val); setPage(1); }}>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2" data-testid="browse-filters-trigger">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 px-1.5">{activeFilterCount}</Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[360px] max-h-[70vh] overflow-y-auto" align="end">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-sm">Refine results</h4>
+                  {activeFilterCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearAll} className="h-auto px-2 py-1 text-xs">
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs font-medium text-muted-foreground">Course</label>
+                    <Select value={courseId} onValueChange={setCourseId}>
+                      <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All courses</SelectItem>
+                        {courses?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs font-medium text-muted-foreground">Lecturer</label>
+                    <Input
+                      value={lecturerName}
+                      onChange={(e) => setLecturerName(e.target.value)}
+                      placeholder="e.g. Dr. Smith"
+                      className="bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Semester</label>
+                    <Select
+                      value={semester || "any"}
+                      onValueChange={(val) => setSemester(val === "any" ? "" : (val as Semester))}
+                    >
+                      <SelectTrigger className="bg-background"><SelectValue placeholder="Any" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any semester</SelectItem>
+                        <SelectItem value="fall">Fall</SelectItem>
+                        <SelectItem value="spring">Spring</SelectItem>
+                        <SelectItem value="summer">Summer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Academic year</label>
+                    <Input
+                      type="number"
+                      value={academicYear}
+                      onChange={(e) => setAcademicYear(e.target.value)}
+                      placeholder="e.g. 2024"
+                      className="bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-xs font-medium text-muted-foreground">Category</label>
+                    <Select value={categoryId} onValueChange={setCategoryId}>
+                      <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All categories</SelectItem>
+                        {categories?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Uploaded from</label>
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="bg-background"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Uploaded to</label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="bg-background"
+                    />
+                  </div>
+                </div>
+
+                {tags && tags.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Tags</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tags.map((t) => (
+                        <Badge
+                          key={t.id}
+                          variant={tagIds.includes(t.id) ? "default" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => toggleTag(t.id)}
+                        >
+                          {t.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Select value={materialType} onValueChange={setMaterialType}>
             <SelectTrigger className="w-[160px] bg-background">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              {materialTypes.map(t => (
+              {MATERIAL_TYPES.map((t) => (
                 <SelectItem key={t} value={t} className="capitalize">{t.replace("-", " ")}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={sort} onValueChange={(val) => { setSort(val as typeof sort); setPage(1); }}>
+          <Select value={sort} onValueChange={(val) => setSort(val as Sort)}>
             <SelectTrigger className="w-[140px] bg-background">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -97,17 +303,61 @@ export default function Browse() {
             </SelectContent>
           </Select>
         </div>
+
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-muted-foreground">Active:</span>
+            {courseId !== "all" && (
+              <FilterChip onClear={() => setCourseId("all")}>
+                Course: {courses?.find((c) => c.id === courseId)?.code ?? courseId}
+              </FilterChip>
+            )}
+            {debouncedLecturer && (
+              <FilterChip onClear={() => setLecturerName("")}>Lecturer: {debouncedLecturer}</FilterChip>
+            )}
+            {semester && <FilterChip onClear={() => setSemester("")}>Semester: {semester}</FilterChip>}
+            {academicYear && (
+              <FilterChip onClear={() => setAcademicYear("")}>Year: {academicYear}</FilterChip>
+            )}
+            {categoryId !== "all" && (
+              <FilterChip onClear={() => setCategoryId("all")}>
+                Category: {categories?.find((c) => c.id === categoryId)?.name ?? categoryId}
+              </FilterChip>
+            )}
+            {materialType !== "all" && (
+              <FilterChip onClear={() => setMaterialType("all")}>
+                Type: {materialType.replace("-", " ")}
+              </FilterChip>
+            )}
+            {tagIds.map((id) => (
+              <FilterChip key={id} onClear={() => toggleTag(id)}>
+                Tag: {tags?.find((t) => t.id === id)?.name ?? id}
+              </FilterChip>
+            ))}
+            {dateFrom && <FilterChip onClear={() => setDateFrom("")}>From: {dateFrom}</FilterChip>}
+            {dateTo && <FilterChip onClear={() => setDateTo("")}>To: {dateTo}</FilterChip>}
+            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearAll}>
+              Clear all
+            </Button>
+          </div>
+        )}
       </div>
 
-      <div>
+      <div data-testid="browse-results">
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-xl" />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-xl" />)}
           </div>
         ) : pageData?.items && pageData.items.length > 0 ? (
           <>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-muted-foreground">
+                {pageData.total} result{pageData.total === 1 ? "" : "s"}
+                {isFetching && " · refreshing…"}
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {pageData.items.map(doc => (
+              {pageData.items.map((doc) => (
                 <Link key={doc.id} href={`/documents/${doc.id}`}>
                   <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate flex flex-col">
                     <CardContent className="p-5 flex flex-col flex-1">
@@ -123,7 +373,7 @@ export default function Browse() {
                       </div>
                       <h3 className="font-serif font-semibold text-lg line-clamp-2 mb-2">{doc.title}</h3>
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{doc.description}</p>
-                      
+
                       <div className="mt-auto flex justify-between items-center pt-2">
                         <Badge variant="secondary" className="capitalize text-xs font-normal">
                           {doc.materialType.replace("-", " ")}
@@ -135,23 +385,19 @@ export default function Browse() {
                 </Link>
               ))}
             </div>
-            
+
             {pageData.total > pageData.pageSize && (
               <div className="flex justify-center mt-8 gap-2">
-                <Button 
-                  variant="outline" 
-                  disabled={page === 1}
-                  onClick={() => setPage(p => p - 1)}
-                >
+                <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
                   Previous
                 </Button>
                 <div className="flex items-center px-4 text-sm font-medium">
-                  Page {page} of {Math.ceil(pageData.total / pageData.pageSize)}
+                  Page {page} of {totalPages}
                 </div>
-                <Button 
-                  variant="outline" 
-                  disabled={page >= Math.ceil(pageData.total / pageData.pageSize)}
-                  onClick={() => setPage(p => p + 1)}
+                <Button
+                  variant="outline"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
                 >
                   Next
                 </Button>
@@ -159,24 +405,38 @@ export default function Browse() {
             )}
           </>
         ) : (
-          <div className="text-center py-20 bg-card border border-dashed rounded-xl">
+          <div className="text-center py-20 bg-card border border-dashed rounded-xl" data-testid="browse-empty">
             <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-50" />
             <h3 className="text-lg font-medium">No materials found</h3>
             <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-              Try adjusting your search filters or browse a different course.
+              {activeFilterCount > 0 || debouncedQuery
+                ? "Try removing some filters or broadening your search."
+                : "Nothing has been uploaded yet. Be the first to share."}
             </p>
-            <Button variant="outline" className="mt-6" onClick={() => {
-              setQuery("");
-              setCourseId("all");
-              setMaterialType("all");
-              setSort("newest");
-              setPage(1);
-            }}>
-              Clear Filters
-            </Button>
+            {(activeFilterCount > 0 || debouncedQuery) && (
+              <Button variant="outline" className="mt-6" onClick={clearAll}>
+                Clear filters
+              </Button>
+            )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function FilterChip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
+  return (
+    <Badge variant="secondary" className="gap-1 pr-1">
+      <span>{children}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="rounded-sm hover:bg-background/60 p-0.5"
+        aria-label="Remove filter"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </Badge>
   );
 }
