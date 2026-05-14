@@ -22,6 +22,7 @@ export interface CommentDTO {
   pageNumber?: number;
   author: CommentAuthorDTO;
   createdAt: string;
+  editedAt?: string;
   replies: CommentDTO[];
 }
 
@@ -61,6 +62,9 @@ function toDTO(
   };
   if (r.parentId) dto.parentId = r.parentId;
   if (r.pageNumber != null) dto.pageNumber = r.pageNumber;
+  if (r.updatedAt && r.updatedAt.getTime() > r.createdAt.getTime()) {
+    dto.editedAt = r.updatedAt.toISOString();
+  }
   return dto;
 }
 
@@ -117,6 +121,30 @@ export async function createForDocument(
     documentId,
   });
   return toDTO(c, authors);
+}
+
+export async function updateComment(
+  commentId: string,
+  body: { body?: string; pageNumber?: number | null },
+  user: AuthenticatedUser,
+): Promise<CommentDTO> {
+  const c = await commentsRepo.findAliveById(commentId);
+  if (!c) throw notFound("Comment not found");
+  if (c.authorId !== user.id && !user.roles.includes("admin")) {
+    throw forbidden("Cannot edit this comment");
+  }
+  if (body.body === undefined && body.pageNumber === undefined) {
+    throw badRequest("No changes provided");
+  }
+  const patch: commentsRepo.CommentUpdate = {};
+  if (body.body !== undefined) patch.body = body.body;
+  if (body.pageNumber !== undefined) patch.pageNumber = body.pageNumber;
+  const updated = await commentsRepo.updateById(commentId, patch);
+  const authors = await usersService.loadUserSummaries([updated.authorId]);
+  await auditService.record(user.id, "comment.update", "comment", commentId, {
+    documentId: updated.documentId,
+  });
+  return toDTO(updated, authors);
 }
 
 export async function deleteComment(

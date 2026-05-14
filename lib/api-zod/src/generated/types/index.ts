@@ -37,6 +37,7 @@ export * from "./materialRequestStatus";
 export * from "./previewDocumentParams";
 export * from "./signedTokenResponse";
 export * from "./tag";
+export * from "./updateCommentRequest";
 export * from "./updateDocumentRequest";
 export * from "./updateDocumentRequestSemester";
 export * from "./updateDocumentRequestStatus";

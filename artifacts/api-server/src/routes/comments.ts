@@ -4,6 +4,8 @@ import {
   CreateDocumentCommentParams,
   DeleteCommentParams,
   ListDocumentCommentsParams,
+  UpdateCommentBody,
+  UpdateCommentParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import * as commentsService from "../services/comments.service";
@@ -30,6 +32,21 @@ router.post("/documents/:id/comments", requireAuth, async (req, res, next) => {
       req.authUser!,
     );
     res.status(201).json(dto);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch("/comments/:commentId", requireAuth, async (req, res, next) => {
+  try {
+    const { commentId } = UpdateCommentParams.parse(req.params);
+    const body = UpdateCommentBody.parse(req.body);
+    const dto = await commentsService.updateComment(
+      commentId,
+      body,
+      req.authUser!,
+    );
+    res.json(dto);
   } catch (err) {
     next(err);
   }

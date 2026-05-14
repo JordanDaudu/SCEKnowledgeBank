@@ -201,6 +201,7 @@ export interface Comment {
   pageNumber?: number;
   author: UserSummary;
   createdAt: string;
+  editedAt?: string;
   replies: Comment[];
 }
 
@@ -210,6 +211,13 @@ export interface CreateCommentRequest {
   parentId?: string;
   /** @minimum 1 */
   pageNumber?: number;
+}
+
+export interface UpdateCommentRequest {
+  /** @minLength 1 */
+  body?: string;
+  /** @minimum 1 */
+  pageNumber?: number | null;
 }
 
 export type MaterialRequestStatus =

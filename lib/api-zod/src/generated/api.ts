@@ -440,6 +440,7 @@ export const ListDocumentCommentsResponseItem = zod.object({
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
+  editedAt: zod.coerce.date().optional(),
   replies: zod.array(zod.unknown()),
 });
 export const ListDocumentCommentsResponse = zod.array(
@@ -454,6 +455,34 @@ export const CreateDocumentCommentBody = zod.object({
   body: zod.string().min(1),
   parentId: zod.string().uuid().optional(),
   pageNumber: zod.number().min(1).optional(),
+});
+
+export const UpdateCommentParams = zod.object({
+  commentId: zod.coerce.string().uuid(),
+});
+
+export const UpdateCommentBody = zod.object({
+  body: zod.string().min(1).optional(),
+  pageNumber: zod.number().min(1).nullish(),
+});
+
+export const UpdateCommentResponse = zod.object({
+  id: zod.string().uuid(),
+  documentId: zod.string().uuid(),
+  parentId: zod.string().uuid().optional(),
+  body: zod.string(),
+  pageNumber: zod.number().optional(),
+  author: zod.object({
+    id: zod.string().uuid(),
+    email: zod.string(),
+    displayName: zod.string(),
+    roles: zod.array(zod.string()),
+    isActive: zod.boolean(),
+    createdAt: zod.coerce.date(),
+  }),
+  createdAt: zod.coerce.date(),
+  editedAt: zod.coerce.date().optional(),
+  replies: zod.array(zod.unknown()),
 });
 
 export const DeleteCommentParams = zod.object({

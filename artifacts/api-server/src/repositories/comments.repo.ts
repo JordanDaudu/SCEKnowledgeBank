@@ -37,6 +37,26 @@ export async function softDeleteById(id: string): Promise<void> {
     .where(eq(comments.id, id));
 }
 
+export interface CommentUpdate {
+  body?: string;
+  pageNumber?: number | null;
+}
+
+export async function updateById(
+  id: string,
+  patch: CommentUpdate,
+): Promise<CommentRow> {
+  const setValues: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.body !== undefined) setValues.body = patch.body;
+  if (patch.pageNumber !== undefined) setValues.pageNumber = patch.pageNumber;
+  const rows = await db
+    .update(comments)
+    .set(setValues)
+    .where(eq(comments.id, id))
+    .returning();
+  return rows[0];
+}
+
 export async function countAliveByDocumentIds(
   ids: string[],
 ): Promise<Map<string, number>> {

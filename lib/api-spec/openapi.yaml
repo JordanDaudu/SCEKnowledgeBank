@@ -312,6 +312,22 @@ paths:
               schema: { $ref: "#/components/schemas/Comment" }
 
   /comments/{commentId}:
+    patch:
+      operationId: updateComment
+      tags: [comments]
+      parameters:
+        - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCommentRequest" }
+      responses:
+        "200":
+          description: Updated comment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Comment" }
     delete:
       operationId: deleteComment
       tags: [comments]
@@ -635,6 +651,7 @@ components:
         pageNumber: { type: integer }
         author: { $ref: "#/components/schemas/UserSummary" }
         createdAt: { type: string, format: date-time }
+        editedAt: { type: string, format: date-time }
         replies:
           type: array
           items: { $ref: "#/components/schemas/Comment" }
@@ -646,6 +663,12 @@ components:
         body: { type: string, minLength: 1 }
         parentId: { type: string, format: uuid }
         pageNumber: { type: integer, minimum: 1 }
+
+    UpdateCommentRequest:
+      type: object
+      properties:
+        body: { type: string, minLength: 1 }
+        pageNumber: { type: integer, minimum: 1, nullable: true }
 
     MaterialRequest:
       type: object

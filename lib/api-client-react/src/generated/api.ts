@@ -39,6 +39,7 @@ import type {
   PreviewDocumentParams,
   SignedTokenResponse,
   Tag,
+  UpdateCommentRequest,
   UpdateDocumentRequest,
   UpdateRequestRequest,
   UploadDocumentsBody,
@@ -1564,6 +1565,87 @@ export const useCreateDocumentComment = <
   TContext
 > => {
   return useMutation(getCreateDocumentCommentMutationOptions(options));
+};
+
+export const getUpdateCommentUrl = (commentId: string) => {
+  return `/api/comments/${commentId}`;
+};
+
+export const updateComment = async (
+  commentId: string,
+  updateCommentRequest: UpdateCommentRequest,
+  options?: RequestInit,
+): Promise<Comment> => {
+  return customFetch<Comment>(getUpdateCommentUrl(commentId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCommentRequest),
+  });
+};
+
+export const getUpdateCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateComment>>,
+    TError,
+    { commentId: string; data: BodyType<UpdateCommentRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateComment>>,
+  TError,
+  { commentId: string; data: BodyType<UpdateCommentRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateComment>>,
+    { commentId: string; data: BodyType<UpdateCommentRequest> }
+  > = (props) => {
+    const { commentId, data } = props ?? {};
+
+    return updateComment(commentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateComment>>
+>;
+export type UpdateCommentMutationBody = BodyType<UpdateCommentRequest>;
+export type UpdateCommentMutationError = ErrorType<unknown>;
+
+export const useUpdateComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateComment>>,
+    TError,
+    { commentId: string; data: BodyType<UpdateCommentRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateComment>>,
+  TError,
+  { commentId: string; data: BodyType<UpdateCommentRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateCommentMutationOptions(options));
 };
 
 export const getDeleteCommentUrl = (commentId: string) => {

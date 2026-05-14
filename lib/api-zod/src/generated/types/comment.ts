@@ -15,5 +15,6 @@ export interface Comment {
   pageNumber?: number;
   author: UserSummary;
   createdAt: Date;
+  editedAt?: Date;
   replies: Comment[];
 }
