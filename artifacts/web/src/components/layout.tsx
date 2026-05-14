@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useLogout, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
 import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2, type LucideIcon } from "lucide-react";
+import { Logo } from "./logo";
 import { Button } from "./ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
@@ -39,7 +40,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2 text-primary font-serif font-bold text-xl">
-              <BookOpen className="h-6 w-6" />
+              <Logo className="h-7 w-7" />
               <span>Knowledge Bank</span>
             </Link>
             

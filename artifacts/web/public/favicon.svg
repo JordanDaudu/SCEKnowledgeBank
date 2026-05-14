@@ -1,3 +1,10 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="13" fill="hsl(160, 40%, 25%)"/>
+  <g transform="translate(7 7) scale(0.78125)" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="32" cy="32" r="25.5"/>
+    <path d="M32 3 v3.5"/>
+    <path d="M32 22.5 V44.5"/>
+    <path d="M32 22.5 C 26.5 20.5, 20 20.5, 14.5 22.5 V42.5 C 20 40.5, 26.5 40.5, 32 43.5"/>
+    <path d="M32 22.5 C 37.5 20.5, 44 20.5, 49.5 22.5 V42.5 C 44 40.5, 37.5 40.5, 32 43.5"/>
+  </g>
 </svg>

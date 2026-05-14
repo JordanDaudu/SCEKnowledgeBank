@@ -5,7 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, User, BookA, ShieldAlert, Loader2 } from "lucide-react";
+import { User, BookA, ShieldAlert, Loader2 } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -79,7 +80,7 @@ export default function Login() {
       <Card className="w-full max-w-md relative z-10 shadow-xl border-border/50">
         <CardHeader className="text-center pb-8 pt-10">
           <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg rotate-3">
-            <BookOpen className="h-8 w-8 text-primary-foreground -rotate-3" />
+            <Logo className="h-9 w-9 text-primary-foreground -rotate-3" />
           </div>
           <CardTitle className="font-serif text-3xl mb-2">Knowledge Bank</CardTitle>
           <CardDescription className="text-base">
