@@ -1,7 +1,7 @@
-import { db, auditLogs } from "@workspace/db";
-import { logger } from "./logger";
+import * as auditRepo from "../repositories/audit.repo";
+import { logger } from "../lib/logger";
 
-export async function audit(
+export async function record(
   actorUserId: string | null,
   action: string,
   entityType: string,
@@ -9,7 +9,7 @@ export async function audit(
   metadata: Record<string, unknown> = {},
 ): Promise<void> {
   try {
-    await db.insert(auditLogs).values({
+    await auditRepo.insertAuditLog({
       actorUserId,
       action,
       entityType,
@@ -17,6 +17,9 @@ export async function audit(
       metadata,
     });
   } catch (err) {
-    logger.warn({ err, action, entityType, entityId }, "Audit log insert failed");
+    logger.warn(
+      { err, action, entityType, entityId },
+      "Audit log insert failed",
+    );
   }
 }
