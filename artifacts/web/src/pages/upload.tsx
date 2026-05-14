@@ -18,7 +18,8 @@ import { Progress } from "@/components/ui/progress";
 import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { apiUrl } from "@/lib/api-url";
+import { apiEndpoints } from "@/lib/api-url";
+import { MATERIAL_TYPES } from "@/lib/material-types";
 
 type Visibility = "public" | "restricted" | "private";
 type Semester = "fall" | "spring" | "summer" | "";
@@ -80,7 +81,7 @@ function uploadOne(
     }
     for (const t of tagIds) form.append("tagIds", t);
 
-    xhr.open("POST", apiUrl("/api/documents/upload"));
+    xhr.open("POST", apiEndpoints.uploadDocuments());
     xhr.withCredentials = true;
     xhr.responseType = "json";
     xhr.upload.onprogress = (e) => {
@@ -257,10 +258,6 @@ export default function Upload() {
     }
   };
 
-  const materialTypes = [
-    "lecture-notes", "problem-set", "exam", "syllabus", "slides", "project-report", "textbook",
-  ];
-
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
@@ -399,8 +396,8 @@ export default function Upload() {
                 <Select value={materialType} onValueChange={setMaterialType}>
                   <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    {materialTypes.map((t) => (
-                      <SelectItem key={t} value={t} className="capitalize">{t.replace("-", " ")}</SelectItem>
+                    {MATERIAL_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

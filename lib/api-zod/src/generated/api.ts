@@ -61,8 +61,8 @@ export const ListDocumentsQueryParams = zod.object({
   materialType: zod.coerce.string().optional(),
   categoryId: zod.coerce.string().uuid().optional(),
   tagIds: zod.array(zod.coerce.string().uuid()).optional(),
-  dateFrom: zod.date().optional(),
-  dateTo: zod.date().optional(),
+  dateFrom: zod.coerce.date().optional(),
+  dateTo: zod.coerce.date().optional(),
   sort: zod
     .enum(["newest", "oldest", "title", "popularity"])
     .default(listDocumentsQuerySortDefault),

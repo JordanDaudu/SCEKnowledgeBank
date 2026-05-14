@@ -117,9 +117,21 @@ export async function findVote(
   return rows[0] ?? null;
 }
 
-export async function insertVote(
+/**
+ * Insert a vote race-safely. Returns true when this call inserted a new vote,
+ * false when the user already had a vote on this request. Relies on the
+ * `request_votes_user_request_unique` unique index over (user_id, request_id).
+ */
+export async function insertVoteIfAbsent(
   requestId: string,
   userId: string,
-): Promise<void> {
-  await db.insert(requestVotes).values({ requestId, userId });
+): Promise<boolean> {
+  const rows = await db
+    .insert(requestVotes)
+    .values({ requestId, userId })
+    .onConflictDoNothing({
+      target: [requestVotes.userId, requestVotes.requestId],
+    })
+    .returning({ id: requestVotes.id });
+  return rows.length > 0;
 }

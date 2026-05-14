@@ -6,11 +6,14 @@ A scholarly document repository for university communities — upload, browse, s
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server
 - `pnpm --filter @workspace/web run dev` — run the web frontend
-- `pnpm --filter @workspace/api-server run seed` — populate demo data (idempotent)
+- `pnpm --filter @workspace/db run generate` — generate a new SQL migration from the Drizzle schema
+- `pnpm --filter @workspace/db run migrate` — apply pending SQL migrations (creates `pg_trgm` first)
+- `pnpm --filter @workspace/api-server run seed` — populate demo data (idempotent, reads fixtures from `lib/db/src/seed/fixtures/`)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
+- `pnpm --filter @workspace/api-server run test` — vitest unit + service tests
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod from OpenAPI
-- `pnpm --filter @workspace/db run push` — push DB schema (dev only)
+- `pnpm --filter @workspace/db run push` — quick dev push of the schema (skips migrations; prefer `generate` + `migrate`)
 
 ### Required env
 
@@ -50,7 +53,10 @@ A scholarly document repository for university communities — upload, browse, s
 ## Architecture decisions
 
 - **Cookie sessions, not JWT.** Sessions persisted in Postgres (`session` table) via `connect-pg-simple`; the web app uses `credentials: include` and never sees raw tokens.
-- **Signed-URL HMAC tokens** for `/preview` and `/download`. Token payload binds `{documentId, action, userId, exp}`; the streaming endpoints verify the HMAC and TTL. Treat tokens as short-lived bearer credentials (TTL via `SIGNED_URL_TTL_SECONDS`, default 5 min).
+- **Signed-URL HMAC tokens** for `/preview` and `/download`. Token payload binds `{documentId, action, userId, exp}`; the streaming endpoints verify the HMAC and TTL. Treat tokens as short-lived bearer credentials (TTL via `SIGNED_URL_TTL_SECONDS`, default 5 min). A request without a token, or with an expired/tampered one, returns **401** — never 200 with empty bytes.
+- **Race-safe voting on material requests.** The vote insert is gated by a unique index on `(user_id, request_id)` and uses `ON CONFLICT DO NOTHING`; the repository returns a boolean and the service surfaces a clean 409 on duplicates, even under concurrent calls. There is no read-then-write window where two requests can both succeed.
+- **Zod-validated environment.** `artifacts/api-server/src/lib/env.ts` parses `process.env` once at boot; missing/short secrets in production fail fast with a readable error. All callers import from `env` rather than touching `process.env` directly.
+- **Shared material-type constant.** `artifacts/web/src/lib/material-types.ts` is the single source of truth for the dropdown values; the upload form, browse filters, and document-detail edit modal all consume it (no inline arrays).
 - **Visibility model.** `public` and `restricted` docs visible to any authenticated user; `private` docs visible only to uploader, owner, or admin. The same predicate gates list queries, search suggestions, detail fetch, comments, and token issuance.
 - **Storage abstraction.** All file IO goes through `getStorage()` (`put`, `getStream`). Local driver is default; an S3 driver can be added without route changes.
 - **One API-URL helper on the web.** The server returns relative signed URLs (`/api/documents/:id/preview?token=...`). The web app resolves them through `artifacts/web/src/lib/api-url.ts` which prefixes `VITE_API_BASE` when set, so the iframe `src`, the download `window.open`, and the upload XHR all hit the API origin even when the web and API are served from different hosts. There are no hardcoded `/api/...` strings in pages.

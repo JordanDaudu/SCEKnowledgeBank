@@ -5,8 +5,33 @@
  *
  * Idempotent: running twice will not duplicate primary entities.
  */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// lib/db/src/seed/fixtures is the canonical fixtures directory — versioned
+// alongside the schema. We resolve it from the api-server runtime so the
+// seed always reads the committed binaries (small real PDFs/PNG/TXT) instead
+// of relying on the synthetic in-memory PDF builder for every document.
+const FIXTURES_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "..",
+  "lib",
+  "db",
+  "src",
+  "seed",
+  "fixtures",
+);
+
+function fixture(name: string): Buffer {
+  return fs.readFileSync(path.join(FIXTURES_DIR, name));
+}
 import {
   db,
   roles,
@@ -367,10 +392,7 @@ async function main() {
   const doc1 = await ensureDocument(
     "CS101 Week 1 — Introduction & Computational Thinking",
     lecturer.id,
-    minimalPdf(
-      "CS101 Week 1",
-      "Introduction to computational thinking and problem decomposition.",
-    ),
+    fixture("sample-lecture-notes.pdf"),
     {
       description:
         "Opening lecture: what is computer science, problem decomposition, pseudocode, and the shape of the course.",
@@ -388,12 +410,7 @@ async function main() {
   const doc2 = await ensureDocument(
     "CS101 Problem Set 1",
     lecturer.id,
-    txt(
-      "CS101 — Problem Set 1",
-      "1. Write pseudocode for finding the maximum value in a list.",
-      "2. Trace the execution of a recursive factorial(5).",
-      "3. Explain Big-O notation in your own words.",
-    ),
+    fixture("sample-problem-set.pdf"),
     {
       description: "First problem set covering pseudocode and Big-O.",
       courseId: cs101.id,
@@ -402,8 +419,64 @@ async function main() {
       semester: "fall",
       academicYear: 2025,
       tagIds: [tagFoundational.id, tagHandsOn.id],
+      mimeType: "application/pdf",
+      filename: "cs101-ps1.pdf",
+    },
+  );
+
+  // One real text fixture and one real image fixture so the preview pane has
+  // non-PDF demo content out of the box.
+  await ensureDocument(
+    "CS350 — SQL Joins Cheat Sheet",
+    lecturer.id,
+    fixture("sample-cheat-sheet.txt"),
+    {
+      description:
+        "One-page cheat sheet covering INNER, LEFT, RIGHT, and FULL OUTER joins with examples.",
+      courseId: cs350.id,
+      categoryId: catLectureNotes.id,
+      materialType: "cheat-sheet",
+      semester: "fall",
+      academicYear: 2025,
+      tagIds: [tagCheatSheet.id, tagExamPrep.id],
       mimeType: "text/plain",
-      filename: "cs101-ps1.txt",
+      filename: "cs350-sql-joins-cheatsheet.txt",
+    },
+  );
+
+  await ensureDocument(
+    "CS101 — Computational Thinking Diagram",
+    lecturer.id,
+    fixture("sample-diagram.png"),
+    {
+      description:
+        "Small diagram illustrating problem decomposition steps used in the week 1 lecture.",
+      courseId: cs101.id,
+      categoryId: catLectureNotes.id,
+      materialType: "slides",
+      semester: "fall",
+      academicYear: 2025,
+      tagIds: [tagFoundational.id],
+      mimeType: "image/png",
+      filename: "cs101-decomposition-diagram.png",
+    },
+  );
+
+  await ensureDocument(
+    "CS101 — Course Syllabus",
+    lecturer.id,
+    fixture("sample-syllabus.md"),
+    {
+      description:
+        "Course syllabus, schedule, and grading policy for CS101.",
+      courseId: cs101.id,
+      categoryId: catLectureNotes.id,
+      materialType: "syllabus",
+      semester: "fall",
+      academicYear: 2025,
+      tagIds: [tagFoundational.id, tagSummary.id],
+      mimeType: "text/markdown",
+      filename: "cs101-syllabus.md",
     },
   );
 

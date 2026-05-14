@@ -22,6 +22,26 @@ import * as documentsService from "../services/documents.service";
 
 const router: IRouter = Router();
 
+/**
+ * Normalize array-valued query parameters before Zod parsing.
+ *
+ * Express + qs delivers `?tagIds=abc` as a bare string and
+ * `?tagIds=abc&tagIds=def` as a string array. Our generated zod schema
+ * requires an array for `tagIds`, so a single selection (the common case
+ * when the user picks just one tag) would otherwise 400.
+ */
+function normalizeArrayQuery<K extends string>(
+  query: Record<string, unknown>,
+  keys: K[],
+): Record<string, unknown> {
+  const out = { ...query };
+  for (const k of keys) {
+    const v = out[k];
+    if (typeof v === "string") out[k] = [v];
+  }
+  return out;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: env.maxUploadMb * 1024 * 1024 },
@@ -29,7 +49,9 @@ const upload = multer({
 
 router.get("/documents", requireAuth, async (req, res, next) => {
   try {
-    const q = ListDocumentsQueryParams.parse(req.query);
+    const q = ListDocumentsQueryParams.parse(
+      normalizeArrayQuery(req.query as Record<string, unknown>, ["tagIds"]),
+    );
     const result = await documentsService.listDocuments(q, req.authUser!);
     res.json(result);
   } catch (err) {

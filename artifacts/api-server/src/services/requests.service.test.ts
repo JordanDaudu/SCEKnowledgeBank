@@ -9,7 +9,7 @@ vi.mock("../repositories/requests.repo", () => ({
   countVotesByRequestIds: vi.fn().mockResolvedValue(new Map()),
   findUserVotedRequestIds: vi.fn().mockResolvedValue(new Set()),
   findVote: vi.fn(),
-  insertVote: vi.fn(),
+  insertVoteIfAbsent: vi.fn(),
 }));
 vi.mock("../repositories/documents.repo", () => ({
   findByIdAlive: vi.fn(),
@@ -34,8 +34,7 @@ import {
 
 const findAliveById = vi.mocked(requestsRepo.findAliveById);
 const findAliveByIds = vi.mocked(requestsRepo.findAliveByIds);
-const findVote = vi.mocked(requestsRepo.findVote);
-const insertVote = vi.mocked(requestsRepo.insertVote);
+const insertVoteIfAbsent = vi.mocked(requestsRepo.insertVoteIfAbsent);
 const updateById = vi.mocked(requestsRepo.updateRequestById);
 const findDocAlive = vi.mocked(docsRepo.findByIdAlive);
 
@@ -74,24 +73,38 @@ beforeEach(() => {
 });
 
 describe("voteOnRequest", () => {
-  it("rejects a duplicate vote with 409", async () => {
+  it("records a new vote when the user has not voted (repo returns true)", async () => {
     findAliveById.mockResolvedValueOnce(makeRequest());
-    findVote.mockResolvedValueOnce({
-      requestId: "r1",
-      userId: other.id,
-    } as never);
+    insertVoteIfAbsent.mockResolvedValueOnce(true);
+    await voteOnRequest("r1", other);
+    expect(insertVoteIfAbsent).toHaveBeenCalledWith("r1", other.id);
+  });
+
+  it("rejects a duplicate vote with 409 (repo returns false from ON CONFLICT DO NOTHING)", async () => {
+    findAliveById.mockResolvedValueOnce(makeRequest());
+    insertVoteIfAbsent.mockResolvedValueOnce(false);
     await expect(voteOnRequest("r1", other)).rejects.toMatchObject({
       status: 409,
       code: "conflict",
     });
-    expect(insertVote).not.toHaveBeenCalled();
   });
 
-  it("records a new vote when the user has not voted", async () => {
-    findAliveById.mockResolvedValueOnce(makeRequest());
-    findVote.mockResolvedValueOnce(null);
-    await voteOnRequest("r1", other);
-    expect(insertVote).toHaveBeenCalledWith("r1", other.id);
+  it("is race-safe: a concurrent duplicate still surfaces a 409 rather than a 500", async () => {
+    // Both "concurrent" callers see the request as alive...
+    findAliveById.mockResolvedValue(makeRequest());
+    // ...but the unique index lets only one insert through; the second
+    // call gets `false` back from ON CONFLICT DO NOTHING.
+    insertVoteIfAbsent
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const [a, b] = await Promise.allSettled([
+      voteOnRequest("r1", other),
+      voteOnRequest("r1", other),
+    ]);
+    const statuses = [a, b].map((s) =>
+      s.status === "fulfilled" ? 200 : (s.reason as { status?: number }).status,
+    );
+    expect(statuses.sort()).toEqual([200, 409]);
   });
 
   it("404s when the request does not exist", async () => {

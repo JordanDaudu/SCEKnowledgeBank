@@ -141,15 +141,21 @@ export async function updateRequest(
   return dtos[0];
 }
 
+/**
+ * Vote on a request. Race-safe: the insert is gated by a unique index on
+ * (user_id, request_id) via `ON CONFLICT DO NOTHING`, so two concurrent
+ * requests cannot both succeed. Semantics: a duplicate vote returns 409
+ * (we never silently swallow it — the client uses this to flip the vote
+ * button into its "voted" state and to surface "already voted").
+ */
 export async function voteOnRequest(
   id: string,
   user: AuthenticatedUser,
 ): Promise<RequestDTO> {
   const r = await requestsRepo.findAliveById(id);
   if (!r) throw notFound("Request not found");
-  const existing = await requestsRepo.findVote(id, user.id);
-  if (existing) throw conflict("You have already voted on this request");
-  await requestsRepo.insertVote(id, user.id);
+  const inserted = await requestsRepo.insertVoteIfAbsent(id, user.id);
+  if (!inserted) throw conflict("You have already voted on this request");
   await auditService.record(user.id, "request.vote", "material_request", id);
   const dtos = await buildDTOs([id], user.id);
   return dtos[0];

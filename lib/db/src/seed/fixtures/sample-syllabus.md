@@ -1,0 +1,1 @@
+Knowledge Bank seed fixture\n\nThis is a small Markdown fixture used by the seed script to populate at\nleast one text/markdown document so demos always have a non-PDF example.\n\nIt is intentionally tiny — the seed reads it into the storage driver as a\nregular uploaded file.
