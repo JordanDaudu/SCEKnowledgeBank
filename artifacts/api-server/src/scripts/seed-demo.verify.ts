@@ -283,6 +283,47 @@ const checks: Check[] = [
     },
   },
   {
+    // Sprint-2 audit: confirm `seed-demo` actually runs the metadata
+    // extraction pipeline (task #27) rather than leaving the metadata
+    // columns null. The check is intentionally loose — extraction is
+    // best-effort per-file (the service is documented to never throw
+    // and to silently fall back to empty), and pdf-parse in
+    // particular has a worker-thread quirk when invoked from a tsx
+    // script context that does not affect the live upload route.
+    // What we *can* assert is that the markdown/text path populated
+    // `extractedText`, which is the FTS column.
+    name: "demo: extraction pipeline populated extractedText on at least one demo doc",
+    run: async () => {
+      const n = await db.documentFile.count({
+        where: {
+          document: { title: { in: DEMO_DOC_TITLES } },
+          extractedText: { not: null },
+        },
+      });
+      return n >= 1 ? true : "no demo doc has extractedText after seed";
+    },
+  },
+  {
+    // Cheap full-text search smoke: the markdown fixtures contain
+    // distinctive tokens (e.g. "Sprint Planning", "Big-O") which the
+    // extractor copies verbatim into `extractedText`. If extraction
+    // ran, at least one of those tokens must be searchable.
+    name: "demo: at least one demo doc is full-text-searchable for a fixture token",
+    run: async () => {
+      const tokens = ["Sprint", "Cheat Sheet", "Variables", "Metadata"];
+      for (const t of tokens) {
+        const n = await db.documentFile.count({
+          where: {
+            document: { title: { in: DEMO_DOC_TITLES } },
+            extractedText: { contains: t, mode: "insensitive" },
+          },
+        });
+        if (n >= 1) return true;
+      }
+      return "no demo doc matches any known fixture token";
+    },
+  },
+  {
     name: "demo: 14 permissions seeded",
     run: async () => {
       const allKeys = [

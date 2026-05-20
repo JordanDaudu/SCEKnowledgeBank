@@ -116,6 +116,47 @@ describe("voteOnRequest", () => {
   });
 });
 
+describe("request visibility (Sprint-2 audit)", () => {
+  const courseScoped = (overrides: Partial<{ id: string; courseId: string }> = {}) => {
+    const base = makeRequest({ id: overrides.id ?? "rcs" }) as unknown as Record<string, unknown>;
+    return { ...base, courseId: overrides.courseId ?? "course-X" } as never;
+  };
+
+  it("404s voteOnRequest for a student outside the course (no leak via 409)", async () => {
+    findAliveById.mockResolvedValueOnce(courseScoped());
+    await expect(voteOnRequest("rcs", other)).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(insertVoteIfAbsent).not.toHaveBeenCalled();
+  });
+
+  it("404s updateRequest for a non-enrolled user on a course-scoped request", async () => {
+    findAliveById.mockResolvedValueOnce(courseScoped());
+    await expect(
+      updateRequest("rcs", { status: "fulfilled" }, other),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(updateById).not.toHaveBeenCalled();
+  });
+
+  it("admins see course-scoped requests regardless of enrollment", async () => {
+    findAliveById.mockResolvedValue(courseScoped());
+    insertVoteIfAbsent.mockResolvedValueOnce(true);
+    await voteOnRequest("rcs", admin);
+    expect(insertVoteIfAbsent).toHaveBeenCalled();
+  });
+
+  it("enrolled students can see and vote on course-scoped requests", async () => {
+    const enrolled: AuthenticatedUser = {
+      ...other,
+      enrollments: [{ courseId: "course-X", roleInCourse: "student" }],
+    };
+    findAliveById.mockResolvedValue(courseScoped());
+    insertVoteIfAbsent.mockResolvedValueOnce(true);
+    await voteOnRequest("rcs", enrolled);
+    expect(insertVoteIfAbsent).toHaveBeenCalled();
+  });
+});
+
 describe("updateRequest RBAC", () => {
   it("forbids status changes from a student who is not the author", async () => {
     findAliveById.mockResolvedValue(makeRequest());

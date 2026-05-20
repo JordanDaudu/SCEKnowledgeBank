@@ -43,6 +43,16 @@ export async function findCoursesByIds(ids: string[]): Promise<CourseRow[]> {
   });
 }
 
+/**
+ * Lightweight existence check used by services that need to validate a
+ * `courseId` argument before mutating (e.g. moving a document into a
+ * course). Returns `true` iff a course with this id is present.
+ */
+export async function courseExists(id: string): Promise<boolean> {
+  const row = await db.course.findUnique({ where: { id }, select: { id: true } });
+  return row !== null;
+}
+
 export async function findCategoriesByIds(
   ids: string[],
 ): Promise<CategoryRow[]> {

@@ -8,6 +8,8 @@ vi.mock("../repositories/comments.repo", () => ({
   countAliveByDocumentIds: vi.fn(),
   insertMentions: vi.fn().mockResolvedValue(undefined),
   listMentionsByCommentIds: vi.fn().mockResolvedValue(new Map()),
+  deleteMentionsByCommentId: vi.fn().mockResolvedValue(undefined),
+  updateById: vi.fn(),
 }));
 vi.mock("../repositories/documents.repo", () => ({
   findByIdAlive: vi.fn(),
@@ -45,7 +47,11 @@ import {
   deleteComment,
   listForDocument,
   parseMentionTokens,
+  updateComment,
 } from "./comments.service";
+
+const deleteMentions = vi.mocked(commentsRepo.deleteMentionsByCommentId);
+const updateCommentById = vi.mocked(commentsRepo.updateById);
 
 const findAliveById = vi.mocked(commentsRepo.findAliveById);
 const listAlive = vi.mocked(commentsRepo.listAliveByDocument);
@@ -286,6 +292,35 @@ describe("createForDocument mention persistence", () => {
     const call = insertMentions.mock.calls[0]!;
     expect(call[0]).toBe("new-c");
     expect(call[1]).toEqual(["user-alice"]);
+  });
+});
+
+describe("updateComment re-parses mentions when body changes", () => {
+  it("wipes old mentions and inserts fresh ones for the new body", async () => {
+    findAliveById.mockResolvedValueOnce(
+      makeComment({ id: "c1", authorId: user.id }),
+    );
+    updateCommentById.mockResolvedValueOnce(
+      makeComment({ id: "c1", authorId: user.id }),
+    );
+    findByNames.mockResolvedValueOnce([
+      { id: "user-bob", displayName: "Bob" },
+    ]);
+    await updateComment("c1", { body: "now mentioning @Bob" }, user);
+    expect(deleteMentions).toHaveBeenCalledWith("c1");
+    expect(insertMentions).toHaveBeenCalledWith("c1", ["user-bob"]);
+  });
+
+  it("leaves mentions alone when only pageNumber changes (no body edit)", async () => {
+    findAliveById.mockResolvedValueOnce(
+      makeComment({ id: "c1", authorId: user.id }),
+    );
+    updateCommentById.mockResolvedValueOnce(
+      makeComment({ id: "c1", authorId: user.id }),
+    );
+    await updateComment("c1", { pageNumber: 7 }, user);
+    expect(deleteMentions).not.toHaveBeenCalled();
+    expect(insertMentions).not.toHaveBeenCalled();
   });
 });
 

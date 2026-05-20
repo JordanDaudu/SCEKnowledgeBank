@@ -6,7 +6,7 @@ A scholarly document repository for university communities — upload, browse, s
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server
 - `pnpm --filter @workspace/web run dev` — run the web frontend
-- `pnpm --filter @workspace/db run generate` — generate a new SQL migration from the Drizzle schema
+- `pnpm --filter @workspace/db run generate` — generate a new SQL migration from the Prisma schema
 - `pnpm --filter @workspace/db run migrate` — apply pending SQL migrations (creates `pg_trgm` first)
 - `pnpm --filter @workspace/api-server run seed` — populate demo data (idempotent, reads fixtures from `lib/db/src/seed/fixtures/`)
 - `pnpm run typecheck` — full typecheck across all packages
@@ -33,8 +33,8 @@ A scholarly document repository for university communities — upload, browse, s
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - Web: React 19 + Vite 7 + Tailwind + shadcn/ui + TanStack Query
 - API: Express 5, cookie-based sessions via `connect-pg-simple`
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
+- DB: PostgreSQL + Prisma ORM
+- Validation: Zod (`zod/v4`), Prisma-generated TS types
 - API codegen: Orval (OpenAPI → typed hooks + Zod schemas)
 - File storage: pluggable driver (`local` default at `.data/storage`, S3 stub ready)
 - Build: esbuild (CJS bundle)

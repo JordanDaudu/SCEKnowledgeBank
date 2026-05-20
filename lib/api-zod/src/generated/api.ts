@@ -235,6 +235,17 @@ export const ListDocumentsResponse = zod.object({
         .describe(
           "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
         ),
+      permissions: zod
+        .object({
+          canView: zod.boolean(),
+          canEdit: zod.boolean(),
+          canDelete: zod.boolean(),
+          canDownload: zod.boolean(),
+          canComment: zod.boolean(),
+        })
+        .describe(
+          "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+        ),
     }),
   ),
   total: zod.number(),
@@ -403,6 +414,17 @@ export const ListRecentDocumentsResponseItem = zod.object({
     .describe(
       "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
     ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
 });
 export const ListRecentDocumentsResponse = zod.array(
   ListRecentDocumentsResponseItem,
@@ -552,6 +574,17 @@ export const GetDocumentResponse = zod.object({
     .describe(
       "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
     ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
 });
 
 export const UpdateDocumentParams = zod.object({
@@ -684,6 +717,17 @@ export const UpdateDocumentResponse = zod.object({
     .optional()
     .describe(
       "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
     ),
 });
 

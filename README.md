@@ -86,7 +86,7 @@ pnpm --filter @workspace/web run dev
 The database schema lives in `lib/db/src/schema`. When you change it:
 
 ```bash
-# Produce a new SQL migration file under lib/db/drizzle/
+# Produce a new Prisma migration file under lib/db/prisma/migrations/
 pnpm --filter @workspace/db run generate
 
 # Apply it

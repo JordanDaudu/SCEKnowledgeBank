@@ -20,6 +20,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { getStorage } from "../lib/storage";
 import { logger } from "../lib/logger";
+import { extractMetadata } from "../services/documents/metadata.service";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = path.resolve(
@@ -219,10 +220,10 @@ async function ensureDocument(spec: DocSpec) {
     });
   }
 
-  const hasFile = await db.documentFile.findFirst({
+  let docFile = await db.documentFile.findFirst({
     where: { documentId: doc.id },
   });
-  if (!hasFile) {
+  if (!docFile) {
     const ext = spec.filename.includes(".")
       ? spec.filename.slice(spec.filename.lastIndexOf("."))
       : "";
@@ -230,7 +231,7 @@ async function ensureDocument(spec: DocSpec) {
     const put = await getStorage().put({
       key, body: spec.body, contentType: spec.mimeType,
     });
-    await db.documentFile.create({
+    docFile = await db.documentFile.create({
       data: {
         documentId: doc.id,
         originalFilename: spec.filename,
@@ -243,6 +244,52 @@ async function ensureDocument(spec: DocSpec) {
         checksum: put.checksum,
       },
     });
+  }
+
+  // ── Metadata backfill (Sprint-2 audit) ────────────────────────────
+  //
+  // Run real extraction against the fixture buffer so the seeded
+  // documents look like the upload-path output: page counts on PDFs,
+  // FTS text on PDFs/text files, image dimensions on images, and a
+  // server-generated thumbnail on images. Backfills nulls only — once
+  // the fields are non-null we skip the (relatively expensive) re-run
+  // to keep `seed:demo` idempotent and fast.
+  // Re-run extraction when *any* relevant metadata column is still
+  // null. Using OR (rather than "all null") means partial seeds — e.g.
+  // a previous run where extractedText landed but the thumbnail upload
+  // failed — get topped up on the next `seed:demo`.
+  const needsMetadata =
+    docFile.extractedText == null ||
+    docFile.pageCount == null ||
+    docFile.imageWidth == null ||
+    docFile.detectedTitle == null ||
+    docFile.thumbnailPath == null;
+  if (needsMetadata) {
+    const meta = await extractMetadata({
+      buffer: spec.body,
+      mimeType: spec.mimeType,
+      filename: spec.filename,
+    });
+    const patch: Record<string, unknown> = {};
+    if (meta.pageCount != null) patch.pageCount = meta.pageCount;
+    if (meta.extractedText) patch.extractedText = meta.extractedText;
+    if (meta.detectedTitle) patch.detectedTitle = meta.detectedTitle;
+    if (meta.author) patch.author = meta.author;
+    if (meta.imageWidth != null) patch.imageWidth = meta.imageWidth;
+    if (meta.imageHeight != null) patch.imageHeight = meta.imageHeight;
+    if (meta.thumbnail) {
+      const thumbKey = `documents/${doc.id.slice(0, 2)}/${doc.id}.thumb.jpg`;
+      const tput = await getStorage().put({
+        key: thumbKey,
+        body: meta.thumbnail.body,
+        contentType: meta.thumbnail.mimeType,
+      });
+      patch.thumbnailPath = tput.key;
+      patch.thumbnailMimeType = meta.thumbnail.mimeType;
+    }
+    if (Object.keys(patch).length > 0) {
+      await db.documentFile.update({ where: { id: docFile.id }, data: patch });
+    }
   }
 
   if (spec.tagIds?.length) {

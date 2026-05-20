@@ -78,9 +78,13 @@ export default function DocumentDetail() {
 
   const [editOpen, setEditOpen] = useState(false);
 
-  const isAdmin = user?.roles?.includes("admin");
-  const isUploader = user?.id === doc?.uploader?.id;
-  const canEdit = isAdmin || isUploader;
+  // Sprint-2 audit: gate UI off the server-issued permission flags
+  // rather than a role/uploader heuristic. The server is the source of
+  // truth (course-aware, restricted-visibility-aware) — guessing on the
+  // client risks showing affordances the API will refuse, or hiding
+  // affordances the user actually has via course membership.
+  const canEdit = !!doc?.permissions?.canEdit;
+  const canDelete = !!doc?.permissions?.canDelete;
 
   // Persist this document into the recently-viewed list (read by browse page)
   useEffect(() => {
@@ -142,7 +146,8 @@ export default function DocumentDetail() {
       <div className="space-y-6">
         <MetadataPanel
           doc={doc}
-          canEdit={!!canEdit}
+          canEdit={canEdit}
+          canDelete={canDelete}
           onEdit={() => setEditOpen(true)}
           onToggleStatus={handleToggleStatus}
           onDelete={handleDeleteDoc}

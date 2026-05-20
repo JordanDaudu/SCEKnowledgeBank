@@ -32,6 +32,14 @@ vi.mock("./taxonomy.service", () => ({
 vi.mock("./audit.service", () => ({ record: vi.fn() }));
 vi.mock("./permissions.service", () => ({
   canUploadToCourse: vi.fn().mockReturnValue(true),
+  // assembleDocuments derives DTO `permissions` flags by calling each
+  // of these per-row (Sprint-2 audit); stub them to a permissive
+  // baseline so the upload tests stay focused on the quota/dedup gate.
+  canView: vi.fn().mockReturnValue(true),
+  canEdit: vi.fn().mockReturnValue(true),
+  canDelete: vi.fn().mockReturnValue(true),
+  canComment: vi.fn().mockReturnValue(true),
+  isAdmin: vi.fn().mockReturnValue(false),
 }));
 vi.mock("../repositories/viewHistory.repo", () => ({
   countViewsByDocumentIds: vi.fn().mockResolvedValue(new Map()),

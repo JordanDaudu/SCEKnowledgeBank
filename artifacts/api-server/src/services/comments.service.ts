@@ -221,9 +221,17 @@ export async function updateComment(
   if (body.pageNumber !== undefined) patch.pageNumber = body.pageNumber;
   const updated = await commentsRepo.updateById(commentId, patch);
 
-  // Mentions persisted at create time are not re-parsed on edit
-  // (architectural constraint in task #29); the existing rows remain
-  // associated with the comment.
+  // Re-parse mentions when the body changes (Sprint-2 audit fix):
+  // an edit can both introduce new @mentions and remove old ones, so
+  // we wipe the existing rows for this comment and re-insert based on
+  // the new body. Body-untouched edits (e.g. just a pageNumber tweak)
+  // leave mentions alone. Unresolved tokens still degrade silently —
+  // same semantics as create.
+  if (body.body !== undefined) {
+    const newMentionIds = await resolveMentionUserIds(body.body);
+    await commentsRepo.deleteMentionsByCommentId(commentId);
+    await commentsRepo.insertMentions(commentId, newMentionIds);
+  }
   const mentionsByComment = await commentsRepo.listMentionsByCommentIds([
     commentId,
   ]);

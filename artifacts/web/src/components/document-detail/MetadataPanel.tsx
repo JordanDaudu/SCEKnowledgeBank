@@ -8,6 +8,12 @@ import { formatMaterialType } from "@/lib/material-types";
 interface Props {
   doc: DocumentDetailDto;
   canEdit: boolean;
+  /**
+   * Delete is now gated by a separate server-issued flag (Sprint-2
+   * audit). Owners can always edit their docs but only owners/admins
+   * can delete — these no longer collapse to a single boolean.
+   */
+  canDelete: boolean;
   onEdit: () => void;
   onToggleStatus: () => void;
   onDelete: () => void;
@@ -19,6 +25,7 @@ interface Props {
 export default function MetadataPanel({
   doc,
   canEdit,
+  canDelete,
   onEdit,
   onToggleStatus,
   onDelete,
@@ -44,9 +51,11 @@ export default function MetadataPanel({
             <Button variant="outline" size="sm" onClick={onToggleStatus} disabled={isStatusUpdating}>
               {doc.status === "published" ? "Archive" : "Publish"}
             </Button>
-            <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting} aria-label="Delete">
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {canDelete && (
+              <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting} aria-label="Delete">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         )}
       </div>

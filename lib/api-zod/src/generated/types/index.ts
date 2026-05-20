@@ -19,6 +19,7 @@ export * from "./documentDetail";
 export * from "./documentFallbackIconType";
 export * from "./documentFileMeta";
 export * from "./documentPage";
+export * from "./documentPermissions";
 export * from "./documentSemester";
 export * from "./documentStatus";
 export * from "./documentSuggestion";

@@ -26,17 +26,31 @@ export interface VoteRow {
 export interface ListRequestsFilters {
   status?: string;
   courseId?: string;
+  /**
+   * Visibility scoping (Sprint-2 audit). When set, only requests whose
+   * `courseId` is `null` (global) OR included in
+   * `visibleCourseIds` are returned. Admins pass `undefined` here to
+   * skip the scope clause and see everything.
+   */
+  visibleCourseIds?: string[];
 }
 
 export async function listAliveIds(
   filters: ListRequestsFilters,
 ): Promise<string[]> {
+  const where: Prisma.MaterialRequestWhereInput = {
+    deletedAt: null,
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.courseId ? { courseId: filters.courseId } : {}),
+  };
+  if (filters.visibleCourseIds !== undefined) {
+    where.OR = [
+      { courseId: null },
+      { courseId: { in: filters.visibleCourseIds } },
+    ];
+  }
   const rows = await db.materialRequest.findMany({
-    where: {
-      deletedAt: null,
-      ...(filters.status ? { status: filters.status } : {}),
-      ...(filters.courseId ? { courseId: filters.courseId } : {}),
-    },
+    where,
     orderBy: { createdAt: "desc" },
     select: { id: true },
   });

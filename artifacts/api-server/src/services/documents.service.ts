@@ -71,12 +71,25 @@ export interface DocumentDTO {
    * `metadata.service.fallbackIconFor`.
    */
   fallbackIconType: FallbackIconType;
+  /**
+   * Server-computed permission flags for the requesting user. The
+   * frontend reads these directly — it must not recompute permissions
+   * locally from role/uploader heuristics (Sprint-2 audit).
+   */
+  permissions: {
+    canView: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+    canDownload: boolean;
+    canComment: boolean;
+  };
 }
 
 // All visibility / role checks are delegated to permissions.service.
 
 export async function assembleDocuments(
   docs: docsRepo.DocumentRow[],
+  user: AuthenticatedUser,
 ): Promise<DocumentDTO[]> {
   if (docs.length === 0) return [];
   const ids = docs.map((d) => d.id);
@@ -118,6 +131,17 @@ export async function assembleDocuments(
       createdAt: d.createdAt.toISOString(),
     };
     const file = filesByDoc.get(d.id);
+    // Permission flags are computed per-row using the canonical
+    // permissions service so the wire DTO reflects exactly what the
+    // server would enforce on write. `canDownload` mirrors `canView`:
+    // signed-URL issuance lives behind the same visibility predicate.
+    const permObj = {
+      uploaderId: d.uploaderId,
+      ownerId: d.ownerId,
+      visibility: d.visibility,
+      courseId: d.courseId,
+    };
+    const canView = permissions.canView(permObj, user);
     const dto: DocumentDTO = {
       id: d.id,
       title: d.title,
@@ -132,6 +156,13 @@ export async function assembleDocuments(
       commentCount: commentCounts.get(d.id) ?? 0,
       tags: tagsByDoc.get(d.id) ?? [],
       fallbackIconType: "unknown",
+      permissions: {
+        canView,
+        canEdit: permissions.canEdit(permObj, user),
+        canDelete: permissions.canDelete(permObj, user),
+        canDownload: canView,
+        canComment: permissions.canComment(permObj, user),
+      },
     };
     const c = d.courseId ? coursesMap.get(d.courseId) : undefined;
     if (c) dto.course = c;
@@ -249,7 +280,7 @@ export async function listDocuments(
         pageSize: q.pageSize,
       }),
     ]);
-    const items = await assembleDocuments(rows);
+    const items = await assembleDocuments(rows, user);
     return { items, total, page: q.page, pageSize: q.pageSize };
   }
 
@@ -259,7 +290,7 @@ export async function listDocuments(
     page: q.page,
     pageSize: q.pageSize,
   });
-  const items = await assembleDocuments(rows);
+  const items = await assembleDocuments(rows, user);
   return { items, total, page: q.page, pageSize: q.pageSize };
 }
 
@@ -277,7 +308,7 @@ export async function listRecentForUser(
   const visible = docs.filter((d) => permissions.canView(d, user));
   const order = new Map(ids.map((id, i) => [id, i]));
   visible.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-  return assembleDocuments(visible);
+  return assembleDocuments(visible, user);
 }
 
 export interface SuggestionDTO {
@@ -319,7 +350,7 @@ export async function getById(
   if (!permissions.canView(doc, user))
     throw forbidden("Cannot view this document");
   await viewRepo.recordView(doc.id, user.id);
-  const assembled = await assembleDocuments([doc]);
+  const assembled = await assembleDocuments([doc], user);
   return assembled[0];
 }
 
@@ -346,6 +377,41 @@ export async function updateDocument(
   if (!permissions.canEdit(doc, user))
     throw forbidden("Cannot edit this document");
 
+  // ── Course-aware update guards (Sprint-2 audit) ──────────────────
+  //
+  // 1. If the patch changes `courseId`, the user must be allowed to
+  //    upload into the *target* course as well. Without this check a
+  //    lecturer who teaches course A but not B could read-modify-write
+  //    a course-A doc into course B, smuggling it into a course they
+  //    do not teach.
+  // 2. The target course must actually exist; otherwise we'd produce
+  //    an orphaned FK reference (and a confusing 500 downstream).
+  // 3. A document whose final visibility is `restricted` must end up
+  //    bound to a course — `restricted` without a `courseId` is not a
+  //    meaningful state (nobody could read it; see permissions.canView).
+  const effectiveCourseId =
+    body.courseId !== undefined ? body.courseId : doc.courseId;
+  const effectiveVisibility =
+    body.visibility !== undefined ? body.visibility : doc.visibility;
+  if (body.courseId !== undefined && body.courseId !== doc.courseId) {
+    if (!permissions.canUploadToCourse(user, body.courseId ?? null)) {
+      throw forbidden(
+        body.courseId
+          ? "You can only move documents into courses you teach"
+          : "Only admins or lecturers with at least one taught course may detach a document from its course",
+      );
+    }
+    if (body.courseId) {
+      const exists = await taxonomyRepo.courseExists(body.courseId);
+      if (!exists) throw badRequest("Target course does not exist");
+    }
+  }
+  if (effectiveVisibility === "restricted" && !effectiveCourseId) {
+    throw badRequest(
+      "Restricted documents must be bound to a course (courseId required)",
+    );
+  }
+
   const patch: Partial<docsRepo.DocumentInsert> = {
     updatedAt: new Date(),
     updatedBy: user.id,
@@ -369,7 +435,7 @@ export async function updateDocument(
   await auditService.record(user.id, "document.update", "document", id);
   const updated = await docsRepo.findByIdAlive(id);
   if (!updated) throw notFound("Document not found");
-  const assembled = await assembleDocuments([updated]);
+  const assembled = await assembleDocuments([updated], user);
   return assembled[0];
 }
 
@@ -640,7 +706,7 @@ export async function uploadDocuments(
         },
       );
 
-      const assembled = await assembleDocuments([insertedDoc]);
+      const assembled = await assembleDocuments([insertedDoc], user);
       results.push({
         originalFilename: file.originalname,
         success: true,

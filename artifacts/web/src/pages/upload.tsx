@@ -409,7 +409,7 @@ export default function Upload() {
                             <>
                               {" "}
                               <a
-                                href={`/document/${item.duplicateOfDocumentId}`}
+                                href={`/documents/${item.duplicateOfDocumentId}`}
                                 className="underline font-medium"
                                 data-testid="duplicate-link"
                               >

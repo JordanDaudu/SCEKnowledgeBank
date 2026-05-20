@@ -77,6 +77,19 @@ export interface CommentMentionRow {
   mentionedUserId: string;
 }
 
+/**
+ * Wipe every mention row associated with a comment. Used on comment
+ * edit so the new body's parse result can be inserted from scratch
+ * (delete + re-insert under a single service call). The unique index
+ * on (comment_id, mentioned_user_id) makes upsert-by-key fragile, so a
+ * clean replace is the safest semantics.
+ */
+export async function deleteMentionsByCommentId(
+  commentId: string,
+): Promise<void> {
+  await db.commentMention.deleteMany({ where: { commentId } });
+}
+
 export async function insertMentions(
   commentId: string,
   userIds: string[],

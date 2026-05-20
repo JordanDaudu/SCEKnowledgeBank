@@ -200,6 +200,17 @@ export interface DocumentFileMeta {
   extractedMetadata?: ExtractedFileMetadata;
 }
 
+/**
+ * Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.
+ */
+export interface DocumentPermissions {
+  canView: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canDownload: boolean;
+  canComment: boolean;
+}
+
 export interface Document {
   id: string;
   title: string;
@@ -222,6 +233,7 @@ export interface Document {
   thumbnailUrl?: string;
   /** Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type. */
   fallbackIconType?: DocumentFallbackIconType;
+  permissions: DocumentPermissions;
 }
 
 export type DocumentDetail = Document;
