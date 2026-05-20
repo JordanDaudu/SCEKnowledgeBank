@@ -66,10 +66,17 @@ export default function Login() {
     });
   };
 
+  // The demo seed (`seed-demo.ts`) provisions every demo account with
+  // the same password ("Demo1234!") and emails under the
+  // @knowledgebank.demo domain. Earlier this page hardcoded the old
+  // lightweight-seed values (e.g. "admin@demo" / "demo1234"), which
+  // silently 401'd every login — leaving the session cookie unset and
+  // making every subsequent request appear unauthenticated.
+  const DEMO_PASSWORD = "Demo1234!";
   const loginAsDemo = (email: string) => {
     form.setValue("email", email);
-    form.setValue("password", "demo1234");
-    onSubmit({ email, password: "demo1234" });
+    form.setValue("password", DEMO_PASSWORD);
+    onSubmit({ email, password: DEMO_PASSWORD });
   };
 
   // Declarative redirect (loop-free, runs after all hooks above so
@@ -100,7 +107,7 @@ export default function Login() {
               <Button 
                 variant="outline" 
                 className="w-full justify-start h-auto py-3 bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
-                onClick={() => loginAsDemo("student@demo")}
+                onClick={() => loginAsDemo("noa.student@knowledgebank.demo")}
                 type="button"
               >
                 <User className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -112,25 +119,25 @@ export default function Login() {
               <Button 
                 variant="outline" 
                 className="w-full justify-start h-auto py-3 bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
-                onClick={() => loginAsDemo("lecturer@demo")}
+                onClick={() => loginAsDemo("maya.cohen@knowledgebank.demo")}
                 type="button"
               >
                 <BookA className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-semibold">Lecturer</span>
-                  <span className="text-xs text-muted-foreground">Dr. Reyes</span>
+                  <span className="text-xs text-muted-foreground">Dr. Cohen</span>
                 </div>
               </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-start h-auto py-3 bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
-                onClick={() => loginAsDemo("admin@demo")}
+                onClick={() => loginAsDemo("admin@knowledgebank.demo")}
                 type="button"
               >
                 <ShieldAlert className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-semibold">Admin</span>
-                  <span className="text-xs text-muted-foreground">Sasha P.</span>
+                  <span className="text-xs text-muted-foreground">Admin</span>
                 </div>
               </Button>
             </div>
