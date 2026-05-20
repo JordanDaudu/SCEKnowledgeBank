@@ -93,6 +93,20 @@ describe("permissions.canView", () => {
     expect(permissions.canView(restricted, lecturerB)).toBe(false);
   });
 
+  it("restricted: uploader/owner does NOT bypass enrollment (strict rule)", () => {
+    // A user who uploaded a restricted doc but is not enrolled in its
+    // course loses read access. This is the deliberate Sprint-2 rule.
+    const restricted = doc({
+      visibility: "restricted",
+      uploaderId: studentEnrolledNone.id,
+      ownerId: studentEnrolledNone.id,
+      courseId: "c-A",
+    });
+    expect(permissions.canView(restricted, studentEnrolledNone)).toBe(false);
+    // Admin still sees it.
+    expect(permissions.canView(restricted, admin)).toBe(true);
+  });
+
   it("restricted docs with no courseId are hidden from non-admins", () => {
     const restricted = doc({
       visibility: "restricted",
@@ -118,13 +132,7 @@ describe("permissions.canView", () => {
 });
 
 describe("permissions.canEdit / canDelete", () => {
-  it("uploader and owner can always edit/delete", () => {
-    const d = doc({ uploaderId: "lect-a", ownerId: "lect-a" });
-    expect(permissions.canEdit(d, lecturerA)).toBe(true);
-    expect(permissions.canDelete(d, lecturerA)).toBe(true);
-  });
-
-  it("a lecturer can manage docs in courses they teach, even if not the uploader", () => {
+  it("for a course-scoped doc, only the course's lecturer (or admin) can manage", () => {
     const d = doc({
       uploaderId: "someone-else",
       ownerId: "someone-else",
@@ -132,12 +140,15 @@ describe("permissions.canEdit / canDelete", () => {
     });
     expect(permissions.canEdit(d, lecturerA)).toBe(true);
     expect(permissions.canDelete(d, lecturerA)).toBe(true);
+    expect(permissions.canEdit(d, lecturerB)).toBe(false);
+    expect(permissions.canDelete(d, lecturerB)).toBe(false);
   });
 
-  it("a lecturer cannot manage another lecturer's course", () => {
+  it("uploader/owner CANNOT manage a course-scoped doc they no longer teach", () => {
+    // lecturerA uploaded the doc but is not enrolled as lecturer in c-B
     const d = doc({
-      uploaderId: "someone-else",
-      ownerId: "someone-else",
+      uploaderId: lecturerA.id,
+      ownerId: lecturerA.id,
       courseId: "c-B",
     });
     expect(permissions.canEdit(d, lecturerA)).toBe(false);
@@ -151,6 +162,18 @@ describe("permissions.canEdit / canDelete", () => {
       courseId: "c-A",
     });
     expect(permissions.canEdit(d, studentEnrolledA)).toBe(false);
+  });
+
+  it("for a course-less (private/orphan) doc, only uploader/owner/admin can manage", () => {
+    const d = doc({
+      uploaderId: studentEnrolledA.id,
+      ownerId: studentEnrolledA.id,
+      courseId: null,
+      visibility: "private",
+    });
+    expect(permissions.canEdit(d, studentEnrolledA)).toBe(true);
+    expect(permissions.canEdit(d, studentEnrolledNone)).toBe(false);
+    expect(permissions.canEdit(d, admin)).toBe(true);
   });
 
   it("admin can always edit", () => {
@@ -288,14 +311,19 @@ describe("permissions.visibleDocumentFilter", () => {
     expect(permissions.visibleDocumentFilter(admin)).toBeUndefined();
   });
 
-  it("for an enrolled student, includes public + own + restricted-in-enrolled-courses", () => {
+  it("for an enrolled student: public + restricted-in-enrolled + own private", () => {
     const f = permissions.visibleDocumentFilter(studentEnrolledA);
     expect(f).toEqual({
       OR: [
         { visibility: "public" },
         { visibility: "restricted", courseId: { in: ["c-A"] } },
-        { uploaderId: studentEnrolledA.id },
-        { ownerId: studentEnrolledA.id },
+        {
+          visibility: "private",
+          OR: [
+            { uploaderId: studentEnrolledA.id },
+            { ownerId: studentEnrolledA.id },
+          ],
+        },
       ],
     });
   });
@@ -306,8 +334,13 @@ describe("permissions.visibleDocumentFilter", () => {
       OR: [
         { visibility: "public" },
         { id: { in: [] } },
-        { uploaderId: studentEnrolledNone.id },
-        { ownerId: studentEnrolledNone.id },
+        {
+          visibility: "private",
+          OR: [
+            { uploaderId: studentEnrolledNone.id },
+            { ownerId: studentEnrolledNone.id },
+          ],
+        },
       ],
     });
   });

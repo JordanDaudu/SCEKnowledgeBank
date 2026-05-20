@@ -260,14 +260,16 @@ export async function findSuggestions(
       AND (title % ${term} OR description % ${term} OR title ILIKE ${ilikeTerm})
       AND (
         visibility = 'public'
-        OR uploader_id = ${uid}::uuid
-        OR owner_id = ${uid}::uuid
         OR (
           visibility = 'restricted'
           AND course_id IS NOT NULL
           AND course_id IN (
             SELECT course_id FROM course_enrollments WHERE user_id = ${uid}::uuid
           )
+        )
+        OR (
+          visibility = 'private'
+          AND (uploader_id = ${uid}::uuid OR owner_id = ${uid}::uuid)
         )
       )
     ORDER BY greatest(similarity(title, ${term}), similarity(coalesce(description, ''), ${term})) DESC,

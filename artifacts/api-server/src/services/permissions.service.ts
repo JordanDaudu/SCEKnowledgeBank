@@ -50,33 +50,52 @@ export function isLecturerForCourse(
   return lecturerCourseIds(u).includes(courseId);
 }
 
-/** Can the user read the document? */
+/**
+ * Can the user read the document?
+ *
+ * Strict Sprint-2 reading:
+ * - admin sees everything.
+ * - public is visible to everyone.
+ * - restricted is gated **only** by course enrollment (no uploader/owner
+ *   bypass — an uploader who is no longer enrolled in the course loses
+ *   read access, by design).
+ * - private is visible only to the uploader, the owner, or an admin.
+ */
 export function canView(
   doc: DocumentForPermission,
   user: AuthenticatedUser,
 ): boolean {
   if (isAdmin(user)) return true;
-  if (doc.uploaderId === user.id || doc.ownerId === user.id) return true;
   if (doc.visibility === "public") return true;
   if (doc.visibility === "restricted") {
     if (!doc.courseId) return false;
     return enrolledCourseIds(user).includes(doc.courseId);
   }
-  // private — only owner/uploader/admin (handled above)
+  if (doc.visibility === "private") {
+    return doc.uploaderId === user.id || doc.ownerId === user.id;
+  }
   return false;
 }
 
-/** Can the user edit/update the document's metadata? */
+/**
+ * Can the user edit/update the document's metadata?
+ *
+ * - admin: yes.
+ * - course-scoped doc: only a lecturer who teaches that course.
+ * - course-less doc (private/orphan): only the uploader or owner.
+ *
+ * A lecturer who uploaded a doc into a course they no longer teach
+ * loses edit rights — this is the deliberate Sprint-2 rule.
+ */
 export function canEdit(
   doc: DocumentForPermission,
   user: AuthenticatedUser,
 ): boolean {
   if (isAdmin(user)) return true;
-  if (doc.uploaderId === user.id || doc.ownerId === user.id) return true;
-  if (hasRole(user, "lecturer") && isLecturerForCourse(user, doc.courseId)) {
-    return true;
+  if (doc.courseId) {
+    return hasRole(user, "lecturer") && isLecturerForCourse(user, doc.courseId);
   }
-  return false;
+  return doc.uploaderId === user.id || doc.ownerId === user.id;
 }
 
 /** Can the user soft-delete the document? Same rules as edit. */
@@ -169,8 +188,10 @@ export function visibleDocumentFilter(
     OR: [
       { visibility: "public" },
       restrictedClause,
-      { uploaderId: user.id },
-      { ownerId: user.id },
+      {
+        visibility: "private",
+        OR: [{ uploaderId: user.id }, { ownerId: user.id }],
+      },
     ],
   };
 }
