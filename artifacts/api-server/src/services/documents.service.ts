@@ -340,6 +340,16 @@ export async function uploadDocuments(
   user: AuthenticatedUser,
 ): Promise<UploadResultEntry[]> {
   if (input.files.length === 0) throw badRequest("No files provided");
+  // Authoritative course-aware upload check — keeps internal callers
+  // (not just the HTTP route) honest. Lecturers may only upload into
+  // courses they actually teach; admins may upload anywhere.
+  if (!permissions.canUploadToCourse(user, input.courseId ?? null)) {
+    throw forbidden(
+      input.courseId
+        ? "You can only upload to courses you teach"
+        : "Only admins or lecturers with at least one taught course may upload",
+    );
+  }
 
   const storage = getStorage();
   const results: UploadResultEntry[] = [];

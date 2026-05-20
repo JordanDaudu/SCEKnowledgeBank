@@ -197,6 +197,39 @@ describe("permissions.canUpload", () => {
   });
 });
 
+describe("permissions.canUploadToCourse", () => {
+  it("admin can upload to any course or no course", () => {
+    expect(permissions.canUploadToCourse(admin, "c-A")).toBe(true);
+    expect(permissions.canUploadToCourse(admin, "c-X")).toBe(true);
+    expect(permissions.canUploadToCourse(admin, null)).toBe(true);
+  });
+
+  it("lecturer can only upload to courses they teach", () => {
+    expect(permissions.canUploadToCourse(lecturerA, "c-A")).toBe(true);
+    expect(permissions.canUploadToCourse(lecturerA, "c-AA")).toBe(true);
+    expect(permissions.canUploadToCourse(lecturerA, "c-B")).toBe(false);
+  });
+
+  it("lecturer with no enrollments cannot upload course-less material", () => {
+    const detached = makeUser({
+      id: "lec-detached",
+      roles: ["lecturer"],
+      primaryRole: "lecturer",
+    });
+    expect(permissions.canUploadToCourse(detached, null)).toBe(false);
+    expect(permissions.canUploadToCourse(detached, "c-A")).toBe(false);
+  });
+
+  it("lecturer with at least one taught course can upload course-less material", () => {
+    expect(permissions.canUploadToCourse(lecturerA, null)).toBe(true);
+  });
+
+  it("students cannot upload to any course, even one they are enrolled in", () => {
+    expect(permissions.canUploadToCourse(studentEnrolledA, "c-A")).toBe(false);
+    expect(permissions.canUploadToCourse(studentEnrolledA, null)).toBe(false);
+  });
+});
+
 describe("permissions.canFulfilRequest", () => {
   it("admin can always fulfil", () => {
     expect(

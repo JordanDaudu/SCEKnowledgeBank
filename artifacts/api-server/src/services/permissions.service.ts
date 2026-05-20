@@ -113,6 +113,28 @@ export function canUpload(user: AuthenticatedUser): boolean {
 }
 
 /**
+ * Can the user upload a document targeted at this specific course?
+ *
+ * - Admins can upload anywhere.
+ * - Lecturers can upload only to courses they teach (enrolled with role
+ *   "lecturer" in that course).
+ * - Course-less uploads (e.g. cross-course resources) require admin OR a
+ *   user who already has any lecturer enrollment — a plain "lecturer"
+ *   role alone is not enough.
+ * - Students cannot upload.
+ */
+export function canUploadToCourse(
+  user: AuthenticatedUser,
+  courseId: string | null | undefined,
+): boolean {
+  if (isAdmin(user)) return true;
+  if (!hasRole(user, "lecturer")) return false;
+  if (courseId) return isLecturerForCourse(user, courseId);
+  // No course → must teach at least one course to upload cross-course material.
+  return lecturerCourseIds(user).length > 0;
+}
+
+/**
  * Can the user fulfil (or close) a material request? If the request is
  * scoped to a course, lecturers must teach that course.
  */

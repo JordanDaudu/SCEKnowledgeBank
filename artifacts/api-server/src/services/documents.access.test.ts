@@ -119,10 +119,10 @@ describe("documents.service.listRecentForUser filters by canView", () => {
   it("drops restricted docs the user can no longer view", async () => {
     listRecentIds.mockResolvedValueOnce(["d1", "d2", "d3"]);
     findManyByIdsAlive.mockResolvedValueOnce([
-      doc({ visibility: "public", courseId: null }) as never,
-      doc({ visibility: "restricted", courseId: "c-B" }) as never, // not enrolled
-      doc({ visibility: "restricted", courseId: "c-A" }) as never, // enrolled
-    ].map((d, i) => ({ ...d, id: `d${i + 1}` })));
+      { ...doc({ visibility: "public", courseId: null }), id: "d1" } as never,
+      { ...doc({ visibility: "restricted", courseId: "c-B" }), id: "d2" } as never,
+      { ...doc({ visibility: "restricted", courseId: "c-A" }), id: "d3" } as never,
+    ]);
     const items = await listRecentForUser(student, 10);
     expect(items.map((i) => i.id).sort()).toEqual(["d1", "d3"]);
   });
@@ -130,9 +130,9 @@ describe("documents.service.listRecentForUser filters by canView", () => {
   it("admin sees everything in recents", async () => {
     listRecentIds.mockResolvedValueOnce(["d1", "d2"]);
     findManyByIdsAlive.mockResolvedValueOnce([
-      doc({ visibility: "private", courseId: null, uploaderId: "x", ownerId: "y" }) as never,
-      doc({ visibility: "restricted", courseId: "c-X" }) as never,
-    ].map((d, i) => ({ ...d, id: `d${i + 1}` })));
+      { ...doc({ visibility: "private", courseId: null, uploaderId: "x", ownerId: "y" }), id: "d1" } as never,
+      { ...doc({ visibility: "restricted", courseId: "c-X" }), id: "d2" } as never,
+    ]);
     const items = await listRecentForUser(admin, 10);
     expect(items).toHaveLength(2);
   });
