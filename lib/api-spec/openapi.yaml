@@ -29,11 +29,44 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
 
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Public registration for student / lecturer accounts
+      description: >-
+        Admin self-registration is impossible: `role` is constrained to
+        `student | lecturer`. Students are created `ACTIVE` and a
+        session cookie is set in the response. Lecturers are created
+        `PENDING_APPROVAL` and no session is established until an
+        admin approves them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegisterResponse" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
   /auth/login:
     post:
       operationId: login
       tags: [auth]
-      summary: Demo login
+      summary: Status-aware login
       requestBody:
         required: true
         content:
@@ -47,6 +80,11 @@ paths:
               schema: { $ref: "#/components/schemas/CurrentUser" }
         "401":
           description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: Account disabled or pending admin approval
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
@@ -106,6 +144,18 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DocumentPage" }
+
+  /storage/quota/me:
+    get:
+      operationId: getMyStorageQuota
+      tags: [storage]
+      summary: Storage usage and quota for the authenticated user
+      responses:
+        "200":
+          description: Quota snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StorageQuota" }
 
   /documents/upload:
     post:
@@ -215,6 +265,31 @@ paths:
         - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
       responses:
         "204": { description: Deleted }
+
+  /documents/{id}/thumbnail:
+    get:
+      operationId: getDocumentThumbnail
+      tags: [documents]
+      summary: Stream a server-generated thumbnail (signed-URL pathway)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Thumbnail bytes
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "404":
+          description: No thumbnail for this document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
 
   /documents/{id}/preview-token:
     get:
@@ -450,6 +525,107 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/UserSummary" }
 
+  /users/pending-lecturers:
+    get:
+      operationId: listPendingLecturers
+      tags: [users]
+      summary: Admin-only list of lecturers awaiting approval
+      responses:
+        "200":
+          description: Pending lecturers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+
+  /users/{id}/approve:
+    post:
+      operationId: approveUser
+      tags: [users]
+      summary: Admin-only approve a pending lecturer
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
+  /users/{id}/disable:
+    post:
+      operationId: disableUser
+      tags: [users]
+      summary: Admin-only disable any user
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
+  /admin/users/pending-lecturers:
+    get:
+      operationId: adminListPendingLecturers
+      tags: [users]
+      summary: Admin alias for /users/pending-lecturers
+      responses:
+        "200":
+          description: Pending lecturers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+
+  /admin/users/{userId}/approve:
+    post:
+      operationId: adminApproveUser
+      tags: [users]
+      summary: Admin alias for /users/{id}/approve
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
+  /admin/users/{userId}/disable:
+    post:
+      operationId: adminDisableUser
+      tags: [users]
+      summary: Admin alias for /users/{id}/disable
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
+  /users/search:
+    get:
+      operationId: searchUsers
+      tags: [users]
+      summary: Autocomplete-style user search for the @mention picker
+      parameters:
+        - { in: query, name: q, required: true, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 8 } }
+      responses:
+        "200":
+          description: Matching users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+
 components:
   schemas:
     HealthStatus:
@@ -491,7 +667,7 @@ components:
 
     UserSummary:
       type: object
-      required: [id, email, displayName, roles, isActive, createdAt]
+      required: [id, email, displayName, roles, isActive, status, createdAt]
       properties:
         id: { type: string, format: uuid }
         email: { type: string }
@@ -500,7 +676,47 @@ components:
           type: array
           items: { type: string }
         isActive: { type: boolean }
+        status:
+          type: string
+          enum: [ACTIVE, PENDING_APPROVAL, DISABLED]
         createdAt: { type: string, format: date-time }
+
+    RegisterRequest:
+      type: object
+      required: [fullName, email, password, confirmPassword, role]
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 120 }
+        email: { type: string, minLength: 1, maxLength: 254 }
+        password: { type: string, minLength: 8, maxLength: 200 }
+        confirmPassword: { type: string, minLength: 8, maxLength: 200 }
+        role:
+          type: string
+          enum: [student, lecturer]
+        studentId: { type: string, maxLength: 64 }
+        lecturerId: { type: string, maxLength: 64 }
+        department: { type: string, maxLength: 120 }
+        enrolledCourseIds:
+          type: array
+          items: { type: string, format: uuid }
+        teachingCourseIds:
+          type: array
+          items: { type: string, format: uuid }
+
+    RegisterResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, PENDING_APPROVAL]
+        message: { type: string }
+        user:
+          oneOf:
+            - { $ref: "#/components/schemas/CurrentUser" }
+            - { type: "null" }
+          description: >-
+            Present (and the session cookie is set) when the user was
+            auto-logged-in. Null for lecturers awaiting admin approval.
 
     Course:
       type: object
@@ -542,6 +758,7 @@ components:
         - viewCount
         - commentCount
         - tags
+        - permissions
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -562,6 +779,36 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Tag" }
         file: { $ref: "#/components/schemas/DocumentFileMeta" }
+        thumbnailUrl:
+          type: string
+          description: >-
+            Signed URL to a server-generated thumbnail when one exists.
+            Issued by `assembleDocuments` after visibility checks; goes
+            through the same signed-URL pathway as preview/download.
+        fallbackIconType:
+          type: string
+          enum: [pdf, image, doc, slides, sheet, text, archive, unknown]
+          description: >-
+            Generic icon bucket the client renders when no thumbnail is
+            available. Derived from the latest file's MIME type.
+        permissions:
+          $ref: "#/components/schemas/DocumentPermissions"
+
+    DocumentPermissions:
+      type: object
+      description: >-
+        Server-computed permission flags for the requesting user
+        against this document. The frontend MUST use these flags
+        (rather than role/uploader heuristics) to gate UI affordances
+        — they encode the same course-aware logic the API enforces on
+        write paths.
+      required: [canView, canEdit, canDelete, canDownload, canComment]
+      properties:
+        canView: { type: boolean }
+        canEdit: { type: boolean }
+        canDelete: { type: boolean }
+        canDownload: { type: boolean }
+        canComment: { type: boolean }
 
     DocumentDetail:
       allOf:
@@ -569,14 +816,38 @@ components:
 
     DocumentFileMeta:
       type: object
-      required: [id, originalFilename, mimeType, sizeBytes, uploadedAt]
+      required: [id, originalFilename, displayFilename, mimeType, sizeBytes, uploadedAt]
       properties:
         id: { type: string, format: uuid }
-        originalFilename: { type: string }
+        originalFilename:
+          type: string
+          description: The exact filename as the user uploaded it.
+        displayFilename:
+          type: string
+          description: The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. "notes (2).pdf". Use this for the rename notice.
         mimeType: { type: string }
         sizeBytes: { type: integer }
         uploadedAt: { type: string, format: date-time }
         checksum: { type: string }
+        extractedMetadata:
+          $ref: "#/components/schemas/ExtractedFileMetadata"
+
+    ExtractedFileMetadata:
+      type: object
+      required: [hasExtractedText]
+      description: >-
+        Server-side metadata pulled from the uploaded file on ingest
+        (task #27). Every field is optional — extraction may fail
+        per-file without failing the upload.
+      properties:
+        pageCount: { type: integer, minimum: 0 }
+        detectedTitle: { type: string }
+        author: { type: string }
+        imageWidth: { type: integer, minimum: 0 }
+        imageHeight: { type: integer, minimum: 0 }
+        hasExtractedText:
+          type: boolean
+          description: True when extracted text exists for full-text search (task #28).
 
     DocumentSuggestion:
       type: object
@@ -630,7 +901,40 @@ components:
         success: { type: boolean }
         document: { $ref: "#/components/schemas/Document" }
         error: { type: string }
-        errorCode: { type: string }
+        errorCode:
+          type: string
+          description: >-
+            Machine-readable failure reason. Known values:
+            `disallowed_mime`, `mime_mismatch`, `storage_quota_exceeded`,
+            `duplicate_file`, `upload_failed`.
+        duplicateOfDocumentId:
+          type: string
+          format: uuid
+          description: >-
+            Set when `errorCode === "duplicate_file"` — id of the existing
+            document this upload matched by SHA-256.
+        duplicateOfTitle:
+          type: string
+          description: >-
+            Set when `errorCode === "duplicate_file"` — title of the
+            existing document this upload matched by SHA-256.
+
+    StorageQuota:
+      type: object
+      required: [usedBytes, quotaBytes, remainingBytes]
+      properties:
+        usedBytes:
+          type: integer
+          format: int64
+          description: Bytes currently used by this user.
+        quotaBytes:
+          type: integer
+          format: int64
+          description: Effective quota in bytes (per-user override or server default).
+        remainingBytes:
+          type: integer
+          format: int64
+          description: Non-negative remainder; clamped to zero when usedBytes exceeds quotaBytes.
 
     SignedTokenResponse:
       type: object
@@ -642,7 +946,7 @@ components:
 
     Comment:
       type: object
-      required: [id, documentId, body, author, createdAt, replies]
+      required: [id, documentId, body, author, createdAt, replies, mentions]
       properties:
         id: { type: string, format: uuid }
         documentId: { type: string, format: uuid }
@@ -655,6 +959,14 @@ components:
         replies:
           type: array
           items: { $ref: "#/components/schemas/Comment" }
+        mentions:
+          type: array
+          description: >-
+            Users mentioned in the comment body via `@displayName` or
+            `@[uuid]` tokens. Unresolved tokens are silently dropped on
+            write — they remain plain text in `body` but produce no
+            entry here.
+          items: { $ref: "#/components/schemas/UserSummary" }
 
     CreateCommentRequest:
       type: object

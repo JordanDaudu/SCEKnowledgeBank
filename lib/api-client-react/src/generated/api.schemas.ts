@@ -34,13 +34,78 @@ export interface CurrentUser {
   roles: string[];
 }
 
+export type UserSummaryStatus =
+  (typeof UserSummaryStatus)[keyof typeof UserSummaryStatus];
+
+export const UserSummaryStatus = {
+  ACTIVE: "ACTIVE",
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  DISABLED: "DISABLED",
+} as const;
+
 export interface UserSummary {
   id: string;
   email: string;
   displayName: string;
   roles: string[];
   isActive: boolean;
+  status: UserSummaryStatus;
   createdAt: string;
+}
+
+export type RegisterRequestRole =
+  (typeof RegisterRequestRole)[keyof typeof RegisterRequestRole];
+
+export const RegisterRequestRole = {
+  student: "student",
+  lecturer: "lecturer",
+} as const;
+
+export interface RegisterRequest {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  fullName: string;
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
+  email: string;
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  password: string;
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  confirmPassword: string;
+  role: RegisterRequestRole;
+  /** @maxLength 64 */
+  studentId?: string;
+  /** @maxLength 64 */
+  lecturerId?: string;
+  /** @maxLength 120 */
+  department?: string;
+  enrolledCourseIds?: string[];
+  teachingCourseIds?: string[];
+}
+
+export type RegisterResponseStatus =
+  (typeof RegisterResponseStatus)[keyof typeof RegisterResponseStatus];
+
+export const RegisterResponseStatus = {
+  ACTIVE: "ACTIVE",
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+} as const;
+
+export interface RegisterResponse {
+  status: RegisterResponseStatus;
+  message: string;
+  /** Present (and the session cookie is set) when the user was auto-logged-in. Null for lecturers awaiting admin approval. */
+  user?: CurrentUser | null;
 }
 
 export interface Course {
@@ -89,13 +154,61 @@ export const DocumentStatus = {
   archived: "archived",
 } as const;
 
+/**
+ * Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.
+ */
+export type DocumentFallbackIconType =
+  (typeof DocumentFallbackIconType)[keyof typeof DocumentFallbackIconType];
+
+export const DocumentFallbackIconType = {
+  pdf: "pdf",
+  image: "image",
+  doc: "doc",
+  slides: "slides",
+  sheet: "sheet",
+  text: "text",
+  archive: "archive",
+  unknown: "unknown",
+} as const;
+
+/**
+ * Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.
+ */
+export interface ExtractedFileMetadata {
+  /** @minimum 0 */
+  pageCount?: number;
+  detectedTitle?: string;
+  author?: string;
+  /** @minimum 0 */
+  imageWidth?: number;
+  /** @minimum 0 */
+  imageHeight?: number;
+  /** True when extracted text exists for full-text search (task */
+  hasExtractedText: boolean;
+}
+
 export interface DocumentFileMeta {
   id: string;
+  /** The exact filename as the user uploaded it. */
   originalFilename: string;
+  /** The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. "notes (2).pdf". Use this for the rename notice. */
+  displayFilename: string;
   mimeType: string;
   sizeBytes: number;
   uploadedAt: string;
   checksum?: string;
+  extractedMetadata?: ExtractedFileMetadata;
+}
+
+/**
+ * Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.
+ */
+export interface DocumentPermissions {
+  canView: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canDownload: boolean;
+  canComment: boolean;
 }
 
 export interface Document {
@@ -116,6 +229,11 @@ export interface Document {
   commentCount: number;
   tags: Tag[];
   file?: DocumentFileMeta;
+  /** Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview/download. */
+  thumbnailUrl?: string;
+  /** Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type. */
+  fallbackIconType?: DocumentFallbackIconType;
+  permissions: DocumentPermissions;
 }
 
 export type DocumentDetail = Document;
@@ -179,11 +297,25 @@ export interface UploadFileResult {
   success: boolean;
   document?: Document;
   error?: string;
+  /** Machine-readable failure reason. Known values: `disallowed_mime`, `mime_mismatch`, `storage_quota_exceeded`, `duplicate_file`, `upload_failed`. */
   errorCode?: string;
+  /** Set when `errorCode === "duplicate_file"` — id of the existing document this upload matched by SHA-256. */
+  duplicateOfDocumentId?: string;
+  /** Set when `errorCode === "duplicate_file"` — title of the existing document this upload matched by SHA-256. */
+  duplicateOfTitle?: string;
 }
 
 export interface UploadResult {
   results: UploadFileResult[];
+}
+
+export interface StorageQuota {
+  /** Bytes currently used by this user. */
+  usedBytes: number;
+  /** Effective quota in bytes (per-user override or server default). */
+  quotaBytes: number;
+  /** Non-negative remainder; clamped to zero when usedBytes exceeds quotaBytes. */
+  remainingBytes: number;
 }
 
 export interface SignedTokenResponse {
@@ -203,6 +335,8 @@ export interface Comment {
   createdAt: string;
   editedAt?: string;
   replies: Comment[];
+  /** Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here. */
+  mentions: UserSummary[];
 }
 
 export interface CreateCommentRequest {
@@ -359,6 +493,10 @@ export type DocumentSuggestionsParams = {
   limit?: number;
 };
 
+export type GetDocumentThumbnailParams = {
+  token: string;
+};
+
 export type PreviewDocumentParams = {
   token: string;
 };
@@ -380,3 +518,16 @@ export const ListRequestsStatus = {
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
+
+export type SearchUsersParams = {
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  q: string;
+  /**
+   * @minimum 1
+   * @maximum 20
+   */
+  limit?: number;
+};

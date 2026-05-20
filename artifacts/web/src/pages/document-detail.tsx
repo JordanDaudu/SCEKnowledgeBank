@@ -1,52 +1,60 @@
 import { useParams, useLocation } from "wouter";
 import {
   useGetDocument,
-  type DocumentDetail as DocumentDetailDto,
   useGetDocumentPreviewToken,
   getDocumentDownloadToken,
-  useListDocumentComments,
-  useCreateDocumentComment,
-  useDeleteComment,
-  useUpdateComment,
   useUpdateDocument,
   useDeleteDocument,
   useGetCurrentUser,
-  useListCourses,
-  useListCategories,
-  useListTags,
   getGetDocumentQueryKey,
   getGetDocumentPreviewTokenQueryKey,
-  getListDocumentCommentsQueryKey,
-  type UpdateDocumentRequest,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { formatDateTime, formatBytes } from "@/lib/format";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  FileText, Download, Clock, User, MessageSquare, Trash2, Reply, Edit, FileQuestion, Hash, X,
-} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api-url";
+import PreviewPanel from "@/components/document-detail/PreviewPanel";
+import MetadataPanel from "@/components/document-detail/MetadataPanel";
+import EditMetadataModal from "@/components/document-detail/EditMetadataModal";
+import CommentsThread from "@/components/document-detail/CommentsThread";
 
-type Visibility = NonNullable<UpdateDocumentRequest["visibility"]>;
-type Semester = NonNullable<UpdateDocumentRequest["semester"]>;
+// Recently-viewed history is server-backed (task #29): visiting a
+// document calls `GET /documents/:id`, which records a row in
+// `view_history` via the documents service. `RecentlyViewedStrip`
+// reads from `/documents/recent`, so this page no longer needs to
+// mirror anything into `localStorage` — the API is the source of
+// truth, and `localStorage` only survives as the strip's offline
+// fallback.
+const RECENTLY_VIEWED_KEY = "kb:recently-viewed";
+const RECENTLY_VIEWED_CAP = 8;
 
-const MATERIAL_TYPES = [
-  "lecture-notes", "problem-set", "exam", "syllabus", "slides", "project-report", "textbook",
-];
+interface RecentItem {
+  id: string;
+  title: string;
+}
+
+/**
+ * Best-effort write to the offline fallback used by
+ * `RecentlyViewedStrip` when `/documents/recent` errors. Never the
+ * source of truth.
+ */
+function appendRecentlyViewedFallback(item: RecentItem) {
+  try {
+    const raw = localStorage.getItem(RECENTLY_VIEWED_KEY);
+    const list: RecentItem[] = raw ? JSON.parse(raw) : [];
+    const filtered = Array.isArray(list)
+      ? list.filter(
+          (it): it is RecentItem =>
+            it && typeof it.id === "string" && typeof it.title === "string" && it.id !== item.id,
+        )
+      : [];
+    const next = [item, ...filtered].slice(0, RECENTLY_VIEWED_CAP);
+    localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
 
 function isPreviewableInIframe(mime: string | undefined): boolean {
   if (!mime) return false;
@@ -77,126 +85,32 @@ export default function DocumentDetail() {
     },
   });
 
-  const { data: comments, isLoading: isCommentsLoading } = useListDocumentComments(id, {
-    query: { enabled: !!id, queryKey: getListDocumentCommentsQueryKey(id) },
-  });
-
-  const commentMutation = useCreateDocumentComment();
-  const deleteCommentMutation = useDeleteComment();
-  const updateCommentMutation = useUpdateComment();
   const updateDocMutation = useUpdateDocument();
   const deleteDocMutation = useDeleteDocument();
 
-  const [commentBody, setCommentBody] = useState("");
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [pageNumber, setPageNumber] = useState<string>("");
   const [editOpen, setEditOpen] = useState(false);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editBody, setEditBody] = useState("");
-  const [editPageNumber, setEditPageNumber] = useState<string>("");
 
-  const isAdmin = user?.roles?.includes("admin");
-  const isUploader = user?.id === doc?.uploader?.id;
-  const canEdit = isAdmin || isUploader;
+  // Sprint-2 audit: gate UI off the server-issued permission flags
+  // rather than a role/uploader heuristic. The server is the source of
+  // truth (course-aware, restricted-visibility-aware) — guessing on the
+  // client risks showing affordances the API will refuse, or hiding
+  // affordances the user actually has via course membership.
+  const canEdit = !!doc?.permissions?.canEdit;
+  const canDelete = !!doc?.permissions?.canDelete;
+
+  // Persist this document into the recently-viewed list (read by browse page)
+  useEffect(() => {
+    if (!doc) return;
+    appendRecentlyViewedFallback({ id: doc.id, title: doc.title });
+  }, [doc]);
 
   const handleDownload = async () => {
     try {
       const data = await getDocumentDownloadToken(id);
-      window.open(data.url, "_blank");
+      window.open(apiUrl(data.url), "_blank");
     } catch {
       toast({ variant: "destructive", title: "Download failed", description: "Could not generate download link." });
     }
-  };
-
-  const handleCommentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentBody.trim()) return;
-
-    const parsedPage = pageNumber ? Number(pageNumber) : undefined;
-    if (parsedPage != null && (!Number.isFinite(parsedPage) || parsedPage < 1)) {
-      toast({ variant: "destructive", title: "Invalid page", description: "Page number must be 1 or greater." });
-      return;
-    }
-
-    commentMutation.mutate({
-      id,
-      data: {
-        body: commentBody,
-        parentId: replyingTo || undefined,
-        pageNumber: parsedPage,
-      },
-    }, {
-      onSuccess: () => {
-        setCommentBody("");
-        setReplyingTo(null);
-        setPageNumber("");
-        queryClient.invalidateQueries({ queryKey: getListDocumentCommentsQueryKey(id) });
-        toast({ title: "Comment posted" });
-      },
-    });
-  };
-
-  const handleStartEdit = (c: { id: string; body: string; pageNumber?: number }) => {
-    setEditingCommentId(c.id);
-    setEditBody(c.body);
-    setEditPageNumber(c.pageNumber != null ? String(c.pageNumber) : "");
-  };
-
-  const handleCancelEdit = () => {
-    setEditingCommentId(null);
-    setEditBody("");
-    setEditPageNumber("");
-  };
-
-  const handleSaveEdit = (commentId: string) => {
-    if (!editBody.trim()) {
-      toast({ variant: "destructive", title: "Comment cannot be empty" });
-      return;
-    }
-    const trimmed = editPageNumber.trim();
-    let pageValue: number | null;
-    if (trimmed === "") {
-      pageValue = null;
-    } else {
-      const n = Number(trimmed);
-      if (!Number.isFinite(n) || n < 1) {
-        toast({ variant: "destructive", title: "Invalid page", description: "Page number must be 1 or greater." });
-        return;
-      }
-      pageValue = n;
-    }
-    const data: { body: string; pageNumber: number | null } = {
-      body: editBody.trim(),
-      pageNumber: pageValue,
-    };
-    updateCommentMutation.mutate(
-      { commentId, data },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListDocumentCommentsQueryKey(id) });
-          handleCancelEdit();
-          toast({ title: "Comment updated" });
-        },
-        onError: (err) => {
-          const data = (err as { data?: { error?: { message?: string } } })?.data;
-          toast({
-            variant: "destructive",
-            title: "Update failed",
-            description: data?.error?.message || (err as Error)?.message,
-          });
-        },
-      },
-    );
-  };
-
-  const handleDeleteComment = (commentId: string) => {
-    if (!confirm("Delete this comment?")) return;
-    deleteCommentMutation.mutate({ commentId }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListDocumentCommentsQueryKey(id) });
-        toast({ title: "Comment deleted" });
-      },
-    });
   };
 
   const handleDeleteDoc = () => {
@@ -232,387 +146,37 @@ export default function DocumentDetail() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Left Column: Preview */}
       <div className="lg:col-span-2 space-y-6">
-        <div className="bg-card border rounded-xl overflow-hidden shadow-sm flex flex-col h-[700px]">
-          <div className="border-b p-3 bg-muted/30 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <FileText className="h-4 w-4 text-primary" />
-              {doc.file?.originalFilename || "Document Preview"}
-            </div>
-            {doc.file && (
-              <div className="text-xs text-muted-foreground flex gap-3">
-                <span>{formatBytes(doc.file.sizeBytes)}</span>
-                <span className="uppercase">{doc.file.mimeType.split("/").pop()}</span>
-              </div>
-            )}
-          </div>
-          <div className="flex-1 bg-secondary/20 relative">
-            {!canIframe ? (
-              <div
-                className="absolute inset-0 flex flex-col items-center justify-center text-center p-8"
-                data-testid="preview-unavailable"
-              >
-                <div className="bg-secondary p-4 rounded-full mb-4">
-                  <FileQuestion className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <h3 className="font-serif font-semibold text-lg mb-1">Preview unavailable</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mb-6">
-                  {mime
-                    ? `In-browser preview is not supported for ${mime}.`
-                    : "This file type cannot be previewed in the browser."}
-                  {" "}Download the file to view its contents.
-                </p>
-                <Button onClick={handleDownload}>
-                  <Download className="mr-2 h-4 w-4" /> Download file
-                </Button>
-              </div>
-            ) : isPreviewLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Skeleton className="w-full h-full" />
-              </div>
-            ) : previewToken?.url ? (
-              <iframe
-                src={previewToken.url}
-                className="w-full h-full border-0"
-                title="Document Preview"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                Preview not available
-              </div>
-            )}
-          </div>
-        </div>
+        <PreviewPanel
+          doc={doc}
+          previewUrl={previewToken?.url}
+          isPreviewLoading={isPreviewLoading}
+          onDownload={handleDownload}
+        />
       </div>
 
       {/* Right Column: Metadata & Comments */}
       <div className="space-y-6">
-        <div>
-          <div className="flex justify-between items-start mb-2 gap-2">
-            <h1 className="text-2xl font-serif font-bold">{doc.title}</h1>
-            {canEdit && (
-              <div className="flex gap-1 ml-2 shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditOpen(true)}
-                  data-testid="edit-metadata-trigger"
-                  aria-label="Edit metadata"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleToggleStatus} disabled={updateDocMutation.isPending}>
-                  {doc.status === "published" ? "Archive" : "Publish"}
-                </Button>
-                <Button variant="destructive" size="sm" onClick={handleDeleteDoc} disabled={deleteDocMutation.isPending} aria-label="Delete">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {doc.status !== "published" && <Badge variant="destructive">{doc.status}</Badge>}
-            {doc.course && <Badge variant="secondary" className="font-mono">{doc.course.code}</Badge>}
-            <Badge variant="outline" className="capitalize">{doc.materialType.replace("-", " ")}</Badge>
-            {doc.semester && <Badge variant="outline" className="capitalize">{doc.semester} {doc.academicYear}</Badge>}
-            {doc.tags?.map((t) => <Badge key={t.id} variant="secondary" className="opacity-70">{t.name}</Badge>)}
-          </div>
-          <p className="text-muted-foreground text-sm mb-6">{doc.description}</p>
+        <MetadataPanel
+          doc={doc}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          onEdit={() => setEditOpen(true)}
+          onToggleStatus={handleToggleStatus}
+          onDelete={handleDeleteDoc}
+          onDownload={handleDownload}
+          isStatusUpdating={updateDocMutation.isPending}
+          isDeleting={deleteDocMutation.isPending}
+        />
 
-          <div className="flex items-center justify-between text-sm text-muted-foreground mb-6 pb-6 border-b">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1"><User className="h-3 w-3" /> {doc.uploader.displayName}</div>
-              <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDateTime(doc.createdAt)}</div>
-            </div>
-          </div>
-
-          <Button className="w-full mb-8" size="lg" onClick={handleDownload}>
-            <Download className="mr-2 h-4 w-4" /> Download Material
-          </Button>
-        </div>
-
-        {/* Comments Section */}
-        <div>
-          <h3 className="font-serif font-semibold text-lg flex items-center gap-2 mb-4">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            Discussion ({doc.commentCount})
-          </h3>
-
-          <form onSubmit={handleCommentSubmit} className="mb-6 space-y-3">
-            {replyingTo && (
-              <div className="flex justify-between items-center text-xs bg-secondary px-3 py-1.5 rounded-md">
-                <span>Replying to comment</span>
-                <Button variant="ghost" size="sm" className="h-auto p-0" onClick={() => setReplyingTo(null)}>Cancel</Button>
-              </div>
-            )}
-            <Textarea
-              placeholder="Add your thoughts or ask a question..."
-              value={commentBody}
-              onChange={(e) => setCommentBody(e.target.value)}
-              className="resize-none"
-              rows={3}
-            />
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              {isPdf ? (
-                <div className="flex items-center gap-2">
-                  <label htmlFor="comment-page" className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Hash className="h-3 w-3" /> Pin to page
-                  </label>
-                  <Input
-                    id="comment-page"
-                    type="number"
-                    min={1}
-                    value={pageNumber}
-                    onChange={(e) => setPageNumber(e.target.value)}
-                    placeholder="optional"
-                    className="h-8 w-24"
-                    data-testid="comment-page-input"
-                  />
-                  {pageNumber && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setPageNumber("")}
-                      aria-label="Clear page"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <span />
-              )}
-              <Button type="submit" disabled={commentMutation.isPending || !commentBody.trim()}>
-                Post Comment
-              </Button>
-            </div>
-          </form>
-
-          <div className="space-y-4">
-            {isCommentsLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : comments?.map((comment) => {
-              const canModify = isAdmin || user?.id === comment.author.id;
-              const isEditing = editingCommentId === comment.id;
-              return (
-              <div key={comment.id} className="bg-card border rounded-lg p-4 shadow-sm" data-testid={`comment-${comment.id}`}>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                      {comment.author.displayName.charAt(0)}
-                    </div>
-                    <span className="text-sm font-medium">{comment.author.displayName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateTime(comment.createdAt)}
-                      {comment.editedAt && <span className="italic ml-1" data-testid="comment-edited-marker">(edited)</span>}
-                    </span>
-                    {comment.pageNumber != null && !isEditing && (
-                      <Badge variant="outline" className="gap-1 text-xs">
-                        <Hash className="h-3 w-3" /> p.{comment.pageNumber}
-                      </Badge>
-                    )}
-                  </div>
-                  {!isEditing && (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(comment.id)} aria-label="Reply">
-                        <Reply className="h-3 w-3" />
-                      </Button>
-                      {canModify && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleStartEdit(comment)}
-                            data-testid={`edit-comment-${comment.id}`}
-                            aria-label="Edit comment"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteComment(comment.id)}
-                            aria-label="Delete comment"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {isEditing ? (
-                  <div className="space-y-3 pl-8">
-                    <Textarea
-                      value={editBody}
-                      onChange={(e) => setEditBody(e.target.value)}
-                      className="resize-none"
-                      rows={3}
-                      data-testid={`edit-comment-textarea-${comment.id}`}
-                    />
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      {isPdf ? (
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Hash className="h-3 w-3" /> Pin to page
-                          </label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={editPageNumber}
-                            onChange={(e) => setEditPageNumber(e.target.value)}
-                            placeholder="optional"
-                            className="h-8 w-24"
-                            data-testid={`edit-comment-page-input-${comment.id}`}
-                          />
-                          {editPageNumber && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => setEditPageNumber("")}
-                              aria-label="Clear page"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <span />
-                      )}
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSaveEdit(comment.id)}
-                          disabled={updateCommentMutation.isPending || !editBody.trim()}
-                          data-testid={`save-comment-${comment.id}`}
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm pl-8 whitespace-pre-wrap">{comment.body}</p>
-                )}
-
-                {/* Nested Replies */}
-                {comment.replies && comment.replies.length > 0 && (
-                  <div className="mt-4 pl-4 border-l-2 ml-4 space-y-4">
-                    {comment.replies.map((reply) => {
-                      const canModifyReply = isAdmin || user?.id === reply.author.id;
-                      const isEditingReply = editingCommentId === reply.id;
-                      return (
-                      <div key={reply.id} data-testid={`comment-${reply.id}`}>
-                        <div className="flex justify-between items-start mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{reply.author.displayName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDateTime(reply.createdAt)}
-                              {reply.editedAt && <span className="italic ml-1" data-testid="comment-edited-marker">(edited)</span>}
-                            </span>
-                          </div>
-                          {!isEditingReply && canModifyReply && (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5"
-                                onClick={() => handleStartEdit(reply)}
-                                data-testid={`edit-comment-${reply.id}`}
-                                aria-label="Edit reply"
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 text-destructive"
-                                onClick={() => handleDeleteComment(reply.id)}
-                                aria-label="Delete reply"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        {isEditingReply ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={editBody}
-                              onChange={(e) => setEditBody(e.target.value)}
-                              className="resize-none"
-                              rows={2}
-                              data-testid={`edit-comment-textarea-${reply.id}`}
-                            />
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              {isPdf ? (
-                                <div className="flex items-center gap-2">
-                                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <Hash className="h-3 w-3" /> Pin to page
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    value={editPageNumber}
-                                    onChange={(e) => setEditPageNumber(e.target.value)}
-                                    placeholder="optional"
-                                    className="h-8 w-24"
-                                    data-testid={`edit-comment-page-input-${reply.id}`}
-                                  />
-                                  {editPageNumber && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={() => setEditPageNumber("")}
-                                      aria-label="Clear page"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </div>
-                              ) : (
-                                <span />
-                              )}
-                              <div className="flex gap-2">
-                                <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancel</Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSaveEdit(reply.id)}
-                                  disabled={updateCommentMutation.isPending || !editBody.trim()}
-                                  data-testid={`save-comment-${reply.id}`}
-                                >
-                                  Save
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{reply.body}</p>
-                        )}
-                      </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              );
-            })}
-          </div>
-        </div>
+        <CommentsThread
+          documentId={id}
+          commentCount={doc.commentCount}
+          isPdf={isPdf}
+        />
       </div>
 
       {canEdit && (
-        <EditMetadataDialog
+        <EditMetadataModal
           open={editOpen}
           onOpenChange={setEditOpen}
           docId={id}
@@ -620,223 +184,5 @@ export default function DocumentDetail() {
         />
       )}
     </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────── Edit Dialog
-function EditMetadataDialog({
-  open,
-  onOpenChange,
-  docId,
-  doc,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  docId: string;
-  doc: DocumentDetailDto;
-}) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: courses } = useListCourses();
-  const { data: categories } = useListCategories();
-  const { data: tags } = useListTags();
-  const updateDocMutation = useUpdateDocument();
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [courseId, setCourseId] = useState<string>("");
-  const [categoryId, setCategoryId] = useState<string>("none");
-  const [materialType, setMaterialType] = useState<string>("");
-  const [tagIds, setTagIds] = useState<string[]>([]);
-  const [visibility, setVisibility] = useState<Visibility>("public");
-  const [semester, setSemester] = useState<Semester | "">("");
-  const [academicYear, setAcademicYear] = useState<string>("");
-
-  // Reset form whenever the dialog opens for a (possibly refreshed) doc
-  useEffect(() => {
-    if (!open || !doc) return;
-    setTitle(doc.title);
-    setDescription(doc.description ?? "");
-    setCourseId(doc.course?.id ?? "");
-    setCategoryId(doc.category?.id ?? "none");
-    setMaterialType(doc.materialType);
-    setTagIds(doc.tags?.map((t) => t.id) ?? []);
-    setVisibility(doc.visibility);
-    setSemester(doc.semester ?? "");
-    setAcademicYear(doc.academicYear != null ? String(doc.academicYear) : "");
-  }, [open, doc]);
-
-  const toggleTag = (id: string) =>
-    setTagIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
-
-  const handleSave = () => {
-    if (!title.trim()) {
-      toast({ variant: "destructive", title: "Title required" });
-      return;
-    }
-    const body: UpdateDocumentRequest = {
-      title: title.trim(),
-      description: description.trim(),
-      courseId: courseId || undefined,
-      categoryId: categoryId === "none" ? undefined : categoryId,
-      materialType,
-      semester: (semester || undefined) as UpdateDocumentRequest["semester"],
-      academicYear: academicYear ? Number(academicYear) : undefined,
-      visibility,
-      tagIds,
-    };
-
-    updateDocMutation.mutate(
-      { id: docId, data: body },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(docId) });
-          toast({ title: "Document updated" });
-          onOpenChange(false);
-        },
-        onError: (err) => {
-          const data = (err as { data?: { error?: { message?: string } } })?.data;
-          toast({
-            variant: "destructive",
-            title: "Update failed",
-            description: data?.error?.message || (err as Error)?.message,
-          });
-        },
-      },
-    );
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="edit-metadata-dialog">
-        <DialogHeader>
-          <DialogTitle>Edit document metadata</DialogTitle>
-          <DialogDescription>
-            Update the title, description, classification and visibility of this document.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Title</label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Course</label>
-              <Select value={courseId} onValueChange={setCourseId}>
-                <SelectTrigger><SelectValue placeholder="Select course" /></SelectTrigger>
-                <SelectContent>
-                  {courses?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {categories?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Material type</label>
-              <Select value={materialType} onValueChange={setMaterialType}>
-                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                <SelectContent>
-                  {MATERIAL_TYPES.map((t) => (
-                    <SelectItem key={t} value={t} className="capitalize">{t.replace("-", " ")}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Visibility</label>
-              <Select value={visibility} onValueChange={(v) => setVisibility(v as Visibility)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public (Everyone)</SelectItem>
-                  <SelectItem value="restricted">Restricted (Enrolled only)</SelectItem>
-                  <SelectItem value="private">Private (Only me)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Semester</label>
-              <Select
-                value={semester || "none"}
-                onValueChange={(v) => setSemester(v === "none" ? "" : (v as Semester))}
-              >
-                <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="fall">Fall</SelectItem>
-                  <SelectItem value="spring">Spring</SelectItem>
-                  <SelectItem value="summer">Summer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Academic year</label>
-              <Input
-                type="number"
-                value={academicYear}
-                onChange={(e) => setAcademicYear(e.target.value)}
-                placeholder="e.g. 2024"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Tags</label>
-            <div className="flex flex-wrap gap-2">
-              {tags?.length ? tags.map((tag) => (
-                <Badge
-                  key={tag.id}
-                  variant={tagIds.includes(tag.id) ? "default" : "outline"}
-                  className="cursor-pointer"
-                  onClick={() => toggleTag(tag.id)}
-                >
-                  {tag.name}
-                </Badge>
-              )) : (
-                <p className="text-xs text-muted-foreground">No tags available.</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={updateDocMutation.isPending}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={updateDocMutation.isPending} data-testid="edit-metadata-save">
-            {updateDocMutation.isPending ? "Saving…" : "Save changes"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

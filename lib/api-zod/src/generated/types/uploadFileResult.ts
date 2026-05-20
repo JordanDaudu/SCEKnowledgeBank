@@ -12,5 +12,10 @@ export interface UploadFileResult {
   success: boolean;
   document?: Document;
   error?: string;
+  /** Machine-readable failure reason. Known values: `disallowed_mime`, `mime_mismatch`, `storage_quota_exceeded`, `duplicate_file`, `upload_failed`. */
   errorCode?: string;
+  /** Set when `errorCode === "duplicate_file"` — id of the existing document this upload matched by SHA-256. */
+  duplicateOfDocumentId?: string;
+  /** Set when `errorCode === "duplicate_file"` — title of the existing document this upload matched by SHA-256. */
+  duplicateOfTitle?: string;
 }

@@ -1,0 +1,11 @@
+Knowledge Bank — Sample Cheat Sheet
+  ====================================
+
+  This is a small text fixture loaded by the seed script so the demo always
+  has at least one text/plain document on disk.
+
+  Topics:
+    - Linear algebra basics
+    - Big-O notation
+    - SQL joins
+  

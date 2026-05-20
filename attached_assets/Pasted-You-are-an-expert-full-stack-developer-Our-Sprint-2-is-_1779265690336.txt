@@ -1,0 +1,101 @@
+You are an expert full-stack developer. Our Sprint 2 is missing the following features. Implement them now using our existing React/Node/Express/Prisma stack...
+
+Critical context: the current repository actually uses Drizzle ORM, not Prisma. Sprint 2 requires Prisma/PostgreSQL, so first correct the ORM mismatch. Do not introduce Python or FastAPI. Keep React, Node, Express, PostgreSQL.
+
+Implement the following:
+
+Replace the Drizzle DB layer with Prisma:
+Create prisma/schema.prisma.
+Model all existing entities currently defined in lib/db/src/schema/*: User, Role, UserRole, Permission, RolePermission, Course, Category, Tag, Document, DocumentFile, DocumentTag, MaterialViewHistory, Comment, MaterialRequest, RequestVote, AuditLog, Session.
+Preserve existing fields, constraints, indexes, soft-delete fields, timestamps, and relationships.
+Add new Prisma models needed for missing Sprint 2 requirements:
+CourseEnrollment or CourseMembership with userId, courseId, roleInCourse, timestamps.
+CommentMention with commentId, mentionedUserId, createdAt.
+StorageQuota or quota fields on User/Course, including quotaBytes and usedBytes.
+Optional DocumentExtractedMetadata or fields on Document/DocumentFile for extracted metadata: extractedText, pageCount, author, detectedTitle, thumbnailPath, thumbnailMimeType.
+Update lib/db/src/index.ts to export a singleton PrismaClient.
+Rewrite repositories in artifacts/api-server/src/repositories/*.repo.ts to use Prisma instead of Drizzle.
+Remove or stop relying on lib/db/drizzle/*.
+Implement storage quota foundations:
+Add quota config defaults in artifacts/api-server/src/lib/env.ts, for example DEFAULT_USER_STORAGE_QUOTA_MB.
+Before upload, calculate the uploader’s current used bytes plus incoming files.
+Reject uploads that exceed quota with a clear storage_quota_exceeded error.
+Update used storage after successful upload.
+Add an authenticated endpoint such as GET /api/storage/quota/me returning usedBytes, quotaBytes, and remainingBytes.
+Show quota usage on artifacts/web/src/pages/upload.tsx.
+Implement real duplicate file handling:
+Use SHA-256 checksum already produced by storage.
+Before creating a new document, check if the same uploader already has an alive document file with the same checksum.
+Return a per-file result with success: false, errorCode: "duplicate_file", and the existing document ID/title.
+Do not store another physical copy unless intentionally versioning.
+Keep the existing display filename uniquify logic only for filename collisions, not content duplicates.
+Implement metadata extraction:
+Add a backend service, for example artifacts/api-server/src/services/metadata.service.ts.
+Extract at least:
+title from filename and/or PDF metadata where available,
+PDF page count,
+text content for PDFs and text/markdown/csv files,
+image dimensions for PNG/JPEG.
+Store extracted metadata in Prisma fields.
+Use extracted text in search.
+Do not use Python. Use Node libraries only.
+Implement proper PostgreSQL full-text search:
+Add a searchable text field or generated tsvector equivalent via Prisma migration SQL.
+Search title, description, tags, course code/title/lecturer, and extracted file text.
+Rank results by relevance when q is provided.
+Keep existing filters: lecturer, course, date, material type, category, tags, semester, academicYear.
+Keep pagination and popularity sorting.
+Fix Recently Viewed to use backend history:
+Update artifacts/web/src/components/browse/RecentlyViewedStrip.tsx to call useListRecentDocuments.
+Remove localStorage as the source of truth.
+Keep localStorage only as optional fallback if API fails.
+Ensure /api/documents/recent filters out documents the current user can no longer view.
+Implement true nested comments:
+Remove the current one-level restriction in comments.service.ts.
+Allow arbitrary depth using parentId.
+Return recursive comment trees.
+Update CommentsThread.tsx to render replies recursively instead of hardcoding only one reply level.
+Keep page-linked comments for PDFs.
+Implement @mention storage:
+Parse mentions from comment body, supporting at least @displayName or explicit user IDs from a mention picker.
+Add backend validation that mentioned users exist.
+Store mentions in CommentMention.
+Return mentions in the comment DTO.
+Add a simple frontend mention UX in CommentsThread.tsx: users can type @, search/select users, and selected mentions are submitted.
+Update OpenAPI schemas and generated API client types.
+Implement granular course-aware permissions:
+Add course membership/enrollment data.
+Define access rules:
+Admin can access everything.
+Lecturer can upload/manage materials only for courses they teach or where they have course lecturer membership.
+Student can view public documents.
+Student can view restricted documents only if enrolled in that course.
+Private documents are visible only to owner/uploader/admin.
+Apply these rules consistently in:
+list documents,
+get document,
+preview/download token issuance,
+recent documents,
+comments,
+upload,
+update/delete document,
+request fulfillment.
+Do not rely only on role names.
+Improve thumbnail/fallback icon logic:
+Add thumbnailPath/thumbnailUrl to document/file DTOs.
+Generate thumbnails for images directly and for PDFs if feasible with Node tooling.
+If thumbnail generation is not possible, return backend-provided fallbackIconType based on mime type: pdf, image, doc, slides, sheet, text, archive, unknown.
+Update DocumentCards.tsx, DocumentTable.tsx, and PreviewPanel.tsx to use thumbnail/fallback icon metadata.
+Update API contract:
+Modify lib/api-spec/openapi.yaml.
+Regenerate/update lib/api-client-react and lib/api-zod.
+Ensure all new DTO fields are typed.
+Add tests:
+Backend tests for quota exceeded, duplicate checksum rejection, course-aware access, signed URL permission checks, nested comments, mention storage, and full-text search.
+Frontend or E2E tests for upload quota display, duplicate upload error, backend-powered recent documents, nested comment rendering, and restricted course access.
+Acceptance criteria:
+pnpm run typecheck passes.
+Backend tests pass.
+No Python/FastAPI added.
+No Drizzle dependency remains in active runtime code.
+Sprint 2 demo can show: upload queue, validation, metadata extraction, duplicate detection, quota display, searchable extracted content, filters/sort/pagination, server-backed recent history, nested comments with page links and mentions, request board voting, RBAC plus course-aware permissions, and signed timed preview/download URLs.

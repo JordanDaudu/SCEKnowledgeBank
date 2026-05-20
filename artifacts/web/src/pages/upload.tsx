@@ -3,6 +3,8 @@ import {
   useListCourses,
   useListCategories,
   useListTags,
+  useGetMyStorageQuota,
+  getGetMyStorageQuotaQueryKey,
   getListDocumentsQueryKey,
   getListRecentDocumentsQueryKey,
   type Document as ApiDocument,
@@ -18,6 +20,8 @@ import { Progress } from "@/components/ui/progress";
 import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { apiEndpoints } from "@/lib/api-url";
+import { MATERIAL_TYPES } from "@/lib/material-types";
 
 type Visibility = "public" | "restricted" | "private";
 type Semester = "fall" | "spring" | "summer" | "";
@@ -31,19 +35,41 @@ interface QueueItem {
   progress: number;
   error?: string;
   errorCode?: string;
-  storedFilename?: string;
+  displayFilename?: string;
   documentId?: string;
+  duplicateOfDocumentId?: string;
+  duplicateOfTitle?: string;
 }
 
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+// Keep in sync with the backend MAX_UPLOAD_MB / ALLOWED_MIME_TYPES env config.
+// Web-side defaults match the server defaults (50 MB, listed mime types).
+// Override at build time with VITE_MAX_UPLOAD_MB if the backend is configured
+// differently.
+const MAX_UPLOAD_MB = Number(import.meta.env.VITE_MAX_UPLOAD_MB ?? 50);
+const MAX_FILE_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+// File extensions whose content the backend's magic-byte sniffer can actually
+// verify (mime-sniff.ts). gif/webp are deliberately excluded — the server has
+// no sniff branch for them and would reject any upload as mime_mismatch.
 const ALLOWED_EXTENSIONS = [
   "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx",
-  "txt", "md", "csv", "png", "jpg", "jpeg", "gif", "webp", "zip",
+  "txt", "md", "csv", "png", "jpg", "jpeg", "zip",
 ];
 
 function validateFile(file: File): string | null {
   if (file.size > MAX_FILE_BYTES) {
-    return `File exceeds 50MB limit (${(file.size / 1024 / 1024).toFixed(1)} MB).`;
+    return `File exceeds ${MAX_UPLOAD_MB}MB limit (${(file.size / 1024 / 1024).toFixed(1)} MB).`;
   }
   if (file.size === 0) {
     return "File is empty.";
@@ -71,7 +97,7 @@ function uploadOne(
     }
     for (const t of tagIds) form.append("tagIds", t);
 
-    xhr.open("POST", "/api/documents/upload");
+    xhr.open("POST", apiEndpoints.uploadDocuments());
     xhr.withCredentials = true;
     xhr.responseType = "json";
     xhr.upload.onprogress = (e) => {
@@ -110,6 +136,7 @@ export default function Upload() {
   const { data: courses } = useListCourses();
   const { data: categories } = useListCategories();
   const { data: availableTags } = useListTags();
+  const { data: quota } = useGetMyStorageQuota();
 
   const addFiles = (files: File[]) => {
     const next: QueueItem[] = files.map((file) => {
@@ -193,14 +220,14 @@ export default function Upload() {
         const fileResult = result.results[0];
         if (fileResult?.success && fileResult.document) {
           const doc = fileResult.document as ApiDocument;
-          const stored = doc.file?.originalFilename;
-          const renamed = stored && stored !== item.file.name;
+          const display = doc.file?.displayFilename;
+          const renamed = display && display !== item.file.name;
           if (renamed) renamedCount++;
           okCount++;
           updateItem(item.id, {
             status: "success",
             progress: 100,
-            storedFilename: stored,
+            displayFilename: display,
             documentId: doc.id,
           });
         } else {
@@ -209,6 +236,8 @@ export default function Upload() {
             status: "failed",
             error: fileResult?.error || "Upload rejected by server",
             errorCode: fileResult?.errorCode,
+            duplicateOfDocumentId: fileResult?.duplicateOfDocumentId,
+            duplicateOfTitle: fileResult?.duplicateOfTitle,
           });
         }
       } catch (err) {
@@ -224,6 +253,9 @@ export default function Upload() {
     setIsUploading(false);
     await queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
     await queryClient.invalidateQueries({ queryKey: getListRecentDocumentsQueryKey() });
+    // Refresh the quota strip; even partial-success batches changed the
+    // user's `usedBytes` on the server.
+    await queryClient.invalidateQueries({ queryKey: getGetMyStorageQuotaQueryKey() });
 
     if (okCount > 0) {
       toast({
@@ -248,10 +280,6 @@ export default function Upload() {
     }
   };
 
-  const materialTypes = [
-    "lecture-notes", "problem-set", "exam", "syllabus", "slides", "project-report", "textbook",
-  ];
-
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
@@ -259,12 +287,38 @@ export default function Upload() {
         <p className="text-muted-foreground mt-1">Share documents with the university community.</p>
       </div>
 
+      {quota && (
+        <Card data-testid="storage-quota-strip">
+          <CardContent className="py-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Storage</span>
+              <span className="text-muted-foreground">
+                <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
+                {" of "}
+                <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
+                {" used — "}
+                <span data-testid="quota-remaining">{formatBytes(quota.remainingBytes)}</span>
+                {" remaining"}
+              </span>
+            </div>
+            <Progress
+              value={
+                quota.quotaBytes > 0
+                  ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
+                  : 0
+              }
+              className="h-2"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-8">
         <Card>
           <CardHeader>
             <CardTitle>Files</CardTitle>
             <CardDescription>
-              Drag & drop or select files to upload. PDF, DOCX, PPTX, XLSX, images and more — up to 50MB each.
+              Drag & drop or select files to upload. PDF, DOCX, PPTX, XLSX, images and more — up to {MAX_UPLOAD_MB}MB each.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -350,14 +404,30 @@ export default function Upload() {
                     {item.status === "failed" && item.error && (
                       <p className="text-xs text-destructive pl-8" data-testid="upload-error">
                         {item.error}
+                        {item.errorCode === "duplicate_file" &&
+                          item.duplicateOfDocumentId && (
+                            <>
+                              {" "}
+                              <a
+                                href={`/documents/${item.duplicateOfDocumentId}`}
+                                className="underline font-medium"
+                                data-testid="duplicate-link"
+                              >
+                                View original
+                                {item.duplicateOfTitle
+                                  ? ` "${item.duplicateOfTitle}"`
+                                  : ""}
+                              </a>
+                            </>
+                          )}
                       </p>
                     )}
 
                     {item.status === "success" &&
-                      item.storedFilename &&
-                      item.storedFilename !== item.file.name && (
+                      item.displayFilename &&
+                      item.displayFilename !== item.file.name && (
                         <p className="text-xs text-muted-foreground pl-8" data-testid="upload-rename">
-                          Uploaded as <span className="font-mono">{item.storedFilename}</span> to avoid duplicate name.
+                          Uploaded as <span className="font-mono">{item.displayFilename}</span> to avoid a duplicate name. Your original filename (<span className="font-mono">{item.file.name}</span>) is preserved on the record.
                         </p>
                       )}
                   </li>
@@ -390,8 +460,8 @@ export default function Upload() {
                 <Select value={materialType} onValueChange={setMaterialType}>
                   <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                   <SelectContent>
-                    {materialTypes.map((t) => (
-                      <SelectItem key={t} value={t} className="capitalize">{t.replace("-", " ")}</SelectItem>
+                    {MATERIAL_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

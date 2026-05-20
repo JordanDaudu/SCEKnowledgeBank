@@ -5,6 +5,7 @@
  * Knowledge Bank API
  * OpenAPI spec version: 0.2.0
  */
+import type { UserSummaryStatus } from "./userSummaryStatus";
 
 export interface UserSummary {
   id: string;
@@ -12,5 +13,6 @@ export interface UserSummary {
   displayName: string;
   roles: string[];
   isActive: boolean;
+  status: UserSummaryStatus;
   createdAt: Date;
 }

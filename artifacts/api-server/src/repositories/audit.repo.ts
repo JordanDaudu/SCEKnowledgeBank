@@ -1,4 +1,4 @@
-import { db, auditLogs } from "@workspace/db";
+import { db } from "@workspace/db";
 
 export async function insertAuditLog(values: {
   actorUserId: string | null;
@@ -7,5 +7,13 @@ export async function insertAuditLog(values: {
   entityId: string;
   metadata: Record<string, unknown>;
 }): Promise<void> {
-  await db.insert(auditLogs).values(values);
+  await db.auditLog.create({
+    data: {
+      actorUserId: values.actorUserId,
+      action: values.action,
+      entityType: values.entityType,
+      entityId: values.entityId,
+      metadata: values.metadata as object,
+    },
+  });
 }

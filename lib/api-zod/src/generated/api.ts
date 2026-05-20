@@ -15,7 +15,46 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * @summary Demo login
+ * Admin self-registration is impossible: `role` is constrained to `student | lecturer`. Students are created `ACTIVE` and a session cookie is set in the response. Lecturers are created `PENDING_APPROVAL` and no session is established until an admin approves them.
+ * @summary Public registration for student / lecturer accounts
+ */
+export const registerUserBodyFullNameMax = 120;
+
+export const registerUserBodyEmailMax = 254;
+
+export const registerUserBodyPasswordMin = 8;
+export const registerUserBodyPasswordMax = 200;
+
+export const registerUserBodyConfirmPasswordMin = 8;
+export const registerUserBodyConfirmPasswordMax = 200;
+
+export const registerUserBodyStudentIdMax = 64;
+
+export const registerUserBodyLecturerIdMax = 64;
+
+export const registerUserBodyDepartmentMax = 120;
+
+export const RegisterUserBody = zod.object({
+  fullName: zod.string().min(1).max(registerUserBodyFullNameMax),
+  email: zod.string().min(1).max(registerUserBodyEmailMax),
+  password: zod
+    .string()
+    .min(registerUserBodyPasswordMin)
+    .max(registerUserBodyPasswordMax),
+  confirmPassword: zod
+    .string()
+    .min(registerUserBodyConfirmPasswordMin)
+    .max(registerUserBodyConfirmPasswordMax),
+  role: zod.enum(["student", "lecturer"]),
+  studentId: zod.string().max(registerUserBodyStudentIdMax).optional(),
+  lecturerId: zod.string().max(registerUserBodyLecturerIdMax).optional(),
+  department: zod.string().max(registerUserBodyDepartmentMax).optional(),
+  enrolledCourseIds: zod.array(zod.string().uuid()).optional(),
+  teachingCourseIds: zod.array(zod.string().uuid()).optional(),
+});
+
+/**
+ * @summary Status-aware login
  */
 
 export const LoginBody = zod.object({
@@ -61,8 +100,8 @@ export const ListDocumentsQueryParams = zod.object({
   materialType: zod.coerce.string().optional(),
   categoryId: zod.coerce.string().uuid().optional(),
   tagIds: zod.array(zod.coerce.string().uuid()).optional(),
-  dateFrom: zod.date().optional(),
-  dateTo: zod.date().optional(),
+  dateFrom: zod.coerce.date().optional(),
+  dateTo: zod.coerce.date().optional(),
   sort: zod
     .enum(["newest", "oldest", "title", "popularity"])
     .default(listDocumentsQuerySortDefault),
@@ -73,6 +112,12 @@ export const ListDocumentsQueryParams = zod.object({
     .max(listDocumentsQueryPageSizeMax)
     .default(listDocumentsQueryPageSizeDefault),
 });
+
+export const listDocumentsResponseItemsItemFileExtractedMetadataPageCountMin = 0;
+
+export const listDocumentsResponseItemsItemFileExtractedMetadataImageWidthMin = 0;
+
+export const listDocumentsResponseItemsItemFileExtractedMetadataImageHeightMin = 0;
 
 export const ListDocumentsResponse = zod.object({
   items: zod.array(
@@ -107,6 +152,7 @@ export const ListDocumentsResponse = zod.object({
         displayName: zod.string(),
         roles: zod.array(zod.string()),
         isActive: zod.boolean(),
+        status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
       }),
       createdAt: zod.coerce.date(),
@@ -122,18 +168,106 @@ export const ListDocumentsResponse = zod.object({
       file: zod
         .object({
           id: zod.string().uuid(),
-          originalFilename: zod.string(),
+          originalFilename: zod
+            .string()
+            .describe("The exact filename as the user uploaded it."),
+          displayFilename: zod
+            .string()
+            .describe(
+              'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+            ),
           mimeType: zod.string(),
           sizeBytes: zod.number(),
           uploadedAt: zod.coerce.date(),
           checksum: zod.string().optional(),
+          extractedMetadata: zod
+            .object({
+              pageCount: zod
+                .number()
+                .min(
+                  listDocumentsResponseItemsItemFileExtractedMetadataPageCountMin,
+                )
+                .optional(),
+              detectedTitle: zod.string().optional(),
+              author: zod.string().optional(),
+              imageWidth: zod
+                .number()
+                .min(
+                  listDocumentsResponseItemsItemFileExtractedMetadataImageWidthMin,
+                )
+                .optional(),
+              imageHeight: zod
+                .number()
+                .min(
+                  listDocumentsResponseItemsItemFileExtractedMetadataImageHeightMin,
+                )
+                .optional(),
+              hasExtractedText: zod
+                .boolean()
+                .describe(
+                  "True when extracted text exists for full-text search (task",
+                ),
+            })
+            .optional()
+            .describe(
+              "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+            ),
         })
         .optional(),
+      thumbnailUrl: zod
+        .string()
+        .optional()
+        .describe(
+          "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+        ),
+      fallbackIconType: zod
+        .enum([
+          "pdf",
+          "image",
+          "doc",
+          "slides",
+          "sheet",
+          "text",
+          "archive",
+          "unknown",
+        ])
+        .optional()
+        .describe(
+          "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+        ),
+      permissions: zod
+        .object({
+          canView: zod.boolean(),
+          canEdit: zod.boolean(),
+          canDelete: zod.boolean(),
+          canDownload: zod.boolean(),
+          canComment: zod.boolean(),
+        })
+        .describe(
+          "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+        ),
     }),
   ),
   total: zod.number(),
   page: zod.number(),
   pageSize: zod.number(),
+});
+
+/**
+ * @summary Storage usage and quota for the authenticated user
+ */
+export const GetMyStorageQuotaResponse = zod.object({
+  usedBytes: zod.number().describe("Bytes currently used by this user."),
+  quotaBytes: zod
+    .number()
+    .describe(
+      "Effective quota in bytes (per-user override or server default).",
+    ),
+  remainingBytes: zod
+    .number()
+    .describe(
+      "Non-negative remainder; clamped to zero when usedBytes exceeds quotaBytes.",
+    ),
 });
 
 /**
@@ -166,6 +300,12 @@ export const ListRecentDocumentsQueryParams = zod.object({
     .default(listRecentDocumentsQueryLimitDefault),
 });
 
+export const listRecentDocumentsResponseFileExtractedMetadataPageCountMin = 0;
+
+export const listRecentDocumentsResponseFileExtractedMetadataImageWidthMin = 0;
+
+export const listRecentDocumentsResponseFileExtractedMetadataImageHeightMin = 0;
+
 export const ListRecentDocumentsResponseItem = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
@@ -197,6 +337,7 @@ export const ListRecentDocumentsResponseItem = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -212,13 +353,78 @@ export const ListRecentDocumentsResponseItem = zod.object({
   file: zod
     .object({
       id: zod.string().uuid(),
-      originalFilename: zod.string(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
       mimeType: zod.string(),
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
       checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(listRecentDocumentsResponseFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(listRecentDocumentsResponseFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(listRecentDocumentsResponseFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
     })
     .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
 });
 export const ListRecentDocumentsResponse = zod.array(
   ListRecentDocumentsResponseItem,
@@ -254,6 +460,12 @@ export const GetDocumentParams = zod.object({
   id: zod.coerce.string().uuid(),
 });
 
+export const getDocumentResponseOneFileExtractedMetadataPageCountMin = 0;
+
+export const getDocumentResponseOneFileExtractedMetadataImageWidthMin = 0;
+
+export const getDocumentResponseOneFileExtractedMetadataImageHeightMin = 0;
+
 export const GetDocumentResponse = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
@@ -285,6 +497,7 @@ export const GetDocumentResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -300,13 +513,78 @@ export const GetDocumentResponse = zod.object({
   file: zod
     .object({
       id: zod.string().uuid(),
-      originalFilename: zod.string(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
       mimeType: zod.string(),
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
       checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(getDocumentResponseOneFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(getDocumentResponseOneFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(getDocumentResponseOneFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
     })
     .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
 });
 
 export const UpdateDocumentParams = zod.object({
@@ -325,6 +603,12 @@ export const UpdateDocumentBody = zod.object({
   status: zod.enum(["draft", "published", "archived"]).optional(),
   tagIds: zod.array(zod.string().uuid()).optional(),
 });
+
+export const updateDocumentResponseOneFileExtractedMetadataPageCountMin = 0;
+
+export const updateDocumentResponseOneFileExtractedMetadataImageWidthMin = 0;
+
+export const updateDocumentResponseOneFileExtractedMetadataImageHeightMin = 0;
 
 export const UpdateDocumentResponse = zod.object({
   id: zod.string().uuid(),
@@ -357,6 +641,7 @@ export const UpdateDocumentResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -372,17 +657,93 @@ export const UpdateDocumentResponse = zod.object({
   file: zod
     .object({
       id: zod.string().uuid(),
-      originalFilename: zod.string(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
       mimeType: zod.string(),
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
       checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(updateDocumentResponseOneFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(updateDocumentResponseOneFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(updateDocumentResponseOneFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
     })
     .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
 });
 
 export const DeleteDocumentParams = zod.object({
   id: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Stream a server-generated thumbnail (signed-URL pathway)
+ */
+export const GetDocumentThumbnailParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetDocumentThumbnailQueryParams = zod.object({
+  token: zod.coerce.string(),
 });
 
 export const GetDocumentPreviewTokenParams = zod.object({
@@ -437,11 +798,27 @@ export const ListDocumentCommentsResponseItem = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
   editedAt: zod.coerce.date().optional(),
   replies: zod.array(zod.unknown()),
+  mentions: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        email: zod.string(),
+        displayName: zod.string(),
+        roles: zod.array(zod.string()),
+        isActive: zod.boolean(),
+        status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .describe(
+      "Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here.",
+    ),
 });
 export const ListDocumentCommentsResponse = zod.array(
   ListDocumentCommentsResponseItem,
@@ -478,11 +855,27 @@ export const UpdateCommentResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
   editedAt: zod.coerce.date().optional(),
   replies: zod.array(zod.unknown()),
+  mentions: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        email: zod.string(),
+        displayName: zod.string(),
+        roles: zod.array(zod.string()),
+        isActive: zod.boolean(),
+        status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .describe(
+      "Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here.",
+    ),
 });
 
 export const DeleteCommentParams = zod.object({
@@ -513,6 +906,7 @@ export const ListRequestsResponseItem = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   voteCount: zod.number(),
@@ -558,6 +952,7 @@ export const UpdateRequestResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   voteCount: zod.number(),
@@ -589,6 +984,7 @@ export const VoteRequestResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   voteCount: zod.number(),
@@ -628,6 +1024,135 @@ export const ListUsersResponseItem = zod.object({
   displayName: zod.string(),
   roles: zod.array(zod.string()),
   isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
+
+/**
+ * @summary Admin-only list of lecturers awaiting approval
+ */
+export const ListPendingLecturersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+export const ListPendingLecturersResponse = zod.array(
+  ListPendingLecturersResponseItem,
+);
+
+/**
+ * @summary Admin-only approve a pending lecturer
+ */
+export const ApproveUserParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const ApproveUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Admin-only disable any user
+ */
+export const DisableUserParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const DisableUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Admin alias for /users/pending-lecturers
+ */
+export const AdminListPendingLecturersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListPendingLecturersResponse = zod.array(
+  AdminListPendingLecturersResponseItem,
+);
+
+/**
+ * @summary Admin alias for /users/{id}/approve
+ */
+export const AdminApproveUserParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+export const AdminApproveUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Admin alias for /users/{id}/disable
+ */
+export const AdminDisableUserParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+export const AdminDisableUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Autocomplete-style user search for the @mention picker
+ */
+export const searchUsersQueryQMax = 64;
+
+export const searchUsersQueryLimitDefault = 8;
+export const searchUsersQueryLimitMax = 20;
+
+export const SearchUsersQueryParams = zod.object({
+  q: zod.coerce.string().min(1).max(searchUsersQueryQMax),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(searchUsersQueryLimitMax)
+    .default(searchUsersQueryLimitDefault),
+});
+
+export const SearchUsersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+export const SearchUsersResponse = zod.array(SearchUsersResponseItem);

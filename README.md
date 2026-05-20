@@ -60,3 +60,58 @@ Optional (sensible defaults are baked in):
 | `VITE_API_BASE`  | `http://localhost:8080`   | Base URL the web app calls at build time. Change if the API is on a different host. |
 
 If you put your web app or API on a different hostname or port, set both `WEB_ORIGIN` and `VITE_API_BASE` before running `docker compose up --build` so the web image is rebuilt with the right API base.
+
+## Run locally without Docker
+
+The monorepo is managed by pnpm. Install once at the repo root, then start the services individually. Use `.env.example` as a starting point for your local `.env`.
+
+```bash
+pnpm install
+cp .env.example .env  # then fill in SESSION_SECRET and SIGNED_URL_SECRET
+
+# 1. Apply database migrations (creates pg_trgm extension + all tables)
+pnpm --filter @workspace/db run migrate
+
+# 2. Seed demo data (idempotent — safe to re-run)
+pnpm --filter @workspace/api-server run seed
+
+# 3. Start the API server and the web app (separate terminals, or use the
+#    configured workflows in Replit)
+pnpm --filter @workspace/api-server run dev
+pnpm --filter @workspace/web run dev
+```
+
+### Schema changes
+
+The database schema lives in `lib/db/src/schema`. When you change it:
+
+```bash
+# Produce a new Prisma migration file under lib/db/prisma/migrations/
+pnpm --filter @workspace/db run generate
+
+# Apply it
+pnpm --filter @workspace/db run migrate
+```
+
+The first migration enables the `pg_trgm` extension that powers trigram search on document titles and descriptions.
+
+## Uploads, signed URLs, and limits
+
+- Maximum upload size: `MAX_UPLOAD_MB` (default **50 MB**). The web app refuses files larger than `VITE_MAX_UPLOAD_MB` before they hit the network, and the server rejects them at the route boundary as well.
+- Allowed MIME types are listed in `ALLOWED_MIME_TYPES`. They are validated both by the declared `Content-Type` *and* by a magic-byte sniff so a `.pdf` rename of an executable is rejected.
+- Previews and downloads use **short-lived signed URLs**: the API issues a token valid for `SIGNED_URL_TTL_SECONDS` (default **300 s**) bound to the document id and the requesting user. Requests to `/api/documents/:id/preview` and `/api/documents/:id/download` without a token return **401**; expired/tampered tokens also return **401**.
+
+## Storage
+
+Two storage drivers ship in the box:
+
+- `local` (default) writes files to `STORAGE_LOCAL_ROOT` (default `.data/storage`).
+- `s3` is a thin stub — set `STORAGE_DRIVER=s3` and wire up real credentials in the storage module to use it.
+
+## Tests, typecheck, and build
+
+```bash
+pnpm run typecheck            # all packages
+pnpm --filter @workspace/api-server run test
+pnpm --filter @workspace/web run build
+```

@@ -5,6 +5,13 @@ export interface PutObjectInput {
   key: string;
   body: Buffer;
   contentType: string;
+  /**
+   * Optional precomputed SHA-256 (hex) of `body`. When provided the
+   * adapter must trust this value and skip its own hashing pass — callers
+   * already hashed the buffer for upstream dedup so we don't pay the cost
+   * twice. When omitted, the adapter computes and returns the checksum.
+   */
+  precomputedChecksum?: string;
 }
 
 export interface PutObjectResult {

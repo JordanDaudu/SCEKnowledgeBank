@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 import type { Response } from "express";
 import * as docsRepo from "../repositories/documents.repo";
@@ -7,12 +8,22 @@ import * as viewRepo from "../repositories/viewHistory.repo";
 import * as usersService from "./users.service";
 import * as taxonomyService from "./taxonomy.service";
 import * as auditService from "./audit.service";
+import * as permissions from "./permissions.service";
 import { badRequest, forbidden, notFound, unauthorized } from "../lib/errors";
 import { signToken, verifyToken } from "../lib/sign-url";
 import { getStorage } from "../lib/storage";
 import { env } from "../lib/env";
 import { mimeMatchesContent } from "../lib/mime-sniff";
 import type { AuthenticatedUser } from "../middlewares/auth";
+import {
+  extractMetadata,
+  fallbackIconFor,
+  type FallbackIconType,
+} from "./documents/metadata.service";
+
+function sha256Hex(buf: Buffer): string {
+  return createHash("sha256").update(buf).digest("hex");
+}
 
 export interface DocumentDTO {
   id: string;
@@ -34,42 +45,51 @@ export interface DocumentDTO {
   file?: {
     id: string;
     originalFilename: string;
+    displayFilename: string;
     mimeType: string;
     sizeBytes: number;
     uploadedAt: string;
     checksum?: string;
+    extractedMetadata?: {
+      pageCount?: number;
+      detectedTitle?: string;
+      author?: string;
+      imageWidth?: number;
+      imageHeight?: number;
+      hasExtractedText: boolean;
+    };
+  };
+  /**
+   * Signed URL to a server-generated thumbnail (e.g. for image
+   * uploads) when one exists. Goes through the same signed-URL path
+   * as preview/download so visibility is enforced consistently.
+   */
+  thumbnailUrl?: string;
+  /**
+   * Generic icon bucket the UI should render when no thumbnail is
+   * available. Derived from the latest file's MIME type by
+   * `metadata.service.fallbackIconFor`.
+   */
+  fallbackIconType: FallbackIconType;
+  /**
+   * Server-computed permission flags for the requesting user. The
+   * frontend reads these directly — it must not recompute permissions
+   * locally from role/uploader heuristics (Sprint-2 audit).
+   */
+  permissions: {
+    canView: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+    canDownload: boolean;
+    canComment: boolean;
   };
 }
 
-function isAdmin(u: AuthenticatedUser): boolean {
-  return u.roles.includes("admin");
-}
-
-function canView(
-  doc: docsRepo.DocumentRow,
-  user: AuthenticatedUser,
-): boolean {
-  if (doc.visibility === "public") return true;
-  if (doc.visibility === "restricted") return true;
-  if (doc.visibility === "private") {
-    return (
-      doc.uploaderId === user.id ||
-      doc.ownerId === user.id ||
-      user.roles.includes("admin")
-    );
-  }
-  return false;
-}
-
-function visibilityScope(
-  user: AuthenticatedUser,
-): docsRepo.VisibilityScope {
-  if (isAdmin(user)) return { mode: "all" };
-  return { mode: "private-allowed-for", userId: user.id };
-}
+// All visibility / role checks are delegated to permissions.service.
 
 export async function assembleDocuments(
   docs: docsRepo.DocumentRow[],
+  user: AuthenticatedUser,
 ): Promise<DocumentDTO[]> {
   if (docs.length === 0) return [];
   const ids = docs.map((d) => d.id);
@@ -107,9 +127,21 @@ export async function assembleDocuments(
       displayName: "Unknown",
       roles: [],
       isActive: false,
+      status: "ACTIVE",
       createdAt: d.createdAt.toISOString(),
     };
     const file = filesByDoc.get(d.id);
+    // Permission flags are computed per-row using the canonical
+    // permissions service so the wire DTO reflects exactly what the
+    // server would enforce on write. `canDownload` mirrors `canView`:
+    // signed-URL issuance lives behind the same visibility predicate.
+    const permObj = {
+      uploaderId: d.uploaderId,
+      ownerId: d.ownerId,
+      visibility: d.visibility,
+      courseId: d.courseId,
+    };
+    const canView = permissions.canView(permObj, user);
     const dto: DocumentDTO = {
       id: d.id,
       title: d.title,
@@ -123,6 +155,14 @@ export async function assembleDocuments(
       viewCount: viewCounts.get(d.id) ?? 0,
       commentCount: commentCounts.get(d.id) ?? 0,
       tags: tagsByDoc.get(d.id) ?? [],
+      fallbackIconType: "unknown",
+      permissions: {
+        canView,
+        canEdit: permissions.canEdit(permObj, user),
+        canDelete: permissions.canDelete(permObj, user),
+        canDownload: canView,
+        canComment: permissions.canComment(permObj, user),
+      },
     };
     const c = d.courseId ? coursesMap.get(d.courseId) : undefined;
     if (c) dto.course = c;
@@ -131,14 +171,36 @@ export async function assembleDocuments(
     if (d.semester) dto.semester = d.semester;
     if (d.academicYear != null) dto.academicYear = d.academicYear;
     if (file) {
-      dto.file = {
+      const fileDto: NonNullable<DocumentDTO["file"]> = {
         id: file.id,
         originalFilename: file.originalFilename,
+        displayFilename: file.displayFilename,
         mimeType: file.mimeType,
         sizeBytes: file.sizeBytes,
         uploadedAt: file.uploadedAt.toISOString(),
         checksum: file.checksum,
       };
+      const extracted: NonNullable<
+        NonNullable<DocumentDTO["file"]>["extractedMetadata"]
+      > = { hasExtractedText: !!file.extractedText };
+      if (file.pageCount != null) extracted.pageCount = file.pageCount;
+      if (file.detectedTitle) extracted.detectedTitle = file.detectedTitle;
+      if (file.author) extracted.author = file.author;
+      if (file.imageWidth != null) extracted.imageWidth = file.imageWidth;
+      if (file.imageHeight != null) extracted.imageHeight = file.imageHeight;
+      fileDto.extractedMetadata = extracted;
+      dto.file = fileDto;
+      dto.fallbackIconType = fallbackIconFor(file.mimeType);
+      if (file.thumbnailPath) {
+        // Sign a short-lived thumbnail URL bound to the uploader of
+        // the doc; thumbnails are only emitted once visibility has
+        // already been checked (callers of assembleDocuments filter
+        // first), so the embedded URL is safe to surface here.
+        const { token } = signToken(d.id, "thumbnail", d.uploaderId);
+        dto.thumbnailUrl = `/api/documents/${d.id}/thumbnail?token=${encodeURIComponent(token)}`;
+      }
+    } else {
+      dto.fallbackIconType = fallbackIconFor(undefined);
     }
     return dto;
   });
@@ -173,7 +235,7 @@ export async function listDocuments(
   user: AuthenticatedUser,
 ): Promise<ListDocumentsResult> {
   const filters: docsRepo.DocumentListFilters = {
-    visibility: visibilityScope(user),
+    visibility: permissions.visibleDocumentFilter(user),
   };
   if (q.courseId) filters.courseId = q.courseId;
   if (q.categoryId) filters.categoryId = q.categoryId;
@@ -203,13 +265,32 @@ export async function listDocuments(
     filters.restrictDocumentIds = docIds;
   }
 
+  // When `q` is present we route through the Postgres FTS path
+  // (task #28): same filters, but ranked by ts_rank against the GIN
+  // index on `documents.search_vector`. Without `q` we keep the
+  // existing prisma-based list path so sort/popularity semantics are
+  // unchanged.
+  if (q.q) {
+    const visibilitySql = permissions.visibleDocumentFilterSql(user);
+    const [total, rows] = await Promise.all([
+      docsRepo.countSearchDocuments(q.q, filters, visibilitySql),
+      docsRepo.searchDocumentsRanked(q.q, filters, visibilitySql, {
+        sort: q.sort,
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
+    ]);
+    const items = await assembleDocuments(rows, user);
+    return { items, total, page: q.page, pageSize: q.pageSize };
+  }
+
   const total = await docsRepo.countDocuments(filters);
   const rows = await docsRepo.listDocuments(filters, {
     sort: q.sort,
     page: q.page,
     pageSize: q.pageSize,
   });
-  const items = await assembleDocuments(rows);
+  const items = await assembleDocuments(rows, user);
   return { items, total, page: q.page, pageSize: q.pageSize };
 }
 
@@ -220,9 +301,14 @@ export async function listRecentForUser(
   const ids = await viewRepo.listRecentDocumentIdsForUser(user.id, limit);
   if (ids.length === 0) return [];
   const docs = await docsRepo.findManyByIdsAlive(ids);
+  // Recently-viewed history can outlive a user's access — e.g. if a
+  // restricted document's course enrollment is revoked, or a private doc
+  // changes owners. Re-check visibility every time so the recents strip
+  // honors the same rules as `listDocuments` / `getById`.
+  const visible = docs.filter((d) => permissions.canView(d, user));
   const order = new Map(ids.map((id, i) => [id, i]));
-  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-  return assembleDocuments(docs);
+  visible.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return assembleDocuments(visible, user);
 }
 
 export interface SuggestionDTO {
@@ -237,11 +323,10 @@ export async function suggest(
   limit: number,
   user: AuthenticatedUser,
 ): Promise<SuggestionDTO[]> {
-  const rows = await docsRepo.findSuggestions(
-    term,
-    limit,
-    visibilityScope(user),
-  );
+  const rows = await docsRepo.findSuggestions(term, limit, {
+    unrestricted: permissions.isAdmin(user),
+    userId: user.id,
+  });
   const courseIds = rows
     .map((r) => r.courseId)
     .filter((i): i is string => !!i);
@@ -262,9 +347,10 @@ export async function getById(
 ): Promise<DocumentDTO> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  if (!canView(doc, user)) throw forbidden("Cannot view this document");
+  if (!permissions.canView(doc, user))
+    throw forbidden("Cannot view this document");
   await viewRepo.recordView(doc.id, user.id);
-  const assembled = await assembleDocuments([doc]);
+  const assembled = await assembleDocuments([doc], user);
   return assembled[0];
 }
 
@@ -288,8 +374,43 @@ export async function updateDocument(
 ): Promise<DocumentDTO> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  const owns = doc.uploaderId === user.id || doc.ownerId === user.id;
-  if (!owns && !isAdmin(user)) throw forbidden("Cannot edit this document");
+  if (!permissions.canEdit(doc, user))
+    throw forbidden("Cannot edit this document");
+
+  // ── Course-aware update guards (Sprint-2 audit) ──────────────────
+  //
+  // 1. If the patch changes `courseId`, the user must be allowed to
+  //    upload into the *target* course as well. Without this check a
+  //    lecturer who teaches course A but not B could read-modify-write
+  //    a course-A doc into course B, smuggling it into a course they
+  //    do not teach.
+  // 2. The target course must actually exist; otherwise we'd produce
+  //    an orphaned FK reference (and a confusing 500 downstream).
+  // 3. A document whose final visibility is `restricted` must end up
+  //    bound to a course — `restricted` without a `courseId` is not a
+  //    meaningful state (nobody could read it; see permissions.canView).
+  const effectiveCourseId =
+    body.courseId !== undefined ? body.courseId : doc.courseId;
+  const effectiveVisibility =
+    body.visibility !== undefined ? body.visibility : doc.visibility;
+  if (body.courseId !== undefined && body.courseId !== doc.courseId) {
+    if (!permissions.canUploadToCourse(user, body.courseId ?? null)) {
+      throw forbidden(
+        body.courseId
+          ? "You can only move documents into courses you teach"
+          : "Only admins or lecturers with at least one taught course may detach a document from its course",
+      );
+    }
+    if (body.courseId) {
+      const exists = await taxonomyRepo.courseExists(body.courseId);
+      if (!exists) throw badRequest("Target course does not exist");
+    }
+  }
+  if (effectiveVisibility === "restricted" && !effectiveCourseId) {
+    throw badRequest(
+      "Restricted documents must be bound to a course (courseId required)",
+    );
+  }
 
   const patch: Partial<docsRepo.DocumentInsert> = {
     updatedAt: new Date(),
@@ -314,7 +435,7 @@ export async function updateDocument(
   await auditService.record(user.id, "document.update", "document", id);
   const updated = await docsRepo.findByIdAlive(id);
   if (!updated) throw notFound("Document not found");
-  const assembled = await assembleDocuments([updated]);
+  const assembled = await assembleDocuments([updated], user);
   return assembled[0];
 }
 
@@ -324,8 +445,8 @@ export async function deleteDocument(
 ): Promise<void> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  const owns = doc.uploaderId === user.id || doc.ownerId === user.id;
-  if (!owns && !isAdmin(user)) throw forbidden("Cannot delete this document");
+  if (!permissions.canDelete(doc, user))
+    throw forbidden("Cannot delete this document");
   await docsRepo.softDeleteDocument(id, user.id);
   await auditService.record(user.id, "document.delete", "document", id);
 }
@@ -350,6 +471,14 @@ export interface UploadResultEntry {
   document?: DocumentDTO;
   error?: string;
   errorCode?: string;
+  /**
+   * When `errorCode === "duplicate_file"`, the id and title of the
+   * existing document that matched on (uploaderId, sha256). Lets the UI
+   * link the user straight to the original instead of asking them to
+   * "look for it".
+   */
+  duplicateOfDocumentId?: string;
+  duplicateOfTitle?: string;
 }
 
 export async function uploadDocuments(
@@ -358,10 +487,50 @@ export async function uploadDocuments(
 ): Promise<UploadResultEntry[]> {
   if (input.files.length === 0) throw badRequest("No files provided");
 
+  // Sprint-2 audit: restricted visibility is only meaningful when the
+  // document is bound to a course (`permissions.canView` requires
+  // enrollment in `doc.courseId` for restricted reads). Refusing this
+  // combination at the *service* boundary keeps every caller — HTTP,
+  // tests, scripts — from creating a structurally-unreadable row.
+  if (input.visibility === "restricted" && !input.courseId) {
+    throw badRequest(
+      "Restricted documents must be linked to a course.",
+    );
+  }
+
+  // Authoritative course-aware upload check — keeps internal callers
+  // (not just the HTTP route) honest. Lecturers may only upload into
+  // courses they actually teach; admins may upload anywhere.
+  if (!permissions.canUploadToCourse(user, input.courseId ?? null)) {
+    throw forbidden(
+      input.courseId
+        ? "You can only upload to courses you teach"
+        : "Only admins or lecturers with at least one taught course may upload",
+    );
+  }
+
+  // If the caller supplied a courseId, prove it resolves to a real
+  // course before we touch storage. Without this the FK would only
+  // fire mid-insert, surfacing as a 500 instead of a clean 400 and
+  // leaving an orphan blob in object storage.
+  if (input.courseId) {
+    const exists = await taxonomyRepo.courseExists(input.courseId);
+    if (!exists) throw badRequest("Target course does not exist");
+  }
+
   const storage = getStorage();
   const results: UploadResultEntry[] = [];
 
-  const existingNames = await docsRepo.findUploaderOriginalFilenames(user.id);
+  // Resolve the uploader's effective quota once up front; the running
+  // `plannedUsed` tally is updated as files successfully commit, so a
+  // partial-batch failure can't slip a later file past the cap. We work
+  // in BigInt throughout to avoid Number precision loss on multi-GB
+  // quotas.
+  const { usedBytes: startUsed, quotaBytes } =
+    await usersService.resolveEffectiveQuotaBytes(user.id);
+  let plannedUsed = startUsed;
+
+  const existingNames = await docsRepo.findUploaderDisplayFilenames(user.id);
   const usedNames = new Set(existingNames);
 
   function uniquify(name: string): string {
@@ -408,6 +577,48 @@ export async function uploadDocuments(
         continue;
       }
 
+      // Hash exactly once. Reused for the dedup short-circuit below and
+      // again as the stored `DocumentFile.checksum` (storage adapter
+      // trusts this via `precomputedChecksum`).
+      const checksum = sha256Hex(file.buffer);
+
+      // Same-uploader dedup: if this user already has an alive document
+      // backed by a file with this checksum, short-circuit before any
+      // storage write. The duplicate result carries the original doc's
+      // id/title so the UI can link straight to it.
+      const dup = await docsRepo.findAliveFileByUploaderAndChecksum(
+        user.id,
+        checksum,
+      );
+      if (dup) {
+        results.push({
+          originalFilename: file.originalname,
+          success: false,
+          error: `You already uploaded this exact file as "${dup.documentTitle}".`,
+          errorCode: "duplicate_file",
+          duplicateOfDocumentId: dup.documentId,
+          duplicateOfTitle: dup.documentTitle,
+        });
+        continue;
+      }
+
+      // Quota gate: would committing this file push the planned total
+      // past the user's effective quota? If so, refuse without touching
+      // storage or `usedBytes`. Per-file (rather than whole-batch) so a
+      // smaller subsequent file can still squeak in under the cap.
+      const fileSize = BigInt(file.size);
+      if (plannedUsed + fileSize > quotaBytes) {
+        const remaining = quotaBytes - plannedUsed;
+        const remainingForMsg = remaining > 0n ? remaining : 0n;
+        results.push({
+          originalFilename: file.originalname,
+          success: false,
+          error: `Storage quota exceeded — ${Number(remainingForMsg)} bytes remaining of ${Number(quotaBytes)}.`,
+          errorCode: "storage_quota_exceeded",
+        });
+        continue;
+      }
+
       const docId = uuidv4();
       const ext = file.originalname.includes(".")
         ? file.originalname.slice(file.originalname.lastIndexOf("."))
@@ -419,7 +630,35 @@ export async function uploadDocuments(
         key,
         body: file.buffer,
         contentType: file.mimetype,
+        precomputedChecksum: checksum,
       });
+
+      // Task #27: server-side metadata extraction. Never throws —
+      // a malformed PDF or extractor crash must not fail the upload.
+      // If a thumbnail came back, persist it under its own key.
+      const extracted = await extractMetadata({
+        buffer: file.buffer,
+        mimeType: file.mimetype,
+        filename: file.originalname,
+      });
+      let thumbnailPath: string | null = null;
+      let thumbnailMimeType: string | null = null;
+      if (extracted.thumbnail) {
+        const thumbKey = `thumbnails/${docId.slice(0, 2)}/${docId}.jpg`;
+        try {
+          const thumbPut = await storage.put({
+            key: thumbKey,
+            body: extracted.thumbnail.body,
+            contentType: extracted.thumbnail.mimeType,
+          });
+          thumbnailPath = thumbPut.key;
+          thumbnailMimeType = extracted.thumbnail.mimeType;
+        } catch {
+          // Thumbnail write failure is also non-fatal; the doc just
+          // shows the fallback icon.
+          thumbnailPath = null;
+        }
+      }
 
       const title =
         input.titleOverride && input.files.length === 1
@@ -445,23 +684,37 @@ export async function uploadDocuments(
         insertValues.academicYear = input.academicYear;
       }
 
-      const insertedDoc = await docsRepo.insertDocument(insertValues);
-
-      const uniqueOriginalName = uniquify(file.originalname);
-      await docsRepo.insertDocumentFile({
+      const displayName = uniquify(file.originalname);
+      const fileValues: docsRepo.DocumentFileInsert = {
         documentId: docId,
-        originalFilename: uniqueOriginalName,
+        originalFilename: file.originalname,
+        displayFilename: displayName,
         storedFilename: key.split("/").pop() ?? key,
         mimeType: file.mimetype,
         sizeBytes: file.size,
         storagePath: put.key,
         storageDriver: put.driver,
         checksum: put.checksum,
-      });
+        extractedText: extracted.extractedText ?? null,
+        pageCount: extracted.pageCount ?? null,
+        detectedTitle: extracted.detectedTitle ?? null,
+        author: extracted.author ?? null,
+        imageWidth: extracted.imageWidth ?? null,
+        imageHeight: extracted.imageHeight ?? null,
+        thumbnailPath,
+        thumbnailMimeType,
+      };
 
-      if (input.tagIds.length > 0) {
-        await docsRepo.addDocumentTags(docId, input.tagIds);
-      }
+      // Insert document, file, tag links, and increment usedBytes all in
+      // one transaction so a partial failure cannot drift the counter.
+      const insertedDoc = await docsRepo.insertDocumentWithFileAndQuota({
+        documentValues: insertValues,
+        fileValues,
+        tagIds: input.tagIds,
+        uploaderId: user.id,
+        sizeBytes: file.size,
+      });
+      plannedUsed += fileSize;
 
       await auditService.record(
         user.id,
@@ -474,7 +727,7 @@ export async function uploadDocuments(
         },
       );
 
-      const assembled = await assembleDocuments([insertedDoc]);
+      const assembled = await assembleDocuments([insertedDoc], user);
       results.push({
         originalFilename: file.originalname,
         success: true,
@@ -502,7 +755,7 @@ export interface SignedTokenDTO {
 
 function buildSignedUrl(
   documentId: string,
-  action: "preview" | "download",
+  action: "preview" | "download" | "thumbnail",
   token: string,
 ): string {
   return `/api/documents/${documentId}/${action}?token=${encodeURIComponent(token)}`;
@@ -510,12 +763,12 @@ function buildSignedUrl(
 
 export async function issueAccessToken(
   id: string,
-  action: "preview" | "download",
+  action: "preview" | "download" | "thumbnail",
   user: AuthenticatedUser,
 ): Promise<SignedTokenDTO> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  if (!canView(doc, user)) {
+  if (!permissions.canView(doc, user)) {
     throw forbidden(
       action === "preview"
         ? "Cannot preview this document"
@@ -579,4 +832,28 @@ export async function streamDownload(
     "document",
     id,
   );
+}
+
+/**
+ * Stream a server-generated thumbnail for `id`. Reuses the same signed
+ * URL machinery as preview/download so visibility is enforced
+ * consistently (the token is minted in `assembleDocuments` only after
+ * `permissions.canView` succeeded). If the document has no thumbnail
+ * (e.g. extraction failed), responds 404 — the UI will already be
+ * rendering the fallback icon by then.
+ */
+export async function streamThumbnail(
+  id: string,
+  token: string,
+  res: Response,
+): Promise<void> {
+  const result = verifyToken(token, id, "thumbnail");
+  if (!result.valid) throw unauthorized("Invalid or expired token");
+  const file = await docsRepo.findLatestFileForDocument(id);
+  if (!file || !file.thumbnailPath) throw notFound("No thumbnail");
+  const stream = await getStorage().getStream(file.thumbnailPath);
+  res.setHeader("Content-Type", file.thumbnailMimeType ?? "image/jpeg");
+  res.setHeader("Cache-Control", "private, max-age=300");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  stream.pipe(res);
 }

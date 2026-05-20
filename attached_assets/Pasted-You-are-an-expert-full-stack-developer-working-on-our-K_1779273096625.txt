@@ -1,0 +1,206 @@
+You are an expert full-stack developer working on our Knowledge Bank / בנק ידע project.
+
+Project context:
+We are building a standalone Knowledge Bank web application for a course project.
+Tech stack must remain:
+- React frontend
+- Node.js + Express backend
+- PostgreSQL database
+- Prisma ORM if already migrated, otherwise use the current existing DB layer consistently and do not introduce a second ORM
+- No Python
+- No FastAPI
+
+Task:
+Implement complete, secure, demo-ready registration logic for the project.
+
+Important:
+Before coding, inspect the existing auth system, user schema, role/RBAC logic, routes, middleware, frontend auth pages, API client, and validation style. Reuse the existing architecture and naming conventions. Do not rewrite the whole project unnecessarily.
+
+Required registration behavior:
+
+1. User registration endpoint
+Create or complete a backend endpoint:
+
+POST /api/auth/register
+
+The endpoint must support creating a new user with:
+- fullName
+- email
+- password
+- confirmPassword
+- role request: student or lecturer
+- optional studentId
+- optional lecturerId
+- optional department
+- optional enrolledCourseIds for students
+- optional teachingCourseIds for lecturers if the existing model supports it
+
+Validation rules:
+- fullName is required
+- email is required and must be valid
+- email must be unique, case-insensitive
+- password is required
+- password must be at least 8 characters
+- password must include at least one letter and one number
+- confirmPassword must match password
+- role must be either STUDENT or LECTURER
+- ADMIN registration must NOT be allowed from the public registration form
+- duplicate email must return a clean 409 error
+- invalid input must return clean 400 validation errors
+
+Security rules:
+- Hash passwords using bcrypt or the existing password hashing library
+- Never store plain text passwords
+- Never return passwordHash in API responses
+- Normalize emails to lowercase
+- Rate-limit registration if the project already has rate limiting
+- Add audit logging if audit logs already exist
+- Use the existing session/JWT/auth mechanism after registration
+
+2. Role assignment logic
+Implement RBAC-safe registration:
+
+Student registration:
+- Creates a user with STUDENT role
+- If course enrollment exists in the schema, enroll the student in selected courses
+- If course enrollment does not exist yet, create the proper model/table/migration if aligned with current Sprint 2 permission requirements
+
+Lecturer registration:
+Choose a safe demo-friendly behavior:
+- Lecturer accounts should be created with role LECTURER but marked as pending approval if the schema supports account status
+OR
+- If no approval system exists, add `status` to user: ACTIVE, PENDING_APPROVAL, DISABLED
+- Lecturer registration should default to PENDING_APPROVAL
+- Admin can later approve lecturer accounts
+
+Admin registration:
+- Public registration must never create ADMIN users
+- Admin users should only be created through seed/demo data or an admin-only route
+
+3. Login after registration
+After successful student registration:
+- Either auto-login the student using the existing auth flow
+OR
+- Return a success response telling the frontend to redirect to login
+
+For lecturer registration:
+- If lecturer is PENDING_APPROVAL, do not auto-login into protected lecturer features
+- Show a message: “Your lecturer account is pending admin approval.”
+
+4. Backend implementation files
+Inspect the repo and modify/create the correct files. Likely areas:
+- auth routes/controller
+- auth service
+- user repository
+- validation schema
+- RBAC middleware
+- Prisma schema or current DB schema
+- migration files
+- API spec/client if the project uses generated clients
+
+Possible files to inspect:
+- artifacts/api-server/src/routes/auth.*
+- artifacts/api-server/src/services/auth.*
+- artifacts/api-server/src/repositories/users.*
+- artifacts/api-server/src/middleware/auth.*
+- artifacts/api-server/src/middleware/rbac.*
+- lib/db/src/schema/*
+- prisma/schema.prisma if it exists
+- lib/api-spec/openapi.yaml
+- artifacts/web/src/pages/*
+- artifacts/web/src/components/auth/*
+- lib/api-client-react/*
+
+5. Frontend registration page
+Create or complete a registration page in React.
+
+Required UI:
+- Full name field
+- Email field
+- Password field
+- Confirm password field
+- Role selector: Student / Lecturer only
+- Student ID field shown only for Student
+- Lecturer ID / Department field shown only for Lecturer
+- Course selection if courses API exists
+- Submit button
+- Link to login page
+- Clear validation errors
+- Loading state
+- Success state
+
+Behavior:
+- Student registration success redirects to login or dashboard depending on backend behavior
+- Lecturer registration success shows pending approval message
+- Admin option must not appear in the registration form
+- Use the project’s existing UI/component styling
+
+6. Admin approval for lecturers
+If account status does not exist, add it.
+
+Add an admin-only endpoint:
+GET /api/admin/users/pending-lecturers
+
+Add an admin-only endpoint:
+POST /api/admin/users/:userId/approve
+
+Add an admin-only endpoint:
+POST /api/admin/users/:userId/disable
+
+Rules:
+- Only ADMIN can approve/disable users
+- Approved lecturer status becomes ACTIVE
+- Disabled users cannot login
+- Pending lecturers cannot access protected lecturer actions
+
+Add a simple admin UI page or section if admin pages already exist:
+- List pending lecturers
+- Approve button
+- Disable/reject button
+
+7. Login must respect account status
+Update login logic:
+- ACTIVE users can login
+- PENDING_APPROVAL users receive a clean message and cannot access protected features
+- DISABLED users receive a clean disabled-account message
+- Existing demo admin/student users must still work
+
+8. API contract and types
+If the project uses OpenAPI or generated API clients:
+- Update openapi.yaml
+- Update generated client/types according to existing project commands
+- Do not manually hack generated files unless that is how the project currently works
+
+9. Tests
+Add or update tests for:
+- Successful student registration
+- Lecturer registration creates pending account
+- Admin registration is rejected
+- Duplicate email rejected
+- Weak password rejected
+- Password mismatch rejected
+- Pending lecturer cannot login/access lecturer features
+- Admin can approve lecturer
+- Approved lecturer can login
+- Disabled user cannot login
+
+10. Acceptance criteria
+The implementation is complete only if:
+- Registration works from frontend to backend
+- Student can register and login
+- Lecturer can register and becomes pending approval
+- Admin can approve lecturer
+- Approved lecturer can login
+- Public users cannot create admin accounts
+- Duplicate email and validation errors are handled cleanly
+- Passwords are hashed
+- No passwordHash is returned to frontend
+- Typecheck passes
+- Existing login/auth/RBAC behavior is not broken
+- No Python/FastAPI is added
+
+After implementation, provide:
+1. Summary of changed files
+2. Any new env vars needed
+3. Exact demo credentials affected
+4. Commands to run migrations/seed/tests

@@ -30,6 +30,7 @@ import type {
   DocumentSuggestion,
   DocumentSuggestionsParams,
   DownloadDocumentParams,
+  GetDocumentThumbnailParams,
   HealthStatus,
   ListDocumentsParams,
   ListRecentDocumentsParams,
@@ -37,7 +38,11 @@ import type {
   LoginRequest,
   MaterialRequest,
   PreviewDocumentParams,
+  RegisterRequest,
+  RegisterResponse,
+  SearchUsersParams,
   SignedTokenResponse,
+  StorageQuota,
   Tag,
   UpdateCommentRequest,
   UpdateDocumentRequest,
@@ -132,7 +137,94 @@ export function useHealthCheck<
 }
 
 /**
- * @summary Demo login
+ * Admin self-registration is impossible: `role` is constrained to `student | lecturer`. Students are created `ACTIVE` and a session cookie is set in the response. Lecturers are created `PENDING_APPROVAL` and no session is established until an admin approves them.
+ * @summary Public registration for student / lecturer accounts
+ */
+export const getRegisterUserUrl = () => {
+  return `/api/auth/register`;
+};
+
+export const registerUser = async (
+  registerRequest: RegisterRequest,
+  options?: RequestInit,
+): Promise<RegisterResponse> => {
+  return customFetch<RegisterResponse>(getRegisterUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerRequest),
+  });
+};
+
+export const getRegisterUserMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerUser>>,
+    TError,
+    { data: BodyType<RegisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerUser>>,
+  TError,
+  { data: BodyType<RegisterRequest> },
+  TContext
+> => {
+  const mutationKey = ["registerUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerUser>>,
+    { data: BodyType<RegisterRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerUser>>
+>;
+export type RegisterUserMutationBody = BodyType<RegisterRequest>;
+export type RegisterUserMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Public registration for student / lecturer accounts
+ */
+export const useRegisterUser = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerUser>>,
+    TError,
+    { data: BodyType<RegisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerUser>>,
+  TError,
+  { data: BodyType<RegisterRequest> },
+  TContext
+> => {
+  return useMutation(getRegisterUserMutationOptions(options));
+};
+
+/**
+ * @summary Status-aware login
  */
 export const getLoginUrl = () => {
   return `/api/auth/login`;
@@ -195,7 +287,7 @@ export type LoginMutationBody = BodyType<LoginRequest>;
 export type LoginMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Demo login
+ * @summary Status-aware login
  */
 export const useLogin = <
   TError = ErrorType<ApiError>,
@@ -466,6 +558,81 @@ export function useListDocuments<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListDocumentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Storage usage and quota for the authenticated user
+ */
+export const getGetMyStorageQuotaUrl = () => {
+  return `/api/storage/quota/me`;
+};
+
+export const getMyStorageQuota = async (
+  options?: RequestInit,
+): Promise<StorageQuota> => {
+  return customFetch<StorageQuota>(getGetMyStorageQuotaUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyStorageQuotaQueryKey = () => {
+  return [`/api/storage/quota/me`] as const;
+};
+
+export const getGetMyStorageQuotaQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyStorageQuota>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyStorageQuota>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyStorageQuotaQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyStorageQuota>>
+  > = ({ signal }) => getMyStorageQuota({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyStorageQuota>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyStorageQuotaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyStorageQuota>>
+>;
+export type GetMyStorageQuotaQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Storage usage and quota for the authenticated user
+ */
+
+export function useGetMyStorageQuota<
+  TData = Awaited<ReturnType<typeof getMyStorageQuota>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyStorageQuota>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyStorageQuotaQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -1032,6 +1199,119 @@ export const useDeleteDocument = <
 > => {
   return useMutation(getDeleteDocumentMutationOptions(options));
 };
+
+/**
+ * @summary Stream a server-generated thumbnail (signed-URL pathway)
+ */
+export const getGetDocumentThumbnailUrl = (
+  id: string,
+  params: GetDocumentThumbnailParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/documents/${id}/thumbnail?${stringifiedParams}`
+    : `/api/documents/${id}/thumbnail`;
+};
+
+export const getDocumentThumbnail = async (
+  id: string,
+  params: GetDocumentThumbnailParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetDocumentThumbnailUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDocumentThumbnailQueryKey = (
+  id: string,
+  params?: GetDocumentThumbnailParams,
+) => {
+  return [
+    `/api/documents/${id}/thumbnail`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetDocumentThumbnailQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDocumentThumbnail>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  params: GetDocumentThumbnailParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentThumbnail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDocumentThumbnailQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDocumentThumbnail>>
+  > = ({ signal }) =>
+    getDocumentThumbnail(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDocumentThumbnail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDocumentThumbnailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDocumentThumbnail>>
+>;
+export type GetDocumentThumbnailQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Stream a server-generated thumbnail (signed-URL pathway)
+ */
+
+export function useGetDocumentThumbnail<
+  TData = Awaited<ReturnType<typeof getDocumentThumbnail>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  params: GetDocumentThumbnailParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentThumbnail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDocumentThumbnailQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export const getGetDocumentPreviewTokenUrl = (id: string) => {
   return `/api/documents/${id}/preview-token`;
@@ -2303,6 +2583,587 @@ export function useListUsers<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListUsersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin-only list of lecturers awaiting approval
+ */
+export const getListPendingLecturersUrl = () => {
+  return `/api/users/pending-lecturers`;
+};
+
+export const listPendingLecturers = async (
+  options?: RequestInit,
+): Promise<UserSummary[]> => {
+  return customFetch<UserSummary[]>(getListPendingLecturersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPendingLecturersQueryKey = () => {
+  return [`/api/users/pending-lecturers`] as const;
+};
+
+export const getListPendingLecturersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPendingLecturersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPendingLecturers>>
+  > = ({ signal }) => listPendingLecturers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingLecturers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPendingLecturersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPendingLecturers>>
+>;
+export type ListPendingLecturersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only list of lecturers awaiting approval
+ */
+
+export function useListPendingLecturers<
+  TData = Awaited<ReturnType<typeof listPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPendingLecturersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin-only approve a pending lecturer
+ */
+export const getApproveUserUrl = (id: string) => {
+  return `/api/users/${id}/approve`;
+};
+
+export const approveUser = async (
+  id: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getApproveUserUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getApproveUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["approveUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveUser>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return approveUser(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveUser>>
+>;
+
+export type ApproveUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only approve a pending lecturer
+ */
+export const useApproveUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getApproveUserMutationOptions(options));
+};
+
+/**
+ * @summary Admin-only disable any user
+ */
+export const getDisableUserUrl = (id: string) => {
+  return `/api/users/${id}/disable`;
+};
+
+export const disableUser = async (
+  id: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getDisableUserUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDisableUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disableUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["disableUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disableUser>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return disableUser(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisableUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disableUser>>
+>;
+
+export type DisableUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only disable any user
+ */
+export const useDisableUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disableUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDisableUserMutationOptions(options));
+};
+
+/**
+ * @summary Admin alias for /users/pending-lecturers
+ */
+export const getAdminListPendingLecturersUrl = () => {
+  return `/api/admin/users/pending-lecturers`;
+};
+
+export const adminListPendingLecturers = async (
+  options?: RequestInit,
+): Promise<UserSummary[]> => {
+  return customFetch<UserSummary[]>(getAdminListPendingLecturersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListPendingLecturersQueryKey = () => {
+  return [`/api/admin/users/pending-lecturers`] as const;
+};
+
+export const getAdminListPendingLecturersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListPendingLecturersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>
+  > = ({ signal }) => adminListPendingLecturers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListPendingLecturersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListPendingLecturers>>
+>;
+export type AdminListPendingLecturersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin alias for /users/pending-lecturers
+ */
+
+export function useAdminListPendingLecturers<
+  TData = Awaited<ReturnType<typeof adminListPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListPendingLecturersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin alias for /users/{id}/approve
+ */
+export const getAdminApproveUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/approve`;
+};
+
+export const adminApproveUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getAdminApproveUserUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminApproveUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminApproveUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminApproveUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminApproveUser>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminApproveUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminApproveUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminApproveUser>>
+>;
+
+export type AdminApproveUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin alias for /users/{id}/approve
+ */
+export const useAdminApproveUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminApproveUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminApproveUserMutationOptions(options));
+};
+
+/**
+ * @summary Admin alias for /users/{id}/disable
+ */
+export const getAdminDisableUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/disable`;
+};
+
+export const adminDisableUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getAdminDisableUserUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminDisableUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDisableUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDisableUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminDisableUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDisableUser>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminDisableUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDisableUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDisableUser>>
+>;
+
+export type AdminDisableUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin alias for /users/{id}/disable
+ */
+export const useAdminDisableUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDisableUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDisableUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminDisableUserMutationOptions(options));
+};
+
+/**
+ * @summary Autocomplete-style user search for the @mention picker
+ */
+export const getSearchUsersUrl = (params: SearchUsersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/users/search?${stringifiedParams}`
+    : `/api/users/search`;
+};
+
+export const searchUsers = async (
+  params: SearchUsersParams,
+  options?: RequestInit,
+): Promise<UserSummary[]> => {
+  return customFetch<UserSummary[]>(getSearchUsersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchUsersQueryKey = (params?: SearchUsersParams) => {
+  return [`/api/users/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchUsersQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchUsers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getSearchUsersQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof searchUsers>>> = ({
+    signal,
+  }) => searchUsers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchUsers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchUsersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchUsers>>
+>;
+export type SearchUsersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Autocomplete-style user search for the @mention picker
+ */
+
+export function useSearchUsers<
+  TData = Awaited<ReturnType<typeof searchUsers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchUsersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchUsers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchUsersQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

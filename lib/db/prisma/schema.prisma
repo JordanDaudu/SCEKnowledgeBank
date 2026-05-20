@@ -1,0 +1,389 @@
+// Knowledge Bank — Prisma schema.
+//
+// 1:1 mirror of the previous Drizzle schema (see git history for
+// `lib/db/src/schema/*.ts`). This task is a behaviour-preserving ORM swap —
+// no new columns, no new tables. Sprint-2 feature additions live in
+// follow-up tasks.
+//
+// Indexes that Prisma cannot express directly — the partial unique on
+// `users.email`, the partial `documents_deleted_at_idx`, and the
+// `gin_trgm_ops` indexes on documents — are added in the init migration's
+// raw SQL section (see `prisma/migrations/0_init/migration.sql`).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Identity ─────────────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  primaryFor      User[]           @relation("UserPrimaryRole")
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([name], map: "roles_name_unique")
+  @@map("roles")
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String
+  passwordHash  String    @map("password_hash")
+  displayName   String    @map("display_name")
+  primaryRoleId String?   @map("primary_role_id") @db.Uuid
+  isActive      Boolean   @default(true) @map("is_active")
+  // Lifecycle status independent of soft-delete (`deletedAt`) and the
+  // legacy `isActive` flag. `ACTIVE` users can log in normally;
+  // `PENDING_APPROVAL` users (lecturers awaiting admin sign-off) are
+  // rejected at login with a clean message; `DISABLED` users are
+  // blocked entirely. Defaults to ACTIVE so existing seed data keeps
+  // working without backfill.
+  status        String    @default("ACTIVE")
+  studentId     String?   @map("student_id")
+  lecturerId    String?   @map("lecturer_id")
+  department    String?
+  // Storage quota — usedBytes is the running sum of stored file bytes,
+  // maintained transactionally with each upload / hard-delete. quotaBytes
+  // is a per-user override; when NULL the server default
+  // (`DEFAULT_USER_STORAGE_QUOTA_MB`) is used.
+  usedBytes     BigInt    @default(0) @map("used_bytes")
+  quotaBytes    BigInt?   @map("quota_bytes")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
+
+  primaryRole       Role?                 @relation("UserPrimaryRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
+  userRoles         UserRole[]
+  documentsUploaded Document[]            @relation("DocumentUploader")
+  documentsOwned    Document[]            @relation("DocumentOwner")
+  documentsCreated  Document[]            @relation("DocumentCreator")
+  documentsUpdated  Document[]            @relation("DocumentUpdater")
+  coursesLectured   Course[]
+  comments          Comment[]
+  commentMentions   CommentMention[]      @relation("CommentMentionUser")
+  materialRequests  MaterialRequest[]
+  requestVotes      RequestVote[]
+  viewHistory       MaterialViewHistory[]
+  auditLogs         AuditLog[]
+  courseEnrollments CourseEnrollment[]
+
+  @@index([primaryRoleId], map: "users_primary_role_idx")
+  @@map("users")
+}
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId], map: "user_roles_role_idx")
+  @@map("user_roles")
+}
+
+model Permission {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@unique([key], map: "permissions_key_unique")
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ─── Taxonomy ─────────────────────────────────────────────────────
+
+model Course {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String
+  title          String
+  lecturerName   String   @map("lecturer_name")
+  lecturerUserId String?  @map("lecturer_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  lecturer    User?              @relation(fields: [lecturerUserId], references: [id], onDelete: SetNull)
+  documents   Document[]
+  requests    MaterialRequest[]
+  enrollments CourseEnrollment[]
+
+  @@unique([code], map: "courses_code_unique")
+  @@index([lecturerName], map: "courses_lecturer_name_idx")
+  @@map("courses")
+}
+
+model CourseEnrollment {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  courseId     String   @map("course_id") @db.Uuid
+  roleInCourse String   @map("role_in_course")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId], map: "course_enrollments_user_course_unique")
+  @@index([courseId], map: "course_enrollments_course_idx")
+  @@map("course_enrollments")
+}
+
+model Category {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  slug        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  documents Document[]
+
+  @@unique([name], map: "categories_name_unique")
+  @@unique([slug], map: "categories_slug_unique")
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  documents DocumentTag[]
+
+  @@unique([name], map: "tags_name_unique")
+  @@map("tags")
+}
+
+// ─── Documents ────────────────────────────────────────────────────
+
+model Document {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title            String
+  description      String    @default("")
+  courseId         String?   @map("course_id") @db.Uuid
+  categoryId       String?   @map("category_id") @db.Uuid
+  materialType     String    @default("other") @map("material_type")
+  semester         String?
+  academicYear     Int?      @map("academic_year")
+  visibility       String    @default("public")
+  status           String    @default("published")
+  uploaderId       String    @map("uploader_id") @db.Uuid
+  ownerId          String    @map("owner_id") @db.Uuid
+  currentVersion   Int       @default(1) @map("current_version")
+  isLatestVersion  Boolean   @default(true) @map("is_latest_version")
+  // No FK in the previous Drizzle schema either; preserved as-is.
+  parentDocumentId String?   @map("parent_document_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz()
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedBy        String?   @map("updated_by") @db.Uuid
+
+  course            Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  uploader          User                  @relation("DocumentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
+  owner             User                  @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  creator           User?                 @relation("DocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater           User?                 @relation("DocumentUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+  files             DocumentFile[]
+  tags              DocumentTag[]
+  comments          Comment[]
+  views             MaterialViewHistory[]
+  requestsFulfilled MaterialRequest[]     @relation("FulfillingDocument")
+
+  @@index([courseId], map: "documents_course_idx")
+  @@index([categoryId], map: "documents_category_idx")
+  @@index([materialType], map: "documents_material_type_idx")
+  @@index([semester, academicYear], map: "documents_semester_year_idx")
+  @@index([uploaderId], map: "documents_uploader_idx")
+  @@index([createdAt], map: "documents_created_at_idx")
+  @@map("documents")
+}
+
+model DocumentFile {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String   @map("document_id") @db.Uuid
+  originalFilename String   @map("original_filename")
+  displayFilename  String   @map("display_filename")
+  storedFilename   String   @map("stored_filename")
+  mimeType         String   @map("mime_type")
+  sizeBytes        BigInt   @map("size_bytes")
+  storagePath      String   @map("storage_path")
+  storageDriver    String   @default("local") @map("storage_driver")
+  checksum         String
+  versionLabel     String?  @map("version_label")
+  uploadedAt       DateTime @default(now()) @map("uploaded_at") @db.Timestamptz()
+
+  // ─── Extracted metadata (Sprint 2, task #27) ──────────────────
+  // Populated server-side on upload by `metadata.service.ts`. All
+  // fields are nullable: extraction failure or unsupported file types
+  // leave them NULL and the API falls back to a generic icon.
+  extractedText     String? @map("extracted_text")
+  pageCount         Int?    @map("page_count")
+  detectedTitle     String? @map("detected_title")
+  author            String?
+  imageWidth        Int?    @map("image_width")
+  imageHeight       Int?    @map("image_height")
+  thumbnailPath     String? @map("thumbnail_path")
+  thumbnailMimeType String? @map("thumbnail_mime_type")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId], map: "document_files_document_idx")
+  @@index([checksum], map: "document_files_checksum_idx")
+  @@map("document_files")
+}
+
+model DocumentTag {
+  documentId String @map("document_id") @db.Uuid
+  tagId      String @map("tag_id") @db.Uuid
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+  @@index([tagId], map: "document_tags_tag_idx")
+  @@map("document_tags")
+}
+
+model MaterialViewHistory {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  viewedAt   DateTime @default(now()) @map("viewed_at") @db.Timestamptz()
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, viewedAt], map: "material_view_history_user_viewed_idx")
+  @@index([documentId], map: "material_view_history_document_idx")
+  @@map("material_view_history")
+}
+
+// ─── Comments ─────────────────────────────────────────────────────
+
+model Comment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String    @map("document_id") @db.Uuid
+  authorId   String    @map("author_id") @db.Uuid
+  // No FK in the previous Drizzle schema either; preserved as-is.
+  parentId   String?   @map("parent_id") @db.Uuid
+  body       String
+  pageNumber Int?      @map("page_number")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz()
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  mentions CommentMention[]
+
+  @@index([documentId, createdAt], map: "comments_document_created_idx")
+  @@index([parentId], map: "comments_parent_idx")
+  @@index([authorId], map: "comments_author_idx")
+  @@map("comments")
+}
+
+model CommentMention {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commentId        String   @map("comment_id") @db.Uuid
+  mentionedUserId  String   @map("mentioned_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  comment         Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  mentionedUser   User    @relation("CommentMentionUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, mentionedUserId], map: "comment_mentions_comment_user_unique")
+  @@index([mentionedUserId], map: "comment_mentions_user_idx")
+  @@map("comment_mentions")
+}
+
+// ─── Requests ─────────────────────────────────────────────────────
+
+model MaterialRequest {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                String
+  description          String    @default("")
+  courseId             String?   @map("course_id") @db.Uuid
+  requestedBy          String    @map("requested_by") @db.Uuid
+  status               String    @default("open")
+  fulfillingDocumentId String?   @map("fulfilling_document_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz()
+
+  course             Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  requester          User          @relation(fields: [requestedBy], references: [id], onDelete: Restrict)
+  fulfillingDocument Document?     @relation("FulfillingDocument", fields: [fulfillingDocumentId], references: [id], onDelete: SetNull)
+  votes              RequestVote[]
+
+  @@index([status, createdAt], map: "material_requests_status_created_idx")
+  @@index([courseId], map: "material_requests_course_idx")
+  @@map("material_requests")
+}
+
+model RequestVote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId String   @map("request_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  request MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, requestId], map: "request_votes_user_request_unique")
+  @@index([requestId], map: "request_votes_request_idx")
+  @@map("request_votes")
+}
+
+// ─── Audit ────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  metadata    Json     @default("{}") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt], map: "audit_logs_entity_idx")
+  @@index([actorUserId], map: "audit_logs_actor_idx")
+  @@map("audit_logs")
+}
+
+// ─── Sessions (connect-pg-simple shape) ───────────────────────────
+
+model Session {
+  sid    String   @id
+  sess   Json     @db.Json
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire], map: "session_expire_idx")
+  @@map("session")
+}

@@ -3,6 +3,7 @@ import * as docsRepo from "../repositories/documents.repo";
 import * as taxonomyService from "./taxonomy.service";
 import * as usersService from "./users.service";
 import * as auditService from "./audit.service";
+import * as permissions from "./permissions.service";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -58,11 +59,33 @@ async function buildDTOs(
   });
 }
 
+/**
+ * Course-scoped requests are visible to admins, the request's course
+ * lecturers, and students enrolled in that course. Course-less
+ * (`courseId === null`) requests stay globally visible.
+ *
+ * Returns the array of course ids this user is allowed to see; an
+ * `undefined` return means "no scoping" (admin).
+ */
+function visibleCourseIdsFor(user: AuthenticatedUser): string[] | undefined {
+  if (permissions.isAdmin(user)) return undefined;
+  return user.enrollments.map((e) => e.courseId);
+}
+
+function canSeeRequest(user: AuthenticatedUser, r: { courseId: string | null }): boolean {
+  if (permissions.isAdmin(user)) return true;
+  if (!r.courseId) return true;
+  return user.enrollments.some((e) => e.courseId === r.courseId);
+}
+
 export async function listRequests(
   filters: requestsRepo.ListRequestsFilters,
   user: AuthenticatedUser,
 ): Promise<RequestDTO[]> {
-  const ids = await requestsRepo.listAliveIds(filters);
+  const scoped: requestsRepo.ListRequestsFilters = { ...filters };
+  const visible = visibleCourseIdsFor(user);
+  if (visible !== undefined) scoped.visibleCourseIds = visible;
+  const ids = await requestsRepo.listAliveIds(scoped);
   return buildDTOs(ids, user.id);
 }
 
@@ -99,15 +122,32 @@ export async function updateRequest(
 ): Promise<RequestDTO> {
   const r = await requestsRepo.findAliveById(id);
   if (!r) throw notFound("Request not found");
+  // Same visibility scoping as listRequests: a user outside the
+  // request's course shouldn't even be able to see it, let alone
+  // mutate it.
+  if (!canSeeRequest(user, r)) throw notFound("Request not found");
   const isOwner = r.requestedBy === user.id;
-  const isAdmin = user.roles.includes("admin");
   const wantsStatusChange =
     body.status !== undefined || body.fulfillingDocumentId !== undefined;
-  if (wantsStatusChange && !isOwner && !isAdmin) {
-    throw forbidden("Only the request author or an admin can update status");
+  const wantsContentChange =
+    body.title !== undefined || body.description !== undefined;
+  // Status fulfillment is open to admins, the author, and lecturers who
+  // teach the request's course (or any lecturer when the request is
+  // course-less). Editing title/description stays restricted to the
+  // author or an admin.
+  if (
+    wantsStatusChange &&
+    !permissions.canFulfilRequest(user, {
+      requestedBy: r.requestedBy,
+      courseId: r.courseId,
+    })
+  ) {
+    throw forbidden(
+      "Only the request author, a lecturer for this course, or an admin can change request status",
+    );
   }
-  if (!isOwner && !isAdmin) {
-    throw forbidden("Cannot edit this request");
+  if (wantsContentChange && !isOwner && !permissions.isAdmin(user)) {
+    throw forbidden("Only the request author or an admin can edit this request");
   }
   if (body.fulfillingDocumentId) {
     const doc = await docsRepo.findByIdAlive(body.fulfillingDocumentId);
@@ -134,15 +174,25 @@ export async function updateRequest(
   return dtos[0];
 }
 
+/**
+ * Vote on a request. Race-safe: the insert is gated by a unique index on
+ * (user_id, request_id) via `ON CONFLICT DO NOTHING`, so two concurrent
+ * requests cannot both succeed. Semantics: a duplicate vote returns 409
+ * (we never silently swallow it — the client uses this to flip the vote
+ * button into its "voted" state and to surface "already voted").
+ */
 export async function voteOnRequest(
   id: string,
   user: AuthenticatedUser,
 ): Promise<RequestDTO> {
   const r = await requestsRepo.findAliveById(id);
   if (!r) throw notFound("Request not found");
-  const existing = await requestsRepo.findVote(id, user.id);
-  if (existing) throw conflict("You have already voted on this request");
-  await requestsRepo.insertVote(id, user.id);
+  // Visibility check: a user must be able to see the request to vote
+  // on it. Otherwise course-scoped requests would leak via the 409
+  // duplicate-vote channel (you could probe by attempting a vote).
+  if (!canSeeRequest(user, r)) throw notFound("Request not found");
+  const inserted = await requestsRepo.insertVoteIfAbsent(id, user.id);
+  if (!inserted) throw conflict("You have already voted on this request");
   await auditService.record(user.id, "request.vote", "material_request", id);
   const dtos = await buildDTOs([id], user.id);
   return dtos[0];

@@ -3,12 +3,12 @@
 #
 # Stages:
 #   1. deps    — install all pnpm workspace dependencies (with dev deps; needed
-#                for the esbuild bundle step and for drizzle-kit/tsx in the
+#                for the esbuild bundle step and for prisma/tsx in the
 #                migrate image).
 #   2. builder — produce the bundled server at artifacts/api-server/dist.
 #   3. migrate — one-shot image used by the `api-init` compose service. Ships
 #                the workspace sources + node_modules needed to run
-#                `drizzle-kit push` and the tsx seed script, then exits.
+#                `prisma migrate deploy` and the tsx seed script, then exits.
 #   4. runtime — minimal image for the long-running API. Ships only the
 #                bundled dist/index.mjs plus tini and wget for healthchecks.
 #                Everything the bundled server needs is already inlined by
@@ -60,7 +60,7 @@ RUN corepack enable
 
 WORKDIR /app
 
-# Workspace sources + node_modules for drizzle-kit push and tsx seed script.
+# Workspace sources + node_modules for `prisma migrate deploy` and the tsx seed script.
 COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json ./
 COPY --from=builder /app/tsconfig.base.json /app/tsconfig.json ./
 COPY --from=builder /app/node_modules ./node_modules

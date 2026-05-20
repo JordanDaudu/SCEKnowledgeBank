@@ -6,11 +6,10 @@ vi.mock("../repositories/requests.repo", () => ({
   findAliveById: vi.fn(),
   insertRequest: vi.fn(),
   updateRequestById: vi.fn(),
-  listAllVotes: vi.fn().mockResolvedValue([]),
   countVotesByRequestIds: vi.fn().mockResolvedValue(new Map()),
   findUserVotedRequestIds: vi.fn().mockResolvedValue(new Set()),
   findVote: vi.fn(),
-  insertVote: vi.fn(),
+  insertVoteIfAbsent: vi.fn(),
 }));
 vi.mock("../repositories/documents.repo", () => ({
   findByIdAlive: vi.fn(),
@@ -35,10 +34,8 @@ import {
 
 const findAliveById = vi.mocked(requestsRepo.findAliveById);
 const findAliveByIds = vi.mocked(requestsRepo.findAliveByIds);
-const findVote = vi.mocked(requestsRepo.findVote);
-const insertVote = vi.mocked(requestsRepo.insertVote);
+const insertVoteIfAbsent = vi.mocked(requestsRepo.insertVoteIfAbsent);
 const updateById = vi.mocked(requestsRepo.updateRequestById);
-const listAllVotes = vi.mocked(requestsRepo.listAllVotes);
 const findDocAlive = vi.mocked(docsRepo.findByIdAlive);
 
 const owner: AuthenticatedUser = {
@@ -48,9 +45,11 @@ const owner: AuthenticatedUser = {
   isActive: true,
   primaryRole: "student",
   roles: ["student"],
+  enrollments: [],
 };
 const other: AuthenticatedUser = { ...owner, id: "other" };
 const admin: AuthenticatedUser = { ...owner, id: "admin", roles: ["admin"] };
+const lecturer: AuthenticatedUser = { ...owner, id: "lecturer", roles: ["lecturer"] };
 
 function makeRequest(overrides: Partial<{ id: string; requestedBy: string; status: string }> = {}) {
   return {
@@ -69,31 +68,44 @@ function makeRequest(overrides: Partial<{ id: string; requestedBy: string; statu
 
 beforeEach(() => {
   vi.clearAllMocks();
-  listAllVotes.mockResolvedValue([]);
   findAliveByIds.mockImplementation(async (ids) =>
     ids.map((id) => makeRequest({ id })),
   );
 });
 
 describe("voteOnRequest", () => {
-  it("rejects a duplicate vote with 409", async () => {
+  it("records a new vote when the user has not voted (repo returns true)", async () => {
     findAliveById.mockResolvedValueOnce(makeRequest());
-    findVote.mockResolvedValueOnce({
-      requestId: "r1",
-      userId: other.id,
-    } as never);
+    insertVoteIfAbsent.mockResolvedValueOnce(true);
+    await voteOnRequest("r1", other);
+    expect(insertVoteIfAbsent).toHaveBeenCalledWith("r1", other.id);
+  });
+
+  it("rejects a duplicate vote with 409 (repo returns false from ON CONFLICT DO NOTHING)", async () => {
+    findAliveById.mockResolvedValueOnce(makeRequest());
+    insertVoteIfAbsent.mockResolvedValueOnce(false);
     await expect(voteOnRequest("r1", other)).rejects.toMatchObject({
       status: 409,
       code: "conflict",
     });
-    expect(insertVote).not.toHaveBeenCalled();
   });
 
-  it("records a new vote when the user has not voted", async () => {
-    findAliveById.mockResolvedValueOnce(makeRequest());
-    findVote.mockResolvedValueOnce(null);
-    await voteOnRequest("r1", other);
-    expect(insertVote).toHaveBeenCalledWith("r1", other.id);
+  it("is race-safe: a concurrent duplicate still surfaces a 409 rather than a 500", async () => {
+    // Both "concurrent" callers see the request as alive...
+    findAliveById.mockResolvedValue(makeRequest());
+    // ...but the unique index lets only one insert through; the second
+    // call gets `false` back from ON CONFLICT DO NOTHING.
+    insertVoteIfAbsent
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const [a, b] = await Promise.allSettled([
+      voteOnRequest("r1", other),
+      voteOnRequest("r1", other),
+    ]);
+    const statuses = [a, b].map((s) =>
+      s.status === "fulfilled" ? 200 : (s.reason as { status?: number }).status,
+    );
+    expect(statuses.sort()).toEqual([200, 409]);
   });
 
   it("404s when the request does not exist", async () => {
@@ -104,8 +116,49 @@ describe("voteOnRequest", () => {
   });
 });
 
+describe("request visibility (Sprint-2 audit)", () => {
+  const courseScoped = (overrides: Partial<{ id: string; courseId: string }> = {}) => {
+    const base = makeRequest({ id: overrides.id ?? "rcs" }) as unknown as Record<string, unknown>;
+    return { ...base, courseId: overrides.courseId ?? "course-X" } as never;
+  };
+
+  it("404s voteOnRequest for a student outside the course (no leak via 409)", async () => {
+    findAliveById.mockResolvedValueOnce(courseScoped());
+    await expect(voteOnRequest("rcs", other)).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(insertVoteIfAbsent).not.toHaveBeenCalled();
+  });
+
+  it("404s updateRequest for a non-enrolled user on a course-scoped request", async () => {
+    findAliveById.mockResolvedValueOnce(courseScoped());
+    await expect(
+      updateRequest("rcs", { status: "fulfilled" }, other),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(updateById).not.toHaveBeenCalled();
+  });
+
+  it("admins see course-scoped requests regardless of enrollment", async () => {
+    findAliveById.mockResolvedValue(courseScoped());
+    insertVoteIfAbsent.mockResolvedValueOnce(true);
+    await voteOnRequest("rcs", admin);
+    expect(insertVoteIfAbsent).toHaveBeenCalled();
+  });
+
+  it("enrolled students can see and vote on course-scoped requests", async () => {
+    const enrolled: AuthenticatedUser = {
+      ...other,
+      enrollments: [{ courseId: "course-X", roleInCourse: "student" }],
+    };
+    findAliveById.mockResolvedValue(courseScoped());
+    insertVoteIfAbsent.mockResolvedValueOnce(true);
+    await voteOnRequest("rcs", enrolled);
+    expect(insertVoteIfAbsent).toHaveBeenCalled();
+  });
+});
+
 describe("updateRequest RBAC", () => {
-  it("forbids status changes from a non-owner non-admin user", async () => {
+  it("forbids status changes from a student who is not the author", async () => {
     findAliveById.mockResolvedValue(makeRequest());
     await expect(
       updateRequest("r1", { status: "fulfilled" }, other),
@@ -113,11 +166,25 @@ describe("updateRequest RBAC", () => {
     expect(updateById).not.toHaveBeenCalled();
   });
 
-  it("forbids any edit from a non-owner non-admin user", async () => {
+  it("forbids title edits from a non-owner non-admin user (lecturers included)", async () => {
     findAliveById.mockResolvedValue(makeRequest());
     await expect(
-      updateRequest("r1", { title: "rewrite" }, other),
+      updateRequest("r1", { title: "rewrite" }, lecturer),
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("allows a lecturer to fulfill someone else's request", async () => {
+    findAliveById.mockResolvedValue(makeRequest({ requestedBy: "someone" }));
+    findDocAlive.mockResolvedValueOnce({ id: "doc1" } as never);
+    await updateRequest(
+      "r1",
+      { status: "fulfilled", fulfillingDocumentId: "doc1" },
+      lecturer,
+    );
+    expect(updateById).toHaveBeenCalledWith(
+      "r1",
+      expect.objectContaining({ status: "fulfilled" }),
+    );
   });
 
   it("allows the owner to update status", async () => {

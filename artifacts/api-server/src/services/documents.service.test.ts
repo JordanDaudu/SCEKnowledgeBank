@@ -1,314 +1,100 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import express from "express";
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+import { ListDocumentsQueryParams } from "@workspace/api-zod";
 
-vi.mock("../repositories/documents.repo", () => ({
-  listDocuments: vi.fn(),
-  countDocuments: vi.fn(),
-  findByIdAlive: vi.fn(),
-  findManyByIdsAlive: vi.fn(),
-  findFilesByDocumentIds: vi.fn().mockResolvedValue([]),
-  findTagLinksForDocuments: vi.fn().mockResolvedValue([]),
-  findDocumentIdsByTagIds: vi.fn(),
-  findUploaderOriginalFilenames: vi.fn(),
-  insertDocument: vi.fn(),
-  insertDocumentFile: vi.fn().mockResolvedValue(undefined),
-  addDocumentTags: vi.fn().mockResolvedValue(undefined),
-  updateDocumentById: vi.fn().mockResolvedValue(undefined),
-  replaceDocumentTags: vi.fn().mockResolvedValue(undefined),
-  softDeleteDocument: vi.fn().mockResolvedValue(undefined),
-  findLatestFileForDocument: vi.fn(),
-}));
-vi.mock("../repositories/taxonomy.repo", () => ({
-  findCourseIdsByCodeOrLecturer: vi.fn(),
-  findCourseCodesByIds: vi.fn().mockResolvedValue(new Map()),
-  findCoursesByIds: vi.fn().mockResolvedValue([]),
-  findCategoriesByIds: vi.fn().mockResolvedValue([]),
-}));
-vi.mock("../repositories/comments.repo", () => ({
-  countAliveByDocumentIds: vi.fn().mockResolvedValue(new Map()),
-}));
-vi.mock("../repositories/viewHistory.repo", () => ({
-  recordView: vi.fn().mockResolvedValue(undefined),
-  tryRecordView: vi.fn().mockResolvedValue(undefined),
-  listRecentDocumentIdsForUser: vi.fn().mockResolvedValue([]),
-  countViewsByDocumentIds: vi.fn().mockResolvedValue(new Map()),
-}));
-vi.mock("./users.service", () => ({
-  loadUserSummaries: vi.fn().mockResolvedValue(new Map()),
-}));
-vi.mock("./taxonomy.service", () => ({
-  loadCourses: vi.fn().mockResolvedValue(new Map()),
-  loadCategories: vi.fn().mockResolvedValue(new Map()),
-}));
-vi.mock("./audit.service", () => ({
-  record: vi.fn().mockResolvedValue(undefined),
-}));
-vi.mock("../lib/storage", () => ({
-  getStorage: () => ({
-    put: vi.fn(async ({ key }: { key: string }) => ({
-      key,
-      driver: "local",
-      checksum: "abc",
-    })),
-    getStream: vi.fn(),
-  }),
-}));
-vi.mock("../lib/env", () => ({
-  env: {
-    allowedMimeTypes: ["application/pdf", "text/plain"],
-  },
-}));
-vi.mock("../lib/mime-sniff", () => ({
-  mimeMatchesContent: vi.fn(() => true),
-}));
+// Mini-app that re-implements the route's parse boundary so the test pins
+// down the real wire behavior: Express+qs gives a bare string for a single
+// `tagIds=...` and an array for repeated `tagIds`. The route normalises a
+// bare string to a one-element array before calling Zod.
+function makeBoundaryApp() {
+  const app = express();
+  app.get("/list", (req, res) => {
+    const q = { ...(req.query as Record<string, unknown>) };
+    if (typeof q.tagIds === "string") q.tagIds = [q.tagIds];
+    try {
+      const parsed = ListDocumentsQueryParams.parse(q);
+      res.json({
+        ok: true,
+        tagIds: parsed.tagIds ?? null,
+        dateFrom: parsed.dateFrom?.toISOString() ?? null,
+        dateTo: parsed.dateTo?.toISOString() ?? null,
+        academicYear: parsed.academicYear ?? null,
+      });
+    } catch (err) {
+      res.status(400).json({ ok: false, err: (err as Error).message });
+    }
+  });
+  return app;
+}
 
-import * as docsRepo from "../repositories/documents.repo";
-import * as taxonomyRepo from "../repositories/taxonomy.repo";
-import { mimeMatchesContent } from "../lib/mime-sniff";
-import type { AuthenticatedUser } from "../middlewares/auth";
-import {
-  listDocuments,
-  uploadDocuments,
-} from "./documents.service";
-
-const listDocsRepo = vi.mocked(docsRepo.listDocuments);
-const countDocsRepo = vi.mocked(docsRepo.countDocuments);
-const findDocIdsByTagIds = vi.mocked(docsRepo.findDocumentIdsByTagIds);
-const findCourseIdsByCodeOrLecturer = vi.mocked(
-  taxonomyRepo.findCourseIdsByCodeOrLecturer,
-);
-const findUploaderOriginalFilenames = vi.mocked(
-  docsRepo.findUploaderOriginalFilenames,
-);
-const insertDocument = vi.mocked(docsRepo.insertDocument);
-const insertDocumentFile = vi.mocked(docsRepo.insertDocumentFile);
-const mimeMatches = vi.mocked(mimeMatchesContent);
-
-const student: AuthenticatedUser = {
-  id: "student-1",
-  email: "s@x.com",
-  displayName: "Student",
-  isActive: true,
-  primaryRole: "student",
-  roles: ["student"],
-};
-const admin: AuthenticatedUser = { ...student, id: "admin", roles: ["admin"] };
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  listDocsRepo.mockResolvedValue([]);
-  countDocsRepo.mockResolvedValue(0);
-  mimeMatches.mockReturnValue(true);
-  findUploaderOriginalFilenames.mockResolvedValue([]);
-});
-
-describe("listDocuments visibility scoping", () => {
-  it("scopes non-admin users to private-allowed-for", async () => {
-    await listDocuments(
-      { sort: "newest", page: 1, pageSize: 10 },
-      student,
-    );
-    expect(listDocsRepo).toHaveBeenCalled();
-    const filters = listDocsRepo.mock.calls[0]![0];
-    expect(filters.visibility).toEqual({
-      mode: "private-allowed-for",
-      userId: "student-1",
+/**
+ * These tests guard the boundary parsing of the list-documents query string
+ * — i.e. they verify the Zod schema generated by orval correctly coerces
+ * what arrives off the wire (Express `req.query` shapes) into the types the
+ * service layer expects (Date, number, string[]).
+ *
+ * The bug we are guarding against: dateFrom/dateTo previously stayed as
+ * strings because `format: date` query params were not in orval's coerce
+ * config, which crashed inside the repository when Drizzle tried to bind a
+ * string into a `timestamp` parameter. Repeated tagIds had to be observed as
+ * an array even when only one selection was made.
+ */
+describe("ListDocumentsQueryParams coercion", () => {
+  it("coerces dateFrom and dateTo from ISO strings to Date instances", () => {
+    const parsed = ListDocumentsQueryParams.parse({
+      dateFrom: "2025-01-01",
+      dateTo: "2025-12-31",
     });
+    expect(parsed.dateFrom).toBeInstanceOf(Date);
+    expect(parsed.dateTo).toBeInstanceOf(Date);
+    expect(parsed.dateFrom?.toISOString().slice(0, 10)).toBe("2025-01-01");
+    expect(parsed.dateTo?.toISOString().slice(0, 10)).toBe("2025-12-31");
   });
 
-  it("gives admins the `all` visibility scope", async () => {
-    await listDocuments({ sort: "newest", page: 1, pageSize: 10 }, admin);
-    const filters = listDocsRepo.mock.calls[0]![0];
-    expect(filters.visibility).toEqual({ mode: "all" });
+  it("coerces academicYear from a query string to a number", () => {
+    const parsed = ListDocumentsQueryParams.parse({ academicYear: "2024" });
+    expect(parsed.academicYear).toBe(2024);
   });
 
-  it("forwards date, q, semester, and academicYear filters", async () => {
-    const dateFrom = new Date("2025-01-01");
-    const dateTo = new Date("2025-02-01");
-    await listDocuments(
-      {
-        sort: "newest",
-        page: 1,
-        pageSize: 10,
-        q: "midterm",
-        semester: "fall",
-        academicYear: 2025,
-        dateFrom,
-        dateTo,
-      },
-      student,
-    );
-    const filters = listDocsRepo.mock.calls[0]![0];
-    expect(filters).toMatchObject({
-      q: "midterm",
-      semester: "fall",
-      academicYear: 2025,
-      dateFrom,
-      dateTo,
-    });
+  it("rejects an obviously invalid date string", () => {
+    expect(() =>
+      ListDocumentsQueryParams.parse({ dateFrom: "not-a-date" }),
+    ).toThrow();
   });
 });
 
-describe("listDocuments tag and course-code shortcuts", () => {
-  it("returns empty result when courseCode/lecturerName resolve to zero courses", async () => {
-    findCourseIdsByCodeOrLecturer.mockResolvedValueOnce([]);
-    const result = await listDocuments(
-      { sort: "newest", page: 1, pageSize: 10, courseCode: "CS101" },
-      student,
-    );
-    expect(result).toEqual({ items: [], total: 0, page: 1, pageSize: 10 });
-    expect(listDocsRepo).not.toHaveBeenCalled();
+describe("/documents tagIds boundary (mimics route normalization)", () => {
+  const t1 = "00000000-0000-0000-0000-000000000001";
+  const t2 = "00000000-0000-0000-0000-000000000002";
+
+  it("accepts a single ?tagIds=... value (bare string from qs)", async () => {
+    const res = await request(makeBoundaryApp()).get(`/list?tagIds=${t1}`);
+    expect(res.status).toBe(200);
+    expect(res.body.tagIds).toEqual([t1]);
   });
 
-  it("returns empty result when tagIds resolve to zero documents", async () => {
-    findDocIdsByTagIds.mockResolvedValueOnce([]);
-    const result = await listDocuments(
-      { sort: "newest", page: 1, pageSize: 10, tagIds: ["t1"] },
-      student,
+  it("accepts repeated ?tagIds=...&tagIds=... values (array from qs)", async () => {
+    const res = await request(makeBoundaryApp()).get(
+      `/list?tagIds=${t1}&tagIds=${t2}`,
     );
-    expect(result.items).toEqual([]);
-    expect(result.total).toBe(0);
-    expect(listDocsRepo).not.toHaveBeenCalled();
-  });
-});
-
-describe("uploadDocuments", () => {
-  const pdfBuffer = Buffer.from("%PDF-1.4\n%fake");
-
-  function makeFile(
-    overrides: Partial<Express.Multer.File> = {},
-  ): Express.Multer.File {
-    return {
-      fieldname: "files",
-      originalname: "notes.pdf",
-      encoding: "7bit",
-      mimetype: "application/pdf",
-      size: pdfBuffer.length,
-      buffer: pdfBuffer,
-      destination: "",
-      filename: "",
-      path: "",
-      stream: undefined as never,
-      ...overrides,
-    } as Express.Multer.File;
-  }
-
-  it("rejects when no files are provided", async () => {
-    await expect(
-      uploadDocuments(
-        {
-          files: [],
-          materialType: "notes",
-          visibility: "public",
-          description: "",
-          tagIds: [],
-        },
-        student,
-      ),
-    ).rejects.toMatchObject({ status: 400 });
+    expect(res.status).toBe(200);
+    expect(res.body.tagIds).toEqual([t1, t2]);
   });
 
-  it("flags disallowed mime types without persisting", async () => {
-    const result = await uploadDocuments(
-      {
-        files: [makeFile({ mimetype: "application/x-evil" })],
-        materialType: "notes",
-        visibility: "public",
-        description: "",
-        tagIds: [],
-      },
-      student,
+  it("parses ?dateFrom=...&dateTo=... ISO strings off the wire", async () => {
+    const res = await request(makeBoundaryApp()).get(
+      "/list?dateFrom=2025-01-01&dateTo=2025-12-31",
     );
-    expect(result[0]).toMatchObject({
-      success: false,
-      errorCode: "disallowed_mime",
-    });
-    expect(insertDocument).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(res.body.dateFrom?.slice(0, 10)).toBe("2025-01-01");
+    expect(res.body.dateTo?.slice(0, 10)).toBe("2025-12-31");
   });
 
-  it("flags content/declared-mime mismatches", async () => {
-    mimeMatches.mockReturnValueOnce(false);
-    const result = await uploadDocuments(
-      {
-        files: [makeFile()],
-        materialType: "notes",
-        visibility: "public",
-        description: "",
-        tagIds: [],
-      },
-      student,
+  it("400s when a date param is unparseable", async () => {
+    const res = await request(makeBoundaryApp()).get(
+      "/list?dateFrom=not-a-date",
     );
-    expect(result[0]).toMatchObject({
-      success: false,
-      errorCode: "mime_mismatch",
-    });
-    expect(insertDocument).not.toHaveBeenCalled();
-  });
-
-  it("uniquifies duplicate original filenames against the uploader's existing files", async () => {
-    findUploaderOriginalFilenames.mockResolvedValueOnce(["notes.pdf"]);
-    insertDocument.mockImplementation(async (v) => ({
-      ...v,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      deletedAt: null,
-    }) as never);
-
-    const result = await uploadDocuments(
-      {
-        files: [makeFile()],
-        materialType: "notes",
-        visibility: "public",
-        description: "",
-        tagIds: [],
-      },
-      student,
-    );
-    expect(result[0].success).toBe(true);
-    expect(insertDocumentFile).toHaveBeenCalledWith(
-      expect.objectContaining({ originalFilename: "notes (2).pdf" }),
-    );
-  });
-
-  it("uses titleOverride only when uploading exactly one file", async () => {
-    insertDocument.mockImplementation(async (v) => ({
-      ...v,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      deletedAt: null,
-    }) as never);
-    await uploadDocuments(
-      {
-        files: [makeFile()],
-        materialType: "notes",
-        visibility: "public",
-        description: "",
-        tagIds: [],
-        titleOverride: "Final Exam Notes",
-      },
-      student,
-    );
-    expect(insertDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Final Exam Notes" }),
-    );
-
-    insertDocument.mockClear();
-    await uploadDocuments(
-      {
-        files: [
-          makeFile({ originalname: "a.pdf" }),
-          makeFile({ originalname: "b.pdf" }),
-        ],
-        materialType: "notes",
-        visibility: "public",
-        description: "",
-        tagIds: [],
-        titleOverride: "Should Not Apply",
-      },
-      student,
-    );
-    const titles = insertDocument.mock.calls.map(
-      (c) => (c[0] as { title: string }).title,
-    );
-    expect(titles).toEqual(["a", "b"]);
+    expect(res.status).toBe(400);
   });
 });

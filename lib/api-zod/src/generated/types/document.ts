@@ -7,7 +7,9 @@
  */
 import type { Category } from "./category";
 import type { Course } from "./course";
+import type { DocumentFallbackIconType } from "./documentFallbackIconType";
 import type { DocumentFileMeta } from "./documentFileMeta";
+import type { DocumentPermissions } from "./documentPermissions";
 import type { DocumentSemester } from "./documentSemester";
 import type { DocumentStatus } from "./documentStatus";
 import type { DocumentVisibility } from "./documentVisibility";
@@ -32,4 +34,9 @@ export interface Document {
   commentCount: number;
   tags: Tag[];
   file?: DocumentFileMeta;
+  /** Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview/download. */
+  thumbnailUrl?: string;
+  /** Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type. */
+  fallbackIconType?: DocumentFallbackIconType;
+  permissions: DocumentPermissions;
 }
