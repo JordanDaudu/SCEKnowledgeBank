@@ -9,6 +9,9 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:demo": "tsx src/scripts/seed-demo.ts",
+    "db:seed": "tsx src/scripts/seed-demo.ts",
+    "seed:demo:verify": "tsx src/scripts/seed-demo.verify.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
