@@ -349,6 +349,70 @@ export async function findFilesByDocumentIds(
   return rows.map(fromFileRow);
 }
 
+export interface ExistingFileByChecksum {
+  documentId: string;
+  documentTitle: string;
+}
+
+/**
+ * Find an alive (non-deleted document) DocumentFile uploaded by `uploaderId`
+ * with the given checksum. Used by the upload pipeline to short-circuit
+ * re-uploads of identical content by the same user before any storage
+ * write happens.
+ */
+export async function findAliveFileByUploaderAndChecksum(
+  uploaderId: string,
+  checksum: string,
+): Promise<ExistingFileByChecksum | null> {
+  const row = await db.documentFile.findFirst({
+    where: {
+      checksum,
+      document: { uploaderId, deletedAt: null },
+    },
+    select: { document: { select: { id: true, title: true } } },
+    orderBy: { uploadedAt: "asc" },
+  });
+  if (!row) return null;
+  return { documentId: row.document.id, documentTitle: row.document.title };
+}
+
+/**
+ * Atomically:
+ *   1. insert the Document row,
+ *   2. insert its DocumentFile,
+ *   3. attach any tag links,
+ *   4. increment the uploader's `usedBytes` by the stored size.
+ *
+ * Used by the upload pipeline so that quota accounting can never drift
+ * from the document table on partial failure.
+ */
+export async function insertDocumentWithFileAndQuota(args: {
+  documentValues: DocumentInsert;
+  fileValues: DocumentFileInsert;
+  tagIds: string[];
+  uploaderId: string;
+  sizeBytes: number;
+}): Promise<DocumentRow> {
+  const { documentValues, fileValues, tagIds, uploaderId, sizeBytes } = args;
+  return db.$transaction(async (tx) => {
+    const doc = await tx.document.create({ data: documentValues });
+    await tx.documentFile.create({
+      data: { ...fileValues, sizeBytes: BigInt(fileValues.sizeBytes) },
+    });
+    if (tagIds.length > 0) {
+      await tx.documentTag.createMany({
+        data: tagIds.map((tagId) => ({ documentId: doc.id, tagId })),
+        skipDuplicates: true,
+      });
+    }
+    await tx.user.update({
+      where: { id: uploaderId },
+      data: { usedBytes: { increment: BigInt(sizeBytes) } },
+    });
+    return doc;
+  });
+}
+
 export async function findUploaderDisplayFilenames(
   uploaderId: string,
 ): Promise<string[]> {

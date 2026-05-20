@@ -38,6 +38,7 @@ import type {
   MaterialRequest,
   PreviewDocumentParams,
   SignedTokenResponse,
+  StorageQuota,
   Tag,
   UpdateCommentRequest,
   UpdateDocumentRequest,
@@ -466,6 +467,81 @@ export function useListDocuments<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListDocumentsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Storage usage and quota for the authenticated user
+ */
+export const getGetMyStorageQuotaUrl = () => {
+  return `/api/storage/quota/me`;
+};
+
+export const getMyStorageQuota = async (
+  options?: RequestInit,
+): Promise<StorageQuota> => {
+  return customFetch<StorageQuota>(getGetMyStorageQuotaUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyStorageQuotaQueryKey = () => {
+  return [`/api/storage/quota/me`] as const;
+};
+
+export const getGetMyStorageQuotaQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyStorageQuota>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyStorageQuota>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyStorageQuotaQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyStorageQuota>>
+  > = ({ signal }) => getMyStorageQuota({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyStorageQuota>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyStorageQuotaQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyStorageQuota>>
+>;
+export type GetMyStorageQuotaQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Storage usage and quota for the authenticated user
+ */
+
+export function useGetMyStorageQuota<
+  TData = Awaited<ReturnType<typeof getMyStorageQuota>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyStorageQuota>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyStorageQuotaQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

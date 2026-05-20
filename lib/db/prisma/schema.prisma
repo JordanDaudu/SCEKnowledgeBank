@@ -42,6 +42,12 @@ model User {
   displayName   String    @map("display_name")
   primaryRoleId String?   @map("primary_role_id") @db.Uuid
   isActive      Boolean   @default(true) @map("is_active")
+  // Storage quota — usedBytes is the running sum of stored file bytes,
+  // maintained transactionally with each upload / hard-delete. quotaBytes
+  // is a per-user override; when NULL the server default
+  // (`DEFAULT_USER_STORAGE_QUOTA_MB`) is used.
+  usedBytes     BigInt    @default(0) @map("used_bytes")
+  quotaBytes    BigInt?   @map("quota_bytes")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 import type { Response } from "express";
 import * as docsRepo from "../repositories/documents.repo";
@@ -14,6 +15,10 @@ import { getStorage } from "../lib/storage";
 import { env } from "../lib/env";
 import { mimeMatchesContent } from "../lib/mime-sniff";
 import type { AuthenticatedUser } from "../middlewares/auth";
+
+function sha256Hex(buf: Buffer): string {
+  return createHash("sha256").update(buf).digest("hex");
+}
 
 export interface DocumentDTO {
   id: string;
@@ -333,6 +338,14 @@ export interface UploadResultEntry {
   document?: DocumentDTO;
   error?: string;
   errorCode?: string;
+  /**
+   * When `errorCode === "duplicate_file"`, the id and title of the
+   * existing document that matched on (uploaderId, sha256). Lets the UI
+   * link the user straight to the original instead of asking them to
+   * "look for it".
+   */
+  duplicateOfDocumentId?: string;
+  duplicateOfTitle?: string;
 }
 
 export async function uploadDocuments(
@@ -353,6 +366,15 @@ export async function uploadDocuments(
 
   const storage = getStorage();
   const results: UploadResultEntry[] = [];
+
+  // Resolve the uploader's effective quota once up front; the running
+  // `plannedUsed` tally is updated as files successfully commit, so a
+  // partial-batch failure can't slip a later file past the cap. We work
+  // in BigInt throughout to avoid Number precision loss on multi-GB
+  // quotas.
+  const { usedBytes: startUsed, quotaBytes } =
+    await usersService.resolveEffectiveQuotaBytes(user.id);
+  let plannedUsed = startUsed;
 
   const existingNames = await docsRepo.findUploaderDisplayFilenames(user.id);
   const usedNames = new Set(existingNames);
@@ -401,6 +423,48 @@ export async function uploadDocuments(
         continue;
       }
 
+      // Hash exactly once. Reused for the dedup short-circuit below and
+      // again as the stored `DocumentFile.checksum` (storage adapter
+      // trusts this via `precomputedChecksum`).
+      const checksum = sha256Hex(file.buffer);
+
+      // Same-uploader dedup: if this user already has an alive document
+      // backed by a file with this checksum, short-circuit before any
+      // storage write. The duplicate result carries the original doc's
+      // id/title so the UI can link straight to it.
+      const dup = await docsRepo.findAliveFileByUploaderAndChecksum(
+        user.id,
+        checksum,
+      );
+      if (dup) {
+        results.push({
+          originalFilename: file.originalname,
+          success: false,
+          error: `You already uploaded this exact file as "${dup.documentTitle}".`,
+          errorCode: "duplicate_file",
+          duplicateOfDocumentId: dup.documentId,
+          duplicateOfTitle: dup.documentTitle,
+        });
+        continue;
+      }
+
+      // Quota gate: would committing this file push the planned total
+      // past the user's effective quota? If so, refuse without touching
+      // storage or `usedBytes`. Per-file (rather than whole-batch) so a
+      // smaller subsequent file can still squeak in under the cap.
+      const fileSize = BigInt(file.size);
+      if (plannedUsed + fileSize > quotaBytes) {
+        const remaining = quotaBytes - plannedUsed;
+        const remainingForMsg = remaining > 0n ? remaining : 0n;
+        results.push({
+          originalFilename: file.originalname,
+          success: false,
+          error: `Storage quota exceeded — ${Number(remainingForMsg)} bytes remaining of ${Number(quotaBytes)}.`,
+          errorCode: "storage_quota_exceeded",
+        });
+        continue;
+      }
+
       const docId = uuidv4();
       const ext = file.originalname.includes(".")
         ? file.originalname.slice(file.originalname.lastIndexOf("."))
@@ -412,6 +476,7 @@ export async function uploadDocuments(
         key,
         body: file.buffer,
         contentType: file.mimetype,
+        precomputedChecksum: checksum,
       });
 
       const title =
@@ -438,10 +503,8 @@ export async function uploadDocuments(
         insertValues.academicYear = input.academicYear;
       }
 
-      const insertedDoc = await docsRepo.insertDocument(insertValues);
-
       const displayName = uniquify(file.originalname);
-      await docsRepo.insertDocumentFile({
+      const fileValues: docsRepo.DocumentFileInsert = {
         documentId: docId,
         originalFilename: file.originalname,
         displayFilename: displayName,
@@ -451,11 +514,18 @@ export async function uploadDocuments(
         storagePath: put.key,
         storageDriver: put.driver,
         checksum: put.checksum,
-      });
+      };
 
-      if (input.tagIds.length > 0) {
-        await docsRepo.addDocumentTags(docId, input.tagIds);
-      }
+      // Insert document, file, tag links, and increment usedBytes all in
+      // one transaction so a partial failure cannot drift the counter.
+      const insertedDoc = await docsRepo.insertDocumentWithFileAndQuota({
+        documentValues: insertValues,
+        fileValues,
+        tagIds: input.tagIds,
+        uploaderId: user.id,
+        sizeBytes: file.size,
+      });
+      plannedUsed += fileSize;
 
       await auditService.record(
         user.id,

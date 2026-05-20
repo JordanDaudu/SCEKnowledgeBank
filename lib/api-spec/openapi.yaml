@@ -107,6 +107,18 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/DocumentPage" }
 
+  /storage/quota/me:
+    get:
+      operationId: getMyStorageQuota
+      tags: [storage]
+      summary: Storage usage and quota for the authenticated user
+      responses:
+        "200":
+          description: Quota snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StorageQuota" }
+
   /documents/upload:
     post:
       operationId: uploadDocuments
@@ -635,7 +647,40 @@ components:
         success: { type: boolean }
         document: { $ref: "#/components/schemas/Document" }
         error: { type: string }
-        errorCode: { type: string }
+        errorCode:
+          type: string
+          description: >-
+            Machine-readable failure reason. Known values:
+            `disallowed_mime`, `mime_mismatch`, `storage_quota_exceeded`,
+            `duplicate_file`, `upload_failed`.
+        duplicateOfDocumentId:
+          type: string
+          format: uuid
+          description: >-
+            Set when `errorCode === "duplicate_file"` — id of the existing
+            document this upload matched by SHA-256.
+        duplicateOfTitle:
+          type: string
+          description: >-
+            Set when `errorCode === "duplicate_file"` — title of the
+            existing document this upload matched by SHA-256.
+
+    StorageQuota:
+      type: object
+      required: [usedBytes, quotaBytes, remainingBytes]
+      properties:
+        usedBytes:
+          type: integer
+          format: int64
+          description: Bytes currently used by this user.
+        quotaBytes:
+          type: integer
+          format: int64
+          description: Effective quota in bytes (per-user override or server default).
+        remainingBytes:
+          type: integer
+          format: int64
+          description: Non-negative remainder; clamped to zero when usedBytes exceeds quotaBytes.
 
     SignedTokenResponse:
       type: object

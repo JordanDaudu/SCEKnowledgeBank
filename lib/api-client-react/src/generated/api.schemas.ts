@@ -182,11 +182,25 @@ export interface UploadFileResult {
   success: boolean;
   document?: Document;
   error?: string;
+  /** Machine-readable failure reason. Known values: `disallowed_mime`, `mime_mismatch`, `storage_quota_exceeded`, `duplicate_file`, `upload_failed`. */
   errorCode?: string;
+  /** Set when `errorCode === "duplicate_file"` — id of the existing document this upload matched by SHA-256. */
+  duplicateOfDocumentId?: string;
+  /** Set when `errorCode === "duplicate_file"` — title of the existing document this upload matched by SHA-256. */
+  duplicateOfTitle?: string;
 }
 
 export interface UploadResult {
   results: UploadFileResult[];
+}
+
+export interface StorageQuota {
+  /** Bytes currently used by this user. */
+  usedBytes: number;
+  /** Effective quota in bytes (per-user override or server default). */
+  quotaBytes: number;
+  /** Non-negative remainder; clamped to zero when usedBytes exceeds quotaBytes. */
+  remainingBytes: number;
 }
 
 export interface SignedTokenResponse {

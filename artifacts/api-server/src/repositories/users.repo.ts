@@ -67,6 +67,19 @@ export async function findActiveUserIdsOrderedByCreatedAt(): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+export interface QuotaRow {
+  usedBytes: bigint;
+  quotaBytes: bigint | null;
+}
+
+export async function findQuotaById(id: string): Promise<QuotaRow | null> {
+  const row = await db.user.findUnique({
+    where: { id },
+    select: { usedBytes: true, quotaBytes: true },
+  });
+  return row ?? null;
+}
+
 export async function findRoleNameById(id: string): Promise<string | null> {
   const row = await db.role.findUnique({
     where: { id },

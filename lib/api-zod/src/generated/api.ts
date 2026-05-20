@@ -144,6 +144,23 @@ export const ListDocumentsResponse = zod.object({
 });
 
 /**
+ * @summary Storage usage and quota for the authenticated user
+ */
+export const GetMyStorageQuotaResponse = zod.object({
+  usedBytes: zod.number().describe("Bytes currently used by this user."),
+  quotaBytes: zod
+    .number()
+    .describe(
+      "Effective quota in bytes (per-user override or server default).",
+    ),
+  remainingBytes: zod
+    .number()
+    .describe(
+      "Non-negative remainder; clamped to zero when usedBytes exceeds quotaBytes.",
+    ),
+});
+
+/**
  * @summary Upload one or more documents (multipart). Each file becomes its own Document.
  */
 export const UploadDocumentsBody = zod.object({

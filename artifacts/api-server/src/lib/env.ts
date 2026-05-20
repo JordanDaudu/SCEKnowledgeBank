@@ -55,6 +55,9 @@ const envSchema = z.object({
 
   SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(50),
+  // Server-wide default per-user storage quota (in MB). Individual users
+  // can override via `users.quota_bytes`; when NULL this value is used.
+  DEFAULT_USER_STORAGE_QUOTA_MB: z.coerce.number().int().positive().default(500),
 
   ALLOWED_MIME_TYPES: csvList.default(DEFAULT_ALLOWED_MIME_TYPES),
 
@@ -83,6 +86,8 @@ export const env = {
   signedUrlSecret: e.SIGNED_URL_SECRET,
   signedUrlTtlSeconds: e.SIGNED_URL_TTL_SECONDS,
   maxUploadMb: e.MAX_UPLOAD_MB,
+  defaultUserStorageQuotaBytes:
+    BigInt(e.DEFAULT_USER_STORAGE_QUOTA_MB) * BigInt(1024 * 1024),
   allowedMimeTypes: e.ALLOWED_MIME_TYPES,
   storageDriver: e.STORAGE_DRIVER,
   storageLocalRoot: e.STORAGE_LOCAL_ROOT

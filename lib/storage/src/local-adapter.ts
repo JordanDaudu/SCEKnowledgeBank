@@ -38,7 +38,9 @@ export class LocalStorageAdapter implements StorageAdapter {
     const target = this.resolveSafe(input.key);
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, input.body);
-    const checksum = createHash("sha256").update(input.body).digest("hex");
+    const checksum =
+      input.precomputedChecksum ??
+      createHash("sha256").update(input.body).digest("hex");
     return {
       key: input.key,
       size: input.body.length,

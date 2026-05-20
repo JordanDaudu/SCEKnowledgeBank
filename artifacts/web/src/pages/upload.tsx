@@ -3,6 +3,8 @@ import {
   useListCourses,
   useListCategories,
   useListTags,
+  useGetMyStorageQuota,
+  getGetMyStorageQuotaQueryKey,
   getListDocumentsQueryKey,
   getListRecentDocumentsQueryKey,
   type Document as ApiDocument,
@@ -35,6 +37,20 @@ interface QueueItem {
   errorCode?: string;
   displayFilename?: string;
   documentId?: string;
+  duplicateOfDocumentId?: string;
+  duplicateOfTitle?: string;
+}
+
+function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 // Keep in sync with the backend MAX_UPLOAD_MB / ALLOWED_MIME_TYPES env config.
@@ -120,6 +136,7 @@ export default function Upload() {
   const { data: courses } = useListCourses();
   const { data: categories } = useListCategories();
   const { data: availableTags } = useListTags();
+  const { data: quota } = useGetMyStorageQuota();
 
   const addFiles = (files: File[]) => {
     const next: QueueItem[] = files.map((file) => {
@@ -219,6 +236,8 @@ export default function Upload() {
             status: "failed",
             error: fileResult?.error || "Upload rejected by server",
             errorCode: fileResult?.errorCode,
+            duplicateOfDocumentId: fileResult?.duplicateOfDocumentId,
+            duplicateOfTitle: fileResult?.duplicateOfTitle,
           });
         }
       } catch (err) {
@@ -234,6 +253,9 @@ export default function Upload() {
     setIsUploading(false);
     await queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
     await queryClient.invalidateQueries({ queryKey: getListRecentDocumentsQueryKey() });
+    // Refresh the quota strip; even partial-success batches changed the
+    // user's `usedBytes` on the server.
+    await queryClient.invalidateQueries({ queryKey: getGetMyStorageQuotaQueryKey() });
 
     if (okCount > 0) {
       toast({
@@ -264,6 +286,32 @@ export default function Upload() {
         <h1 className="text-3xl font-serif font-bold text-foreground">Upload Materials</h1>
         <p className="text-muted-foreground mt-1">Share documents with the university community.</p>
       </div>
+
+      {quota && (
+        <Card data-testid="storage-quota-strip">
+          <CardContent className="py-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Storage</span>
+              <span className="text-muted-foreground">
+                <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
+                {" of "}
+                <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
+                {" used — "}
+                <span data-testid="quota-remaining">{formatBytes(quota.remainingBytes)}</span>
+                {" remaining"}
+              </span>
+            </div>
+            <Progress
+              value={
+                quota.quotaBytes > 0
+                  ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
+                  : 0
+              }
+              className="h-2"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <Card>
@@ -356,6 +404,22 @@ export default function Upload() {
                     {item.status === "failed" && item.error && (
                       <p className="text-xs text-destructive pl-8" data-testid="upload-error">
                         {item.error}
+                        {item.errorCode === "duplicate_file" &&
+                          item.duplicateOfDocumentId && (
+                            <>
+                              {" "}
+                              <a
+                                href={`/document/${item.duplicateOfDocumentId}`}
+                                className="underline font-medium"
+                                data-testid="duplicate-link"
+                              >
+                                View original
+                                {item.duplicateOfTitle
+                                  ? ` "${item.duplicateOfTitle}"`
+                                  : ""}
+                              </a>
+                            </>
+                          )}
                       </p>
                     )}
 
