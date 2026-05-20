@@ -38,6 +38,7 @@ export * from "./loginRequest";
 export * from "./materialRequest";
 export * from "./materialRequestStatus";
 export * from "./previewDocumentParams";
+export * from "./searchUsersParams";
 export * from "./signedTokenResponse";
 export * from "./storageQuota";
 export * from "./tag";

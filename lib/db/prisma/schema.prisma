@@ -60,6 +60,7 @@ model User {
   documentsUpdated  Document[]            @relation("DocumentUpdater")
   coursesLectured   Course[]
   comments          Comment[]
+  commentMentions   CommentMention[]      @relation("CommentMentionUser")
   materialRequests  MaterialRequest[]
   requestVotes      RequestVote[]
   viewHistory       MaterialViewHistory[]
@@ -288,11 +289,26 @@ model Comment {
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  mentions CommentMention[]
 
   @@index([documentId, createdAt], map: "comments_document_created_idx")
   @@index([parentId], map: "comments_parent_idx")
   @@index([authorId], map: "comments_author_idx")
   @@map("comments")
+}
+
+model CommentMention {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commentId        String   @map("comment_id") @db.Uuid
+  mentionedUserId  String   @map("mentioned_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  comment         Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  mentionedUser   User    @relation("CommentMentionUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, mentionedUserId], map: "comment_mentions_comment_user_unique")
+  @@index([mentionedUserId], map: "comment_mentions_user_idx")
+  @@map("comment_mentions")
 }
 
 // ─── Requests ─────────────────────────────────────────────────────

@@ -64,6 +64,25 @@ export async function loadUserSummaries(
   return out;
 }
 
+/**
+ * Lightweight user search used by the @mention picker on the
+ * comment composer. Active users only, capped to a small limit.
+ */
+export async function searchUsers(
+  q: string,
+  limit: number,
+): Promise<UserSummaryDTO[]> {
+  const rows = await usersRepo.searchByQuery(q, limit);
+  return rows.map((u) => ({
+    id: u.id,
+    email: u.email,
+    displayName: u.displayName,
+    roles: u.roles,
+    isActive: u.isActive,
+    createdAt: u.createdAt.toISOString(),
+  }));
+}
+
 export async function listAllSummaries(): Promise<UserSummaryDTO[]> {
   const ids = await usersRepo.findActiveUserIdsOrderedByCreatedAt();
   const summaries = await loadUserSummaries(ids);

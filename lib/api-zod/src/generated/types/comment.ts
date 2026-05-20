@@ -17,4 +17,6 @@ export interface Comment {
   createdAt: Date;
   editedAt?: Date;
   replies: Comment[];
+  /** Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here. */
+  mentions: UserSummary[];
 }

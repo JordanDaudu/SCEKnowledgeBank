@@ -258,6 +258,8 @@ export interface Comment {
   createdAt: string;
   editedAt?: string;
   replies: Comment[];
+  /** Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here. */
+  mentions: UserSummary[];
 }
 
 export interface CreateCommentRequest {
@@ -439,3 +441,16 @@ export const ListRequestsStatus = {
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
+
+export type SearchUsersParams = {
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  q: string;
+  /**
+   * @minimum 1
+   * @maximum 20
+   */
+  limit?: number;
+};

@@ -1,5 +1,6 @@
 import * as commentsRepo from "../repositories/comments.repo";
 import * as docsRepo from "../repositories/documents.repo";
+import * as usersRepo from "../repositories/users.repo";
 import * as usersService from "./users.service";
 import * as auditService from "./audit.service";
 import * as permissions from "./permissions.service";
@@ -25,6 +26,7 @@ export interface CommentDTO {
   createdAt: string;
   editedAt?: string;
   replies: CommentDTO[];
+  mentions: usersService.UserSummaryDTO[];
 }
 
 async function loadReadableDocument(
@@ -41,6 +43,7 @@ async function loadReadableDocument(
 function toDTO(
   r: commentsRepo.CommentRow,
   authors: Map<string, usersService.UserSummaryDTO>,
+  mentionsByComment: Map<string, string[]>,
 ): CommentDTO {
   const dto: CommentDTO = {
     id: r.id,
@@ -56,6 +59,9 @@ function toDTO(
     },
     createdAt: r.createdAt.toISOString(),
     replies: [],
+    mentions: (mentionsByComment.get(r.id) ?? [])
+      .map((uid) => authors.get(uid))
+      .filter((u): u is usersService.UserSummaryDTO => !!u),
   };
   if (r.parentId) dto.parentId = r.parentId;
   if (r.pageNumber != null) dto.pageNumber = r.pageNumber;
@@ -65,18 +71,85 @@ function toDTO(
   return dto;
 }
 
+// ─── @mention parsing ────────────────────────────────────────────────
+//
+// Two accepted token shapes in the comment body:
+//   1. `@displayName`   — letters/digits/_./- after the @ until
+//                         whitespace or end-of-string. Matched
+//                         case-insensitively against User.displayName.
+//   2. `@[uuid]`        — explicit user-id reference; useful when the
+//                         picker has already resolved a target.
+// Tokens that don't resolve to an active user are dropped silently;
+// they remain plain text in the body but produce no row.
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface ParsedMentionTokens {
+  displayNames: string[];
+  userIds: string[];
+}
+
+export function parseMentionTokens(body: string): ParsedMentionTokens {
+  const displayNames = new Set<string>();
+  const userIds = new Set<string>();
+  // `@[uuid]` first so the surrounding brackets aren't matched by the
+  // looser displayName regex below.
+  const idRe = /@\[([0-9a-f-]{36})\]/gi;
+  let m: RegExpExecArray | null;
+  while ((m = idRe.exec(body)) !== null) {
+    if (UUID_RE.test(m[1]!)) userIds.add(m[1]!.toLowerCase());
+  }
+  const nameRe = /(?<![A-Za-z0-9_])@([A-Za-z0-9_][A-Za-z0-9_.\-]{0,63})/g;
+  while ((m = nameRe.exec(body)) !== null) {
+    const tok = m[1]!;
+    // Skip if this captured the start of an @[uuid] token — those are
+    // handled above and we don't want to also resolve `[uuid` as a
+    // display name.
+    if (tok.startsWith("[")) continue;
+    displayNames.add(tok);
+  }
+  return {
+    displayNames: Array.from(displayNames),
+    userIds: Array.from(userIds),
+  };
+}
+
+async function resolveMentionUserIds(body: string): Promise<string[]> {
+  const { displayNames, userIds } = parseMentionTokens(body);
+  const resolved = new Set<string>();
+  if (displayNames.length > 0) {
+    const matches = await usersRepo.findActiveByDisplayNames(displayNames);
+    for (const u of matches) resolved.add(u.id);
+  }
+  if (userIds.length > 0) {
+    const matches = await usersRepo.findActiveByIds(userIds);
+    for (const u of matches) resolved.add(u.id);
+  }
+  return Array.from(resolved);
+}
+
 export async function listForDocument(
   documentId: string,
   user: AuthenticatedUser,
 ): Promise<CommentDTO[]> {
   await loadReadableDocument(documentId, user);
   const rows = await commentsRepo.listAliveByDocument(documentId);
-  const authors = await usersService.loadUserSummaries(
-    rows.map((r) => r.authorId),
+  const mentionsByComment = await commentsRepo.listMentionsByCommentIds(
+    rows.map((r) => r.id),
   );
+  // Authors map needs to cover both comment authors and everyone the
+  // comments mention so the DTO's `mentions[]` can hydrate to full
+  // UserSummary objects in a single query.
+  const userIds = new Set<string>();
+  for (const r of rows) userIds.add(r.authorId);
+  for (const list of mentionsByComment.values())
+    for (const id of list) userIds.add(id);
+  const authors = await usersService.loadUserSummaries(Array.from(userIds));
+
   const map = new Map<string, CommentDTO>();
   const roots: CommentDTO[] = [];
-  for (const r of rows) map.set(r.id, toDTO(r, authors));
+  for (const r of rows) map.set(r.id, toDTO(r, authors, mentionsByComment));
   for (const r of rows) {
     const dto = map.get(r.id)!;
     if (r.parentId && map.has(r.parentId)) {
@@ -94,15 +167,13 @@ export async function createForDocument(
   user: AuthenticatedUser,
 ): Promise<CommentDTO> {
   await loadReadableDocument(documentId, user);
+  // Replies of any depth are allowed (task #29 dropped the previous
+  // one-level cap); we still validate that the parent exists and
+  // belongs to the same document.
   if (body.parentId) {
     const parent = await commentsRepo.findAliveById(body.parentId);
     if (!parent || parent.documentId !== documentId) {
       throw badRequest("Invalid parent comment");
-    }
-    if (parent.parentId) {
-      throw badRequest(
-        "Replies are limited to one level deep; reply to the top-level comment instead.",
-      );
     }
   }
   const insertValues: commentsRepo.CommentInsert = {
@@ -113,11 +184,20 @@ export async function createForDocument(
   if (body.parentId) insertValues.parentId = body.parentId;
   if (body.pageNumber != null) insertValues.pageNumber = body.pageNumber;
   const c = await commentsRepo.insertComment(insertValues);
-  const authors = await usersService.loadUserSummaries([c.authorId]);
+
+  const mentionUserIds = await resolveMentionUserIds(body.body);
+  await commentsRepo.insertMentions(c.id, mentionUserIds);
+
+  const allUserIds = new Set<string>([c.authorId, ...mentionUserIds]);
+  const authors = await usersService.loadUserSummaries(Array.from(allUserIds));
+  const mentionsByComment = new Map<string, string[]>([
+    [c.id, mentionUserIds],
+  ]);
   await auditService.record(user.id, "comment.create", "comment", c.id, {
     documentId,
+    mentionCount: mentionUserIds.length,
   });
-  return toDTO(c, authors);
+  return toDTO(c, authors, mentionsByComment);
 }
 
 export async function updateComment(
@@ -140,11 +220,20 @@ export async function updateComment(
   if (body.body !== undefined) patch.body = body.body;
   if (body.pageNumber !== undefined) patch.pageNumber = body.pageNumber;
   const updated = await commentsRepo.updateById(commentId, patch);
-  const authors = await usersService.loadUserSummaries([updated.authorId]);
+
+  // Mentions persisted at create time are not re-parsed on edit
+  // (architectural constraint in task #29); the existing rows remain
+  // associated with the comment.
+  const mentionsByComment = await commentsRepo.listMentionsByCommentIds([
+    commentId,
+  ]);
+  const userIds = new Set<string>([updated.authorId]);
+  for (const id of mentionsByComment.get(commentId) ?? []) userIds.add(id);
+  const authors = await usersService.loadUserSummaries(Array.from(userIds));
   await auditService.record(user.id, "comment.update", "comment", commentId, {
     documentId: updated.documentId,
   });
-  return toDTO(updated, authors);
+  return toDTO(updated, authors, mentionsByComment);
 }
 
 export async function deleteComment(

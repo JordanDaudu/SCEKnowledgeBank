@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Clock, FileText } from "lucide-react";
+import { useListRecentDocuments } from "@workspace/api-client-react";
 
 interface RecentItem {
   id: string;
@@ -9,7 +10,7 @@ interface RecentItem {
 
 const STORAGE_KEY = "kb:recently-viewed";
 
-function readRecent(): RecentItem[] {
+function readLocalRecent(): RecentItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -24,17 +25,26 @@ function readRecent(): RecentItem[] {
   }
 }
 
+/**
+ * Server-backed Recently Viewed strip (task #29).
+ *
+ * The list is now sourced from `/api/documents/recent` so it follows
+ * the user across devices and respects current visibility — documents
+ * the user can no longer access are filtered server-side and disappear
+ * from the strip on the next refresh. `localStorage` is kept only as
+ * a fallback for when the API errors (e.g. offline / proxy hiccup).
+ */
 export default function RecentlyViewedStrip() {
-  const [items, setItems] = useState<RecentItem[]>([]);
+  const { data, isError } = useListRecentDocuments({ limit: 8 });
 
+  const [fallback, setFallback] = useState<RecentItem[]>([]);
   useEffect(() => {
-    setItems(readRecent());
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setItems(readRecent());
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+    if (isError) setFallback(readLocalRecent());
+  }, [isError]);
+
+  const items: RecentItem[] = isError
+    ? fallback
+    : (data ?? []).map((d) => ({ id: d.id, title: d.title }));
 
   if (items.length === 0) return null;
 

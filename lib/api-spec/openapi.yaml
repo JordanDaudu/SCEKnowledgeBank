@@ -487,6 +487,23 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/UserSummary" }
 
+  /users/search:
+    get:
+      operationId: searchUsers
+      tags: [users]
+      summary: Autocomplete-style user search for the @mention picker
+      parameters:
+        - { in: query, name: q, required: true, schema: { type: string, minLength: 1, maxLength: 64 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 8 } }
+      responses:
+        "200":
+          description: Matching users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+
 components:
   schemas:
     HealthStatus:
@@ -748,7 +765,7 @@ components:
 
     Comment:
       type: object
-      required: [id, documentId, body, author, createdAt, replies]
+      required: [id, documentId, body, author, createdAt, replies, mentions]
       properties:
         id: { type: string, format: uuid }
         documentId: { type: string, format: uuid }
@@ -761,6 +778,14 @@ components:
         replies:
           type: array
           items: { $ref: "#/components/schemas/Comment" }
+        mentions:
+          type: array
+          description: >-
+            Users mentioned in the comment body via `@displayName` or
+            `@[uuid]` tokens. Unresolved tokens are silently dropped on
+            write — they remain plain text in `body` but produce no
+            entry here.
+          items: { $ref: "#/components/schemas/UserSummary" }
 
     CreateCommentRequest:
       type: object

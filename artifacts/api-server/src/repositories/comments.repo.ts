@@ -69,3 +69,43 @@ export async function countAliveByDocumentIds(
   for (const r of rows) map.set(r.documentId, r._count._all);
   return map;
 }
+
+// ─── @mentions ─────────────────────────────────────────────────────
+
+export interface CommentMentionRow {
+  commentId: string;
+  mentionedUserId: string;
+}
+
+export async function insertMentions(
+  commentId: string,
+  userIds: string[],
+): Promise<void> {
+  if (userIds.length === 0) return;
+  // Dedupe defensively — the unique constraint on
+  // (comment_id, mentioned_user_id) would otherwise fail the batch if
+  // the parser produced the same id twice (e.g. user mentioned by
+  // @displayName and by explicit id token in the same comment).
+  const unique = Array.from(new Set(userIds));
+  await db.commentMention.createMany({
+    data: unique.map((uid) => ({ commentId, mentionedUserId: uid })),
+    skipDuplicates: true,
+  });
+}
+
+export async function listMentionsByCommentIds(
+  commentIds: string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (commentIds.length === 0) return out;
+  const rows = await db.commentMention.findMany({
+    where: { commentId: { in: commentIds } },
+    select: { commentId: true, mentionedUserId: true },
+  });
+  for (const r of rows) {
+    const list = out.get(r.commentId) ?? [];
+    list.push(r.mentionedUserId);
+    out.set(r.commentId, list);
+  }
+  return out;
+}

@@ -12,16 +12,214 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MessageSquare, Trash2, Reply, Edit, Hash, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
+import MentionPicker from "./MentionPicker";
 
 interface Props {
   documentId: string;
   commentCount: number;
   isPdf: boolean;
+}
+
+interface CurrentUser {
+  id: string;
+  roles?: string[];
+}
+
+interface CommentNodeProps {
+  comment: Comment;
+  depth: number;
+  isPdf: boolean;
+  user: CurrentUser | undefined;
+  editingCommentId: string | null;
+  editBody: string;
+  editPageNumber: string;
+  isSavePending: boolean;
+  setReplyingTo: (id: string) => void;
+  onStartEdit: (c: { id: string; body: string; pageNumber?: number }) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  setEditBody: (s: string) => void;
+  setEditPageNumber: (s: string) => void;
+}
+
+/**
+ * Renders a single comment node and its descendants recursively.
+ * Task #29 dropped the hard-coded two-level structure that previously
+ * existed here — replies can now nest arbitrarily deep. Visual depth
+ * is bounded by a left-border indent that caps after a few levels so
+ * very deep threads still read comfortably.
+ */
+function CommentNode(props: CommentNodeProps) {
+  const {
+    comment,
+    depth,
+    isPdf,
+    user,
+    editingCommentId,
+    editBody,
+    editPageNumber,
+    isSavePending,
+    setReplyingTo,
+    onStartEdit,
+    onCancelEdit,
+    onSaveEdit,
+    onDelete,
+    setEditBody,
+    setEditPageNumber,
+  } = props;
+
+  const isAdmin = user?.roles?.includes("admin");
+  const canModify = isAdmin || user?.id === comment.author.id;
+  const isEditing = editingCommentId === comment.id;
+
+  return (
+    <div data-testid={`comment-${comment.id}`} className="space-y-2">
+      <div className="bg-card border rounded-lg p-4 shadow-sm">
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+              {comment.author.displayName.charAt(0)}
+            </div>
+            <span className="text-sm font-medium">{comment.author.displayName}</span>
+            <span className="text-xs text-muted-foreground">
+              {formatDateTime(comment.createdAt)}
+              {comment.editedAt && (
+                <span className="italic ml-1" data-testid="comment-edited-marker">(edited)</span>
+              )}
+            </span>
+            {comment.pageNumber != null && !isEditing && (
+              <Badge variant="outline" className="gap-1 text-xs">
+                <Hash className="h-3 w-3" /> p.{comment.pageNumber}
+              </Badge>
+            )}
+            {comment.mentions && comment.mentions.length > 0 && !isEditing && (
+              <div
+                className="flex items-center gap-1 flex-wrap"
+                data-testid={`mentions-${comment.id}`}
+              >
+                {comment.mentions.map((m) => (
+                  <Badge key={m.id} variant="secondary" className="text-xs">
+                    @{m.displayName}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          {!isEditing && (
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setReplyingTo(comment.id)}
+                aria-label="Reply"
+                data-testid={`reply-${comment.id}`}
+              >
+                <Reply className="h-3 w-3" />
+              </Button>
+              {canModify && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => onStartEdit(comment)}
+                    data-testid={`edit-comment-${comment.id}`}
+                    aria-label="Edit comment"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => onDelete(comment.id)}
+                    aria-label="Delete comment"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        {isEditing ? (
+          <div className="space-y-3 pl-8">
+            <MentionPicker
+              value={editBody}
+              onChange={setEditBody}
+              rows={3}
+              textareaTestId={`edit-comment-textarea-${comment.id}`}
+            />
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              {isPdf ? (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Hash className="h-3 w-3" /> Pin to page
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editPageNumber}
+                    onChange={(e) => setEditPageNumber(e.target.value)}
+                    placeholder="optional"
+                    className="h-8 w-24"
+                    data-testid={`edit-comment-page-input-${comment.id}`}
+                  />
+                  {editPageNumber && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setEditPageNumber("")}
+                      aria-label="Clear page"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={onCancelEdit}>Cancel</Button>
+                <Button
+                  size="sm"
+                  onClick={() => onSaveEdit(comment.id)}
+                  disabled={isSavePending || !editBody.trim()}
+                  data-testid={`save-comment-${comment.id}`}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm pl-8 whitespace-pre-wrap">{comment.body}</p>
+        )}
+      </div>
+      {comment.replies && comment.replies.length > 0 && (
+        <div
+          className={
+            depth < 4
+              ? "pl-4 border-l-2 ml-4 space-y-2"
+              : "pl-2 border-l-2 ml-2 space-y-2"
+          }
+          data-testid={`replies-${comment.id}`}
+        >
+          {comment.replies.map((reply) => (
+            <CommentNode {...props} key={reply.id} comment={reply} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CommentsThread({ documentId, commentCount, isPdf }: Props) {
@@ -43,8 +241,6 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
   const [editPageNumber, setEditPageNumber] = useState<string>("");
-
-  const isAdmin = user?.roles?.includes("admin");
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,12 +347,12 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
             <Button variant="ghost" size="sm" className="h-auto p-0" onClick={() => setReplyingTo(null)}>Cancel</Button>
           </div>
         )}
-        <Textarea
-          placeholder="Add your thoughts or ask a question..."
+        <MentionPicker
           value={commentBody}
-          onChange={(e) => setCommentBody(e.target.value)}
-          className="resize-none"
+          onChange={setCommentBody}
+          placeholder="Add your thoughts, or @mention someone..."
           rows={3}
+          textareaTestId="comment-body-input"
         />
         <div className="flex items-center justify-between gap-2 flex-wrap">
           {isPdf ? (
@@ -199,221 +395,28 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
       <div className="space-y-4">
         {isCommentsLoading ? (
           <Skeleton className="h-24 w-full" />
-        ) : comments?.map((comment) => {
-          const canModify = isAdmin || user?.id === comment.author.id;
-          const isEditing = editingCommentId === comment.id;
-          return (
-          <div key={comment.id} className="bg-card border rounded-lg p-4 shadow-sm" data-testid={`comment-${comment.id}`}>
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                  {comment.author.displayName.charAt(0)}
-                </div>
-                <span className="text-sm font-medium">{comment.author.displayName}</span>
-                <span className="text-xs text-muted-foreground">
-                  {formatDateTime(comment.createdAt)}
-                  {comment.editedAt && <span className="italic ml-1" data-testid="comment-edited-marker">(edited)</span>}
-                </span>
-                {comment.pageNumber != null && !isEditing && (
-                  <Badge variant="outline" className="gap-1 text-xs">
-                    <Hash className="h-3 w-3" /> p.{comment.pageNumber}
-                  </Badge>
-                )}
-              </div>
-              {!isEditing && (
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setReplyingTo(comment.id)} aria-label="Reply">
-                    <Reply className="h-3 w-3" />
-                  </Button>
-                  {canModify && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => handleStartEdit(comment)}
-                        data-testid={`edit-comment-${comment.id}`}
-                        aria-label="Edit comment"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteComment(comment.id)}
-                        aria-label="Delete comment"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-            {isEditing ? (
-              <div className="space-y-3 pl-8">
-                <Textarea
-                  value={editBody}
-                  onChange={(e) => setEditBody(e.target.value)}
-                  className="resize-none"
-                  rows={3}
-                  data-testid={`edit-comment-textarea-${comment.id}`}
-                />
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  {isPdf ? (
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Hash className="h-3 w-3" /> Pin to page
-                      </label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={editPageNumber}
-                        onChange={(e) => setEditPageNumber(e.target.value)}
-                        placeholder="optional"
-                        className="h-8 w-24"
-                        data-testid={`edit-comment-page-input-${comment.id}`}
-                      />
-                      {editPageNumber && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => setEditPageNumber("")}
-                          aria-label="Clear page"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleSaveEdit(comment.id)}
-                      disabled={updateCommentMutation.isPending || !editBody.trim()}
-                      data-testid={`save-comment-${comment.id}`}
-                    >
-                      Save
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm pl-8 whitespace-pre-wrap">{comment.body}</p>
-            )}
-
-            {/* Nested Replies */}
-            {comment.replies && comment.replies.length > 0 && (
-              <div className="mt-4 pl-4 border-l-2 ml-4 space-y-4">
-                {comment.replies.map((reply: Comment) => {
-                  const canModifyReply = isAdmin || user?.id === reply.author.id;
-                  const isEditingReply = editingCommentId === reply.id;
-                  return (
-                  <div key={reply.id} data-testid={`comment-${reply.id}`}>
-                    <div className="flex justify-between items-start mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{reply.author.displayName}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDateTime(reply.createdAt)}
-                          {reply.editedAt && <span className="italic ml-1" data-testid="comment-edited-marker">(edited)</span>}
-                        </span>
-                      </div>
-                      {!isEditingReply && canModifyReply && (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={() => handleStartEdit(reply)}
-                            data-testid={`edit-comment-${reply.id}`}
-                            aria-label="Edit reply"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 text-destructive"
-                            onClick={() => handleDeleteComment(reply.id)}
-                            aria-label="Delete reply"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    {isEditingReply ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={editBody}
-                          onChange={(e) => setEditBody(e.target.value)}
-                          className="resize-none"
-                          rows={2}
-                          data-testid={`edit-comment-textarea-${reply.id}`}
-                        />
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          {isPdf ? (
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs text-muted-foreground flex items-center gap-1">
-                                <Hash className="h-3 w-3" /> Pin to page
-                              </label>
-                              <Input
-                                type="number"
-                                min={1}
-                                value={editPageNumber}
-                                onChange={(e) => setEditPageNumber(e.target.value)}
-                                placeholder="optional"
-                                className="h-8 w-24"
-                                data-testid={`edit-comment-page-input-${reply.id}`}
-                              />
-                              {editPageNumber && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => setEditPageNumber("")}
-                                  aria-label="Clear page"
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          ) : (
-                            <span />
-                          )}
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancel</Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveEdit(reply.id)}
-                              disabled={updateCommentMutation.isPending || !editBody.trim()}
-                              data-testid={`save-comment-${reply.id}`}
-                            >
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{reply.body}</p>
-                    )}
-                  </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          );
-        })}
+        ) : (
+          (comments ?? []).map((c) => (
+            <CommentNode
+              key={c.id}
+              comment={c}
+              depth={0}
+              isPdf={isPdf}
+              user={user}
+              editingCommentId={editingCommentId}
+              editBody={editBody}
+              editPageNumber={editPageNumber}
+              isSavePending={updateCommentMutation.isPending}
+              setReplyingTo={setReplyingTo}
+              onStartEdit={handleStartEdit}
+              onCancelEdit={handleCancelEdit}
+              onSaveEdit={handleSaveEdit}
+              onDelete={handleDeleteComment}
+              setEditBody={setEditBody}
+              setEditPageNumber={setEditPageNumber}
+            />
+          ))
+        )}
       </div>
     </div>
   );

@@ -716,6 +716,20 @@ export const ListDocumentCommentsResponseItem = zod.object({
   createdAt: zod.coerce.date(),
   editedAt: zod.coerce.date().optional(),
   replies: zod.array(zod.unknown()),
+  mentions: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        email: zod.string(),
+        displayName: zod.string(),
+        roles: zod.array(zod.string()),
+        isActive: zod.boolean(),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .describe(
+      "Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here.",
+    ),
 });
 export const ListDocumentCommentsResponse = zod.array(
   ListDocumentCommentsResponseItem,
@@ -757,6 +771,20 @@ export const UpdateCommentResponse = zod.object({
   createdAt: zod.coerce.date(),
   editedAt: zod.coerce.date().optional(),
   replies: zod.array(zod.unknown()),
+  mentions: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        email: zod.string(),
+        displayName: zod.string(),
+        roles: zod.array(zod.string()),
+        isActive: zod.boolean(),
+        createdAt: zod.coerce.date(),
+      }),
+    )
+    .describe(
+      "Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here.",
+    ),
 });
 
 export const DeleteCommentParams = zod.object({
@@ -905,3 +933,30 @@ export const ListUsersResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
+
+/**
+ * @summary Autocomplete-style user search for the @mention picker
+ */
+export const searchUsersQueryQMax = 64;
+
+export const searchUsersQueryLimitDefault = 8;
+export const searchUsersQueryLimitMax = 20;
+
+export const SearchUsersQueryParams = zod.object({
+  q: zod.coerce.string().min(1).max(searchUsersQueryQMax),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(searchUsersQueryLimitMax)
+    .default(searchUsersQueryLimitDefault),
+});
+
+export const SearchUsersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const SearchUsersResponse = zod.array(SearchUsersResponseItem);
