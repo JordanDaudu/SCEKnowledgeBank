@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLogin, useGetCurrentUser, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -174,8 +174,18 @@ export default function Login() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="justify-center pb-8">
+        <CardFooter className="flex flex-col gap-2 justify-center pb-8">
           <p className="text-sm text-muted-foreground">
+            New here?{" "}
+            <Link
+              href="/register"
+              className="text-primary font-medium hover:underline"
+              data-testid="link-register"
+            >
+              Create an account
+            </Link>
+          </p>
+          <p className="text-xs text-muted-foreground">
             Trusted by the academic community.
           </p>
         </CardFooter>

@@ -1,4 +1,6 @@
-import { db } from "@workspace/db";
+import { db, Prisma } from "@workspace/db";
+
+export type AccountStatus = "ACTIVE" | "PENDING_APPROVAL" | "DISABLED";
 
 export interface UserRow {
   id: string;
@@ -7,17 +9,135 @@ export interface UserRow {
   displayName: string;
   primaryRoleId: string | null;
   isActive: boolean;
+  status: AccountStatus;
+  studentId: string | null;
+  lecturerId: string | null;
+  department: string | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
 }
 
 export async function findByEmail(email: string): Promise<UserRow | null> {
-  return db.user.findFirst({ where: { email, deletedAt: null } });
+  const row = await db.user.findFirst({ where: { email, deletedAt: null } });
+  return row as UserRow | null;
+}
+
+/**
+ * Case-insensitive email lookup used by registration to enforce
+ * uniqueness regardless of how the user typed it.
+ */
+export async function findByEmailCaseInsensitive(
+  email: string,
+): Promise<UserRow | null> {
+  const row = await db.user.findFirst({
+    where: {
+      deletedAt: null,
+      email: { equals: email, mode: "insensitive" },
+    },
+  });
+  return row as UserRow | null;
+}
+
+export interface CreateUserInput {
+  email: string;
+  passwordHash: string;
+  displayName: string;
+  primaryRoleId: string;
+  status: AccountStatus;
+  studentId?: string | null;
+  lecturerId?: string | null;
+  department?: string | null;
+}
+
+/**
+ * Insert a new user and link them to a single primary role via the
+ * `user_roles` join table in one transaction.
+ */
+export async function createWithRole(
+  input: CreateUserInput,
+): Promise<UserRow> {
+  return db.$transaction(async (tx) => {
+    const created = await tx.user.create({
+      data: {
+        email: input.email,
+        passwordHash: input.passwordHash,
+        displayName: input.displayName,
+        primaryRoleId: input.primaryRoleId,
+        status: input.status,
+        studentId: input.studentId ?? null,
+        lecturerId: input.lecturerId ?? null,
+        department: input.department ?? null,
+      },
+    });
+    await tx.userRole.create({
+      data: { userId: created.id, roleId: input.primaryRoleId },
+    });
+    return created as UserRow;
+  });
+}
+
+export async function updateStatus(
+  id: string,
+  status: AccountStatus,
+): Promise<UserRow | null> {
+  try {
+    const row = await db.user.update({
+      where: { id },
+      data: { status, updatedAt: new Date() },
+    });
+    return row as UserRow;
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2025"
+    ) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+export async function listByStatusWithRoles(
+  status: AccountStatus,
+): Promise<UserWithRoles[]> {
+  const rows = await db.user.findMany({
+    where: { deletedAt: null, status },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      isActive: true,
+      primaryRoleId: true,
+      createdAt: true,
+      status: true,
+      userRoles: { select: { role: { select: { name: true } } } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    displayName: r.displayName,
+    isActive: r.isActive,
+    primaryRoleId: r.primaryRoleId,
+    createdAt: r.createdAt,
+    status: r.status as AccountStatus,
+    roles: Array.from(new Set(r.userRoles.map((ur) => ur.role.name))),
+  }));
+}
+
+export async function findRoleIdByName(name: string): Promise<string | null> {
+  const row = await db.role.findFirst({
+    where: { name },
+    select: { id: true },
+  });
+  return row?.id ?? null;
 }
 
 export async function findById(id: string): Promise<UserRow | null> {
-  return db.user.findFirst({ where: { id, deletedAt: null } });
+  const row = await db.user.findFirst({ where: { id, deletedAt: null } });
+  return row as UserRow | null;
 }
 
 export interface UserWithRoles {
@@ -28,6 +148,7 @@ export interface UserWithRoles {
   primaryRoleId: string | null;
   createdAt: Date;
   roles: string[];
+  status?: AccountStatus;
 }
 
 export async function findManyWithRolesByIds(
@@ -44,6 +165,7 @@ export async function findManyWithRolesByIds(
       isActive: true,
       primaryRoleId: true,
       createdAt: true,
+      status: true,
       userRoles: { select: { role: { select: { name: true } } } },
     },
   });
@@ -54,6 +176,7 @@ export async function findManyWithRolesByIds(
     isActive: r.isActive,
     primaryRoleId: r.primaryRoleId,
     createdAt: r.createdAt,
+    status: r.status as AccountStatus,
     roles: Array.from(new Set(r.userRoles.map((ur) => ur.role.name))),
   }));
 }

@@ -29,11 +29,44 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
 
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Public registration for student / lecturer accounts
+      description: >-
+        Admin self-registration is impossible: `role` is constrained to
+        `student | lecturer`. Students are created `ACTIVE` and a
+        session cookie is set in the response. Lecturers are created
+        `PENDING_APPROVAL` and no session is established until an
+        admin approves them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegisterResponse" }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
   /auth/login:
     post:
       operationId: login
       tags: [auth]
-      summary: Demo login
+      summary: Status-aware login
       requestBody:
         required: true
         content:
@@ -47,6 +80,11 @@ paths:
               schema: { $ref: "#/components/schemas/CurrentUser" }
         "401":
           description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: Account disabled or pending admin approval
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
@@ -487,6 +525,48 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/UserSummary" }
 
+  /users/pending-lecturers:
+    get:
+      operationId: listPendingLecturers
+      tags: [users]
+      summary: Admin-only list of lecturers awaiting approval
+      responses:
+        "200":
+          description: Pending lecturers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+
+  /users/{id}/approve:
+    post:
+      operationId: approveUser
+      tags: [users]
+      summary: Admin-only approve a pending lecturer
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
+  /users/{id}/disable:
+    post:
+      operationId: disableUser
+      tags: [users]
+      summary: Admin-only disable any user
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
   /users/search:
     get:
       operationId: searchUsers
@@ -545,7 +625,7 @@ components:
 
     UserSummary:
       type: object
-      required: [id, email, displayName, roles, isActive, createdAt]
+      required: [id, email, displayName, roles, isActive, status, createdAt]
       properties:
         id: { type: string, format: uuid }
         email: { type: string }
@@ -554,7 +634,47 @@ components:
           type: array
           items: { type: string }
         isActive: { type: boolean }
+        status:
+          type: string
+          enum: [ACTIVE, PENDING_APPROVAL, DISABLED]
         createdAt: { type: string, format: date-time }
+
+    RegisterRequest:
+      type: object
+      required: [fullName, email, password, confirmPassword, role]
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 120 }
+        email: { type: string, minLength: 1, maxLength: 254 }
+        password: { type: string, minLength: 8, maxLength: 200 }
+        confirmPassword: { type: string, minLength: 8, maxLength: 200 }
+        role:
+          type: string
+          enum: [student, lecturer]
+        studentId: { type: string, maxLength: 64 }
+        lecturerId: { type: string, maxLength: 64 }
+        department: { type: string, maxLength: 120 }
+        enrolledCourseIds:
+          type: array
+          items: { type: string, format: uuid }
+        teachingCourseIds:
+          type: array
+          items: { type: string, format: uuid }
+
+    RegisterResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, PENDING_APPROVAL]
+        message: { type: string }
+        user:
+          oneOf:
+            - { $ref: "#/components/schemas/CurrentUser" }
+            - { type: "null" }
+          description: >-
+            Present (and the session cookie is set) when the user was
+            auto-logged-in. Null for lecturers awaiting admin approval.
 
     Course:
       type: object

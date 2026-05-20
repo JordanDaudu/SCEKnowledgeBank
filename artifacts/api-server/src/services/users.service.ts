@@ -42,7 +42,20 @@ export interface UserSummaryDTO {
   displayName: string;
   roles: string[];
   isActive: boolean;
+  status: usersRepo.AccountStatus;
   createdAt: string;
+}
+
+function toSummary(u: usersRepo.UserWithRoles): UserSummaryDTO {
+  return {
+    id: u.id,
+    email: u.email,
+    displayName: u.displayName,
+    roles: u.roles,
+    isActive: u.isActive,
+    status: u.status ?? "ACTIVE",
+    createdAt: u.createdAt.toISOString(),
+  };
 }
 
 export async function loadUserSummaries(
@@ -52,16 +65,25 @@ export async function loadUserSummaries(
   if (ids.length === 0) return out;
   const users = await usersRepo.findManyWithRolesByIds(ids);
   for (const u of users) {
-    out.set(u.id, {
-      id: u.id,
-      email: u.email,
-      displayName: u.displayName,
-      roles: u.roles,
-      isActive: u.isActive,
-      createdAt: u.createdAt.toISOString(),
-    });
+    out.set(u.id, toSummary(u));
   }
   return out;
+}
+
+export async function getUserSummary(id: string): Promise<UserSummaryDTO> {
+  const rows = await usersRepo.findManyWithRolesByIds([id]);
+  const u = rows[0];
+  if (!u) throw notFound("User not found");
+  return toSummary(u);
+}
+
+export async function listPendingLecturers(): Promise<UserSummaryDTO[]> {
+  const rows = await usersRepo.listByStatusWithRoles("PENDING_APPROVAL");
+  // Restrict to actual lecturers; a defensive filter in case other
+  // pending statuses are added later.
+  return rows
+    .filter((r) => r.roles.includes("lecturer"))
+    .map(toSummary);
 }
 
 /**
@@ -73,14 +95,7 @@ export async function searchUsers(
   limit: number,
 ): Promise<UserSummaryDTO[]> {
   const rows = await usersRepo.searchByQuery(q, limit);
-  return rows.map((u) => ({
-    id: u.id,
-    email: u.email,
-    displayName: u.displayName,
-    roles: u.roles,
-    isActive: u.isActive,
-    createdAt: u.createdAt.toISOString(),
-  }));
+  return rows.map(toSummary);
 }
 
 export async function listAllSummaries(): Promise<UserSummaryDTO[]> {

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../middlewares/auth";
 import * as usersService from "../services/users.service";
+import * as authService from "../services/auth.service";
 
 const router: IRouter = Router();
 
@@ -13,6 +14,52 @@ router.get("/users", requireRole("admin"), async (_req, res, next) => {
     next(err);
   }
 });
+
+// Admin-only: list lecturers whose accounts are awaiting approval.
+router.get(
+  "/users/pending-lecturers",
+  requireRole("admin"),
+  async (_req, res, next) => {
+    try {
+      const summaries = await usersService.listPendingLecturers();
+      res.json(summaries);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+const IdParam = z.object({ id: z.string().uuid() });
+
+router.post(
+  "/users/:id/approve",
+  requireRole("admin"),
+  async (req, res, next) => {
+    try {
+      const { id } = IdParam.parse(req.params);
+      await authService.approveUser(id, req.authUser!.id);
+      const summary = await usersService.getUserSummary(id);
+      res.json(summary);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/users/:id/disable",
+  requireRole("admin"),
+  async (req, res, next) => {
+    try {
+      const { id } = IdParam.parse(req.params);
+      await authService.disableUser(id, req.authUser!.id);
+      const summary = await usersService.getUserSummary(id);
+      res.json(summary);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // Authenticated user search for the @mention picker. Returns a small,
 // capped list of active users matching by display name / email.

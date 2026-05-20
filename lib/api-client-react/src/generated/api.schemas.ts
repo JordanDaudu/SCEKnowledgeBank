@@ -34,13 +34,78 @@ export interface CurrentUser {
   roles: string[];
 }
 
+export type UserSummaryStatus =
+  (typeof UserSummaryStatus)[keyof typeof UserSummaryStatus];
+
+export const UserSummaryStatus = {
+  ACTIVE: "ACTIVE",
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  DISABLED: "DISABLED",
+} as const;
+
 export interface UserSummary {
   id: string;
   email: string;
   displayName: string;
   roles: string[];
   isActive: boolean;
+  status: UserSummaryStatus;
   createdAt: string;
+}
+
+export type RegisterRequestRole =
+  (typeof RegisterRequestRole)[keyof typeof RegisterRequestRole];
+
+export const RegisterRequestRole = {
+  student: "student",
+  lecturer: "lecturer",
+} as const;
+
+export interface RegisterRequest {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  fullName: string;
+  /**
+   * @minLength 1
+   * @maxLength 254
+   */
+  email: string;
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  password: string;
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  confirmPassword: string;
+  role: RegisterRequestRole;
+  /** @maxLength 64 */
+  studentId?: string;
+  /** @maxLength 64 */
+  lecturerId?: string;
+  /** @maxLength 120 */
+  department?: string;
+  enrolledCourseIds?: string[];
+  teachingCourseIds?: string[];
+}
+
+export type RegisterResponseStatus =
+  (typeof RegisterResponseStatus)[keyof typeof RegisterResponseStatus];
+
+export const RegisterResponseStatus = {
+  ACTIVE: "ACTIVE",
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+} as const;
+
+export interface RegisterResponse {
+  status: RegisterResponseStatus;
+  message: string;
+  /** Present (and the session cookie is set) when the user was auto-logged-in. Null for lecturers awaiting admin approval. */
+  user?: CurrentUser | null;
 }
 
 export interface Course {

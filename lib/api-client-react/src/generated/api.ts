@@ -38,6 +38,8 @@ import type {
   LoginRequest,
   MaterialRequest,
   PreviewDocumentParams,
+  RegisterRequest,
+  RegisterResponse,
   SearchUsersParams,
   SignedTokenResponse,
   StorageQuota,
@@ -135,7 +137,94 @@ export function useHealthCheck<
 }
 
 /**
- * @summary Demo login
+ * Admin self-registration is impossible: `role` is constrained to `student | lecturer`. Students are created `ACTIVE` and a session cookie is set in the response. Lecturers are created `PENDING_APPROVAL` and no session is established until an admin approves them.
+ * @summary Public registration for student / lecturer accounts
+ */
+export const getRegisterUserUrl = () => {
+  return `/api/auth/register`;
+};
+
+export const registerUser = async (
+  registerRequest: RegisterRequest,
+  options?: RequestInit,
+): Promise<RegisterResponse> => {
+  return customFetch<RegisterResponse>(getRegisterUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerRequest),
+  });
+};
+
+export const getRegisterUserMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerUser>>,
+    TError,
+    { data: BodyType<RegisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerUser>>,
+  TError,
+  { data: BodyType<RegisterRequest> },
+  TContext
+> => {
+  const mutationKey = ["registerUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerUser>>,
+    { data: BodyType<RegisterRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerUser>>
+>;
+export type RegisterUserMutationBody = BodyType<RegisterRequest>;
+export type RegisterUserMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Public registration for student / lecturer accounts
+ */
+export const useRegisterUser = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerUser>>,
+    TError,
+    { data: BodyType<RegisterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerUser>>,
+  TError,
+  { data: BodyType<RegisterRequest> },
+  TContext
+> => {
+  return useMutation(getRegisterUserMutationOptions(options));
+};
+
+/**
+ * @summary Status-aware login
  */
 export const getLoginUrl = () => {
   return `/api/auth/login`;
@@ -198,7 +287,7 @@ export type LoginMutationBody = BodyType<LoginRequest>;
 export type LoginMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Demo login
+ * @summary Status-aware login
  */
 export const useLogin = <
   TError = ErrorType<ApiError>,
@@ -2501,6 +2590,249 @@ export function useListUsers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Admin-only list of lecturers awaiting approval
+ */
+export const getListPendingLecturersUrl = () => {
+  return `/api/users/pending-lecturers`;
+};
+
+export const listPendingLecturers = async (
+  options?: RequestInit,
+): Promise<UserSummary[]> => {
+  return customFetch<UserSummary[]>(getListPendingLecturersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPendingLecturersQueryKey = () => {
+  return [`/api/users/pending-lecturers`] as const;
+};
+
+export const getListPendingLecturersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListPendingLecturersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPendingLecturers>>
+  > = ({ signal }) => listPendingLecturers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingLecturers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPendingLecturersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPendingLecturers>>
+>;
+export type ListPendingLecturersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only list of lecturers awaiting approval
+ */
+
+export function useListPendingLecturers<
+  TData = Awaited<ReturnType<typeof listPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPendingLecturersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin-only approve a pending lecturer
+ */
+export const getApproveUserUrl = (id: string) => {
+  return `/api/users/${id}/approve`;
+};
+
+export const approveUser = async (
+  id: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getApproveUserUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getApproveUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["approveUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveUser>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return approveUser(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveUser>>
+>;
+
+export type ApproveUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only approve a pending lecturer
+ */
+export const useApproveUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getApproveUserMutationOptions(options));
+};
+
+/**
+ * @summary Admin-only disable any user
+ */
+export const getDisableUserUrl = (id: string) => {
+  return `/api/users/${id}/disable`;
+};
+
+export const disableUser = async (
+  id: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getDisableUserUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDisableUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disableUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["disableUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disableUser>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return disableUser(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisableUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disableUser>>
+>;
+
+export type DisableUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only disable any user
+ */
+export const useDisableUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disableUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disableUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDisableUserMutationOptions(options));
+};
 
 /**
  * @summary Autocomplete-style user search for the @mention picker

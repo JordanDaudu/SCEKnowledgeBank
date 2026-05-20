@@ -114,6 +114,7 @@ export async function assembleDocuments(
       displayName: "Unknown",
       roles: [],
       isActive: false,
+      status: "ACTIVE",
       createdAt: d.createdAt.toISOString(),
     };
     const file = filesByDoc.get(d.id);

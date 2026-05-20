@@ -15,7 +15,46 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * @summary Demo login
+ * Admin self-registration is impossible: `role` is constrained to `student | lecturer`. Students are created `ACTIVE` and a session cookie is set in the response. Lecturers are created `PENDING_APPROVAL` and no session is established until an admin approves them.
+ * @summary Public registration for student / lecturer accounts
+ */
+export const registerUserBodyFullNameMax = 120;
+
+export const registerUserBodyEmailMax = 254;
+
+export const registerUserBodyPasswordMin = 8;
+export const registerUserBodyPasswordMax = 200;
+
+export const registerUserBodyConfirmPasswordMin = 8;
+export const registerUserBodyConfirmPasswordMax = 200;
+
+export const registerUserBodyStudentIdMax = 64;
+
+export const registerUserBodyLecturerIdMax = 64;
+
+export const registerUserBodyDepartmentMax = 120;
+
+export const RegisterUserBody = zod.object({
+  fullName: zod.string().min(1).max(registerUserBodyFullNameMax),
+  email: zod.string().min(1).max(registerUserBodyEmailMax),
+  password: zod
+    .string()
+    .min(registerUserBodyPasswordMin)
+    .max(registerUserBodyPasswordMax),
+  confirmPassword: zod
+    .string()
+    .min(registerUserBodyConfirmPasswordMin)
+    .max(registerUserBodyConfirmPasswordMax),
+  role: zod.enum(["student", "lecturer"]),
+  studentId: zod.string().max(registerUserBodyStudentIdMax).optional(),
+  lecturerId: zod.string().max(registerUserBodyLecturerIdMax).optional(),
+  department: zod.string().max(registerUserBodyDepartmentMax).optional(),
+  enrolledCourseIds: zod.array(zod.string().uuid()).optional(),
+  teachingCourseIds: zod.array(zod.string().uuid()).optional(),
+});
+
+/**
+ * @summary Status-aware login
  */
 
 export const LoginBody = zod.object({
@@ -113,6 +152,7 @@ export const ListDocumentsResponse = zod.object({
         displayName: zod.string(),
         roles: zod.array(zod.string()),
         isActive: zod.boolean(),
+        status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
       }),
       createdAt: zod.coerce.date(),
@@ -286,6 +326,7 @@ export const ListRecentDocumentsResponseItem = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -434,6 +475,7 @@ export const GetDocumentResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -566,6 +608,7 @@ export const UpdateDocumentResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -711,6 +754,7 @@ export const ListDocumentCommentsResponseItem = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -724,6 +768,7 @@ export const ListDocumentCommentsResponseItem = zod.object({
         displayName: zod.string(),
         roles: zod.array(zod.string()),
         isActive: zod.boolean(),
+        status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
       }),
     )
@@ -766,6 +811,7 @@ export const UpdateCommentResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   createdAt: zod.coerce.date(),
@@ -779,6 +825,7 @@ export const UpdateCommentResponse = zod.object({
         displayName: zod.string(),
         roles: zod.array(zod.string()),
         isActive: zod.boolean(),
+        status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
       }),
     )
@@ -815,6 +862,7 @@ export const ListRequestsResponseItem = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   voteCount: zod.number(),
@@ -860,6 +908,7 @@ export const UpdateRequestResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   voteCount: zod.number(),
@@ -891,6 +940,7 @@ export const VoteRequestResponse = zod.object({
     displayName: zod.string(),
     roles: zod.array(zod.string()),
     isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
   }),
   voteCount: zod.number(),
@@ -930,9 +980,60 @@ export const ListUsersResponseItem = zod.object({
   displayName: zod.string(),
   roles: zod.array(zod.string()),
   isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
+
+/**
+ * @summary Admin-only list of lecturers awaiting approval
+ */
+export const ListPendingLecturersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+export const ListPendingLecturersResponse = zod.array(
+  ListPendingLecturersResponseItem,
+);
+
+/**
+ * @summary Admin-only approve a pending lecturer
+ */
+export const ApproveUserParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const ApproveUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Admin-only disable any user
+ */
+export const DisableUserParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const DisableUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
 
 /**
  * @summary Autocomplete-style user search for the @mention picker
@@ -957,6 +1058,7 @@ export const SearchUsersResponseItem = zod.object({
   displayName: zod.string(),
   roles: zod.array(zod.string()),
   isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
 });
 export const SearchUsersResponse = zod.array(SearchUsersResponseItem);
