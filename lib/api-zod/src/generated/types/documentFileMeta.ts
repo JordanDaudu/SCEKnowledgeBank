@@ -5,6 +5,7 @@
  * Knowledge Bank API
  * OpenAPI spec version: 0.2.0
  */
+import type { ExtractedFileMetadata } from "./extractedFileMetadata";
 
 export interface DocumentFileMeta {
   id: string;
@@ -16,4 +17,5 @@ export interface DocumentFileMeta {
   sizeBytes: number;
   uploadedAt: Date;
   checksum?: string;
+  extractedMetadata?: ExtractedFileMetadata;
 }

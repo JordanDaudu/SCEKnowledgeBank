@@ -11,6 +11,11 @@ import {
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
+import { apiUrl } from "@/lib/api-url";
+import {
+  iconForFallbackType,
+  type FallbackIconType,
+} from "@/lib/fallback-icon";
 
 interface Props {
   items: Document[];
@@ -33,7 +38,29 @@ export default function DocumentTable({ items }: Props) {
             <TableRow key={doc.id} className="cursor-pointer">
               <TableCell className="font-medium">
                 <Link href={`/documents/${doc.id}`}>
-                  <span className="hover:underline">{doc.title}</span>
+                  <span className="inline-flex items-center gap-2 hover:underline">
+                    {doc.thumbnailUrl ? (
+                      <img
+                        src={apiUrl(doc.thumbnailUrl)}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        className="h-6 w-6 object-cover rounded border"
+                      />
+                    ) : (
+                      (() => {
+                        const Icon = iconForFallbackType(
+                          doc.fallbackIconType as
+                            | FallbackIconType
+                            | undefined,
+                        );
+                        return (
+                          <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        );
+                      })()
+                    )}
+                    {doc.title}
+                  </span>
                 </Link>
               </TableCell>
               <TableCell>

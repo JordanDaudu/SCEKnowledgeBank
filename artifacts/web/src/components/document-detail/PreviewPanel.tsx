@@ -4,6 +4,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, Download, FileQuestion } from "lucide-react";
 import { formatBytes } from "@/lib/format";
 import { apiUrl } from "@/lib/api-url";
+import {
+  iconForFallbackType,
+  type FallbackIconType,
+} from "@/lib/fallback-icon";
 
 function isPreviewableInIframe(mime: string | undefined): boolean {
   if (!mime) return false;
@@ -43,9 +47,27 @@ export default function PreviewPanel({ doc, previewUrl, isPreviewLoading, onDown
             className="absolute inset-0 flex flex-col items-center justify-center text-center p-8"
             data-testid="preview-unavailable"
           >
-            <div className="bg-secondary p-4 rounded-full mb-4">
-              <FileQuestion className="h-10 w-10 text-muted-foreground" />
-            </div>
+            {doc.thumbnailUrl ? (
+              <img
+                src={apiUrl(doc.thumbnailUrl)}
+                alt=""
+                aria-hidden="true"
+                className="max-h-40 max-w-40 mb-4 rounded-md border"
+              />
+            ) : (
+              (() => {
+                const Icon = doc.fallbackIconType
+                  ? iconForFallbackType(
+                      doc.fallbackIconType as FallbackIconType,
+                    )
+                  : FileQuestion;
+                return (
+                  <div className="bg-secondary p-4 rounded-full mb-4">
+                    <Icon className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                );
+              })()
+            )}
             <h3 className="font-serif font-semibold text-lg mb-1">Preview unavailable</h3>
             <p className="text-sm text-muted-foreground max-w-sm mb-6">
               {mime

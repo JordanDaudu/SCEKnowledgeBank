@@ -74,6 +74,12 @@ export const ListDocumentsQueryParams = zod.object({
     .default(listDocumentsQueryPageSizeDefault),
 });
 
+export const listDocumentsResponseItemsItemFileExtractedMetadataPageCountMin = 0;
+
+export const listDocumentsResponseItemsItemFileExtractedMetadataImageWidthMin = 0;
+
+export const listDocumentsResponseItemsItemFileExtractedMetadataImageHeightMin = 0;
+
 export const ListDocumentsResponse = zod.object({
   items: zod.array(
     zod.object({
@@ -134,8 +140,61 @@ export const ListDocumentsResponse = zod.object({
           sizeBytes: zod.number(),
           uploadedAt: zod.coerce.date(),
           checksum: zod.string().optional(),
+          extractedMetadata: zod
+            .object({
+              pageCount: zod
+                .number()
+                .min(
+                  listDocumentsResponseItemsItemFileExtractedMetadataPageCountMin,
+                )
+                .optional(),
+              detectedTitle: zod.string().optional(),
+              author: zod.string().optional(),
+              imageWidth: zod
+                .number()
+                .min(
+                  listDocumentsResponseItemsItemFileExtractedMetadataImageWidthMin,
+                )
+                .optional(),
+              imageHeight: zod
+                .number()
+                .min(
+                  listDocumentsResponseItemsItemFileExtractedMetadataImageHeightMin,
+                )
+                .optional(),
+              hasExtractedText: zod
+                .boolean()
+                .describe(
+                  "True when extracted text exists for full-text search (task",
+                ),
+            })
+            .optional()
+            .describe(
+              "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+            ),
         })
         .optional(),
+      thumbnailUrl: zod
+        .string()
+        .optional()
+        .describe(
+          "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+        ),
+      fallbackIconType: zod
+        .enum([
+          "pdf",
+          "image",
+          "doc",
+          "slides",
+          "sheet",
+          "text",
+          "archive",
+          "unknown",
+        ])
+        .optional()
+        .describe(
+          "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+        ),
     }),
   ),
   total: zod.number(),
@@ -189,6 +248,12 @@ export const ListRecentDocumentsQueryParams = zod.object({
     .max(listRecentDocumentsQueryLimitMax)
     .default(listRecentDocumentsQueryLimitDefault),
 });
+
+export const listRecentDocumentsResponseFileExtractedMetadataPageCountMin = 0;
+
+export const listRecentDocumentsResponseFileExtractedMetadataImageWidthMin = 0;
+
+export const listRecentDocumentsResponseFileExtractedMetadataImageHeightMin = 0;
 
 export const ListRecentDocumentsResponseItem = zod.object({
   id: zod.string().uuid(),
@@ -248,8 +313,55 @@ export const ListRecentDocumentsResponseItem = zod.object({
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
       checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(listRecentDocumentsResponseFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(listRecentDocumentsResponseFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(listRecentDocumentsResponseFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
     })
     .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
 });
 export const ListRecentDocumentsResponse = zod.array(
   ListRecentDocumentsResponseItem,
@@ -284,6 +396,12 @@ export const DocumentSuggestionsResponse = zod.array(
 export const GetDocumentParams = zod.object({
   id: zod.coerce.string().uuid(),
 });
+
+export const getDocumentResponseOneFileExtractedMetadataPageCountMin = 0;
+
+export const getDocumentResponseOneFileExtractedMetadataImageWidthMin = 0;
+
+export const getDocumentResponseOneFileExtractedMetadataImageHeightMin = 0;
 
 export const GetDocumentResponse = zod.object({
   id: zod.string().uuid(),
@@ -343,8 +461,55 @@ export const GetDocumentResponse = zod.object({
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
       checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(getDocumentResponseOneFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(getDocumentResponseOneFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(getDocumentResponseOneFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
     })
     .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
 });
 
 export const UpdateDocumentParams = zod.object({
@@ -363,6 +528,12 @@ export const UpdateDocumentBody = zod.object({
   status: zod.enum(["draft", "published", "archived"]).optional(),
   tagIds: zod.array(zod.string().uuid()).optional(),
 });
+
+export const updateDocumentResponseOneFileExtractedMetadataPageCountMin = 0;
+
+export const updateDocumentResponseOneFileExtractedMetadataImageWidthMin = 0;
+
+export const updateDocumentResponseOneFileExtractedMetadataImageHeightMin = 0;
 
 export const UpdateDocumentResponse = zod.object({
   id: zod.string().uuid(),
@@ -422,12 +593,70 @@ export const UpdateDocumentResponse = zod.object({
       sizeBytes: zod.number(),
       uploadedAt: zod.coerce.date(),
       checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(updateDocumentResponseOneFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(updateDocumentResponseOneFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(updateDocumentResponseOneFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
     })
     .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
 });
 
 export const DeleteDocumentParams = zod.object({
   id: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Stream a server-generated thumbnail (signed-URL pathway)
+ */
+export const GetDocumentThumbnailParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetDocumentThumbnailQueryParams = zod.object({
+  token: zod.coerce.string(),
 });
 
 export const GetDocumentPreviewTokenParams = zod.object({

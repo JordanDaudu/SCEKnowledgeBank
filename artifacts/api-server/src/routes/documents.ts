@@ -14,6 +14,8 @@ import {
   DownloadDocumentQueryParams,
   PreviewDocumentParams,
   PreviewDocumentQueryParams,
+  GetDocumentThumbnailParams,
+  GetDocumentThumbnailQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { forbidden } from "../lib/errors";
@@ -207,6 +209,16 @@ router.get("/documents/:id/preview", async (req, res, next) => {
     const { id } = PreviewDocumentParams.parse(req.params);
     const { token } = PreviewDocumentQueryParams.parse(req.query);
     await documentsService.streamPreview(id, token, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/documents/:id/thumbnail", async (req, res, next) => {
+  try {
+    const { id } = GetDocumentThumbnailParams.parse(req.params);
+    const { token } = GetDocumentThumbnailQueryParams.parse(req.query);
+    await documentsService.streamThumbnail(id, token, res);
   } catch (err) {
     next(err);
   }

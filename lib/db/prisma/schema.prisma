@@ -226,6 +226,19 @@ model DocumentFile {
   versionLabel     String?  @map("version_label")
   uploadedAt       DateTime @default(now()) @map("uploaded_at") @db.Timestamptz()
 
+  // ─── Extracted metadata (Sprint 2, task #27) ──────────────────
+  // Populated server-side on upload by `metadata.service.ts`. All
+  // fields are nullable: extraction failure or unsupported file types
+  // leave them NULL and the API falls back to a generic icon.
+  extractedText     String? @map("extracted_text")
+  pageCount         Int?    @map("page_count")
+  detectedTitle     String? @map("detected_title")
+  author            String?
+  imageWidth        Int?    @map("image_width")
+  imageHeight       Int?    @map("image_height")
+  thumbnailPath     String? @map("thumbnail_path")
+  thumbnailMimeType String? @map("thumbnail_mime_type")
+
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId], map: "document_files_document_idx")

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "./env";
 
-export type SignedAction = "preview" | "download";
+export type SignedAction = "preview" | "download" | "thumbnail";
 
 interface Payload {
   d: string; // document id

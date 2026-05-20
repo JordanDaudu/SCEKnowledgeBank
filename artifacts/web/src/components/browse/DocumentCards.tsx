@@ -2,9 +2,13 @@ import { Link } from "wouter";
 import type { Document } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
+import { apiUrl } from "@/lib/api-url";
+import {
+  iconForFallbackType,
+  type FallbackIconType,
+} from "@/lib/fallback-icon";
 
 interface Props {
   items: Document[];
@@ -18,9 +22,30 @@ export default function DocumentCards({ items }: Props) {
           <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate flex flex-col">
             <CardContent className="p-5 flex flex-col flex-1">
               <div className="flex justify-between items-start mb-3">
-                <div className="bg-secondary p-2 rounded-md text-primary">
-                  <FileText className="h-5 w-5" />
-                </div>
+                {doc.thumbnailUrl ? (
+                  <img
+                    src={apiUrl(doc.thumbnailUrl)}
+                    alt=""
+                    aria-hidden="true"
+                    loading="lazy"
+                    className="h-12 w-12 object-cover rounded-md border bg-secondary"
+                    data-testid="doc-thumbnail"
+                  />
+                ) : (
+                  (() => {
+                    const Icon = iconForFallbackType(
+                      doc.fallbackIconType as FallbackIconType | undefined,
+                    );
+                    return (
+                      <div
+                        className="bg-secondary p-2 rounded-md text-primary"
+                        data-testid="doc-fallback-icon"
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+                    );
+                  })()
+                )}
                 {doc.course && (
                   <Badge variant="outline" className="font-mono font-normal">
                     {doc.course.code}

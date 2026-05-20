@@ -228,6 +228,31 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /documents/{id}/thumbnail:
+    get:
+      operationId: getDocumentThumbnail
+      tags: [documents]
+      summary: Stream a server-generated thumbnail (signed-URL pathway)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Thumbnail bytes
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "404":
+          description: No thumbnail for this document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
   /documents/{id}/preview-token:
     get:
       operationId: getDocumentPreviewToken
@@ -574,6 +599,18 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Tag" }
         file: { $ref: "#/components/schemas/DocumentFileMeta" }
+        thumbnailUrl:
+          type: string
+          description: >-
+            Signed URL to a server-generated thumbnail when one exists.
+            Issued by `assembleDocuments` after visibility checks; goes
+            through the same signed-URL pathway as preview/download.
+        fallbackIconType:
+          type: string
+          enum: [pdf, image, doc, slides, sheet, text, archive, unknown]
+          description: >-
+            Generic icon bucket the client renders when no thumbnail is
+            available. Derived from the latest file's MIME type.
 
     DocumentDetail:
       allOf:
@@ -594,6 +631,25 @@ components:
         sizeBytes: { type: integer }
         uploadedAt: { type: string, format: date-time }
         checksum: { type: string }
+        extractedMetadata:
+          $ref: "#/components/schemas/ExtractedFileMetadata"
+
+    ExtractedFileMetadata:
+      type: object
+      required: [hasExtractedText]
+      description: >-
+        Server-side metadata pulled from the uploaded file on ingest
+        (task #27). Every field is optional — extraction may fail
+        per-file without failing the upload.
+      properties:
+        pageCount: { type: integer, minimum: 0 }
+        detectedTitle: { type: string }
+        author: { type: string }
+        imageWidth: { type: integer, minimum: 0 }
+        imageHeight: { type: integer, minimum: 0 }
+        hasExtractedText:
+          type: boolean
+          description: True when extracted text exists for full-text search (task #28).
 
     DocumentSuggestion:
       type: object

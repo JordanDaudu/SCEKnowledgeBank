@@ -39,6 +39,16 @@ export interface DocumentFileRow {
   checksum: string;
   versionLabel: string | null;
   uploadedAt: Date;
+  // Extracted metadata (task #27). All optional — extraction can fail
+  // per-file without failing the upload.
+  extractedText: string | null;
+  pageCount: number | null;
+  detectedTitle: string | null;
+  author: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  thumbnailPath: string | null;
+  thumbnailMimeType: string | null;
 }
 
 export interface DocumentFileInsert {
@@ -52,6 +62,17 @@ export interface DocumentFileInsert {
   storageDriver?: string;
   checksum: string;
   versionLabel?: string | null;
+  // Extracted metadata (task #27). Persisted alongside the file row
+  // so each file version captures the metadata that was current when
+  // it was uploaded.
+  extractedText?: string | null;
+  pageCount?: number | null;
+  detectedTitle?: string | null;
+  author?: string | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  thumbnailPath?: string | null;
+  thumbnailMimeType?: string | null;
 }
 
 export type DocumentSort = "newest" | "oldest" | "title" | "popularity";
@@ -91,6 +112,14 @@ function fromFileRow(r: {
   checksum: string;
   versionLabel: string | null;
   uploadedAt: Date;
+  extractedText: string | null;
+  pageCount: number | null;
+  detectedTitle: string | null;
+  author: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  thumbnailPath: string | null;
+  thumbnailMimeType: string | null;
 }): DocumentFileRow {
   return { ...r, sizeBytes: Number(r.sizeBytes) };
 }

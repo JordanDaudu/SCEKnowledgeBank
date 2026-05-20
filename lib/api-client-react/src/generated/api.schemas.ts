@@ -89,6 +89,39 @@ export const DocumentStatus = {
   archived: "archived",
 } as const;
 
+/**
+ * Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.
+ */
+export type DocumentFallbackIconType =
+  (typeof DocumentFallbackIconType)[keyof typeof DocumentFallbackIconType];
+
+export const DocumentFallbackIconType = {
+  pdf: "pdf",
+  image: "image",
+  doc: "doc",
+  slides: "slides",
+  sheet: "sheet",
+  text: "text",
+  archive: "archive",
+  unknown: "unknown",
+} as const;
+
+/**
+ * Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.
+ */
+export interface ExtractedFileMetadata {
+  /** @minimum 0 */
+  pageCount?: number;
+  detectedTitle?: string;
+  author?: string;
+  /** @minimum 0 */
+  imageWidth?: number;
+  /** @minimum 0 */
+  imageHeight?: number;
+  /** True when extracted text exists for full-text search (task */
+  hasExtractedText: boolean;
+}
+
 export interface DocumentFileMeta {
   id: string;
   /** The exact filename as the user uploaded it. */
@@ -99,6 +132,7 @@ export interface DocumentFileMeta {
   sizeBytes: number;
   uploadedAt: string;
   checksum?: string;
+  extractedMetadata?: ExtractedFileMetadata;
 }
 
 export interface Document {
@@ -119,6 +153,10 @@ export interface Document {
   commentCount: number;
   tags: Tag[];
   file?: DocumentFileMeta;
+  /** Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview/download. */
+  thumbnailUrl?: string;
+  /** Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type. */
+  fallbackIconType?: DocumentFallbackIconType;
 }
 
 export type DocumentDetail = Document;
@@ -374,6 +412,10 @@ export type DocumentSuggestionsParams = {
    * @maximum 20
    */
   limit?: number;
+};
+
+export type GetDocumentThumbnailParams = {
+  token: string;
 };
 
 export type PreviewDocumentParams = {

@@ -15,6 +15,11 @@ import { getStorage } from "../lib/storage";
 import { env } from "../lib/env";
 import { mimeMatchesContent } from "../lib/mime-sniff";
 import type { AuthenticatedUser } from "../middlewares/auth";
+import {
+  extractMetadata,
+  fallbackIconFor,
+  type FallbackIconType,
+} from "./documents/metadata.service";
 
 function sha256Hex(buf: Buffer): string {
   return createHash("sha256").update(buf).digest("hex");
@@ -45,7 +50,27 @@ export interface DocumentDTO {
     sizeBytes: number;
     uploadedAt: string;
     checksum?: string;
+    extractedMetadata?: {
+      pageCount?: number;
+      detectedTitle?: string;
+      author?: string;
+      imageWidth?: number;
+      imageHeight?: number;
+      hasExtractedText: boolean;
+    };
   };
+  /**
+   * Signed URL to a server-generated thumbnail (e.g. for image
+   * uploads) when one exists. Goes through the same signed-URL path
+   * as preview/download so visibility is enforced consistently.
+   */
+  thumbnailUrl?: string;
+  /**
+   * Generic icon bucket the UI should render when no thumbnail is
+   * available. Derived from the latest file's MIME type by
+   * `metadata.service.fallbackIconFor`.
+   */
+  fallbackIconType: FallbackIconType;
 }
 
 // All visibility / role checks are delegated to permissions.service.
@@ -105,6 +130,7 @@ export async function assembleDocuments(
       viewCount: viewCounts.get(d.id) ?? 0,
       commentCount: commentCounts.get(d.id) ?? 0,
       tags: tagsByDoc.get(d.id) ?? [],
+      fallbackIconType: "unknown",
     };
     const c = d.courseId ? coursesMap.get(d.courseId) : undefined;
     if (c) dto.course = c;
@@ -113,7 +139,7 @@ export async function assembleDocuments(
     if (d.semester) dto.semester = d.semester;
     if (d.academicYear != null) dto.academicYear = d.academicYear;
     if (file) {
-      dto.file = {
+      const fileDto: NonNullable<DocumentDTO["file"]> = {
         id: file.id,
         originalFilename: file.originalFilename,
         displayFilename: file.displayFilename,
@@ -122,6 +148,27 @@ export async function assembleDocuments(
         uploadedAt: file.uploadedAt.toISOString(),
         checksum: file.checksum,
       };
+      const extracted: NonNullable<
+        NonNullable<DocumentDTO["file"]>["extractedMetadata"]
+      > = { hasExtractedText: !!file.extractedText };
+      if (file.pageCount != null) extracted.pageCount = file.pageCount;
+      if (file.detectedTitle) extracted.detectedTitle = file.detectedTitle;
+      if (file.author) extracted.author = file.author;
+      if (file.imageWidth != null) extracted.imageWidth = file.imageWidth;
+      if (file.imageHeight != null) extracted.imageHeight = file.imageHeight;
+      fileDto.extractedMetadata = extracted;
+      dto.file = fileDto;
+      dto.fallbackIconType = fallbackIconFor(file.mimeType);
+      if (file.thumbnailPath) {
+        // Sign a short-lived thumbnail URL bound to the uploader of
+        // the doc; thumbnails are only emitted once visibility has
+        // already been checked (callers of assembleDocuments filter
+        // first), so the embedded URL is safe to surface here.
+        const { token } = signToken(d.id, "thumbnail", d.uploaderId);
+        dto.thumbnailUrl = `/api/documents/${d.id}/thumbnail?token=${encodeURIComponent(token)}`;
+      }
+    } else {
+      dto.fallbackIconType = fallbackIconFor(undefined);
     }
     return dto;
   });
@@ -479,6 +526,33 @@ export async function uploadDocuments(
         precomputedChecksum: checksum,
       });
 
+      // Task #27: server-side metadata extraction. Never throws —
+      // a malformed PDF or extractor crash must not fail the upload.
+      // If a thumbnail came back, persist it under its own key.
+      const extracted = await extractMetadata({
+        buffer: file.buffer,
+        mimeType: file.mimetype,
+        filename: file.originalname,
+      });
+      let thumbnailPath: string | null = null;
+      let thumbnailMimeType: string | null = null;
+      if (extracted.thumbnail) {
+        const thumbKey = `thumbnails/${docId.slice(0, 2)}/${docId}.jpg`;
+        try {
+          const thumbPut = await storage.put({
+            key: thumbKey,
+            body: extracted.thumbnail.body,
+            contentType: extracted.thumbnail.mimeType,
+          });
+          thumbnailPath = thumbPut.key;
+          thumbnailMimeType = extracted.thumbnail.mimeType;
+        } catch {
+          // Thumbnail write failure is also non-fatal; the doc just
+          // shows the fallback icon.
+          thumbnailPath = null;
+        }
+      }
+
       const title =
         input.titleOverride && input.files.length === 1
           ? input.titleOverride
@@ -514,6 +588,14 @@ export async function uploadDocuments(
         storagePath: put.key,
         storageDriver: put.driver,
         checksum: put.checksum,
+        extractedText: extracted.extractedText ?? null,
+        pageCount: extracted.pageCount ?? null,
+        detectedTitle: extracted.detectedTitle ?? null,
+        author: extracted.author ?? null,
+        imageWidth: extracted.imageWidth ?? null,
+        imageHeight: extracted.imageHeight ?? null,
+        thumbnailPath,
+        thumbnailMimeType,
       };
 
       // Insert document, file, tag links, and increment usedBytes all in
@@ -566,7 +648,7 @@ export interface SignedTokenDTO {
 
 function buildSignedUrl(
   documentId: string,
-  action: "preview" | "download",
+  action: "preview" | "download" | "thumbnail",
   token: string,
 ): string {
   return `/api/documents/${documentId}/${action}?token=${encodeURIComponent(token)}`;
@@ -574,7 +656,7 @@ function buildSignedUrl(
 
 export async function issueAccessToken(
   id: string,
-  action: "preview" | "download",
+  action: "preview" | "download" | "thumbnail",
   user: AuthenticatedUser,
 ): Promise<SignedTokenDTO> {
   const doc = await docsRepo.findByIdAlive(id);
@@ -643,4 +725,28 @@ export async function streamDownload(
     "document",
     id,
   );
+}
+
+/**
+ * Stream a server-generated thumbnail for `id`. Reuses the same signed
+ * URL machinery as preview/download so visibility is enforced
+ * consistently (the token is minted in `assembleDocuments` only after
+ * `permissions.canView` succeeded). If the document has no thumbnail
+ * (e.g. extraction failed), responds 404 — the UI will already be
+ * rendering the fallback icon by then.
+ */
+export async function streamThumbnail(
+  id: string,
+  token: string,
+  res: Response,
+): Promise<void> {
+  const result = verifyToken(token, id, "thumbnail");
+  if (!result.valid) throw unauthorized("Invalid or expired token");
+  const file = await docsRepo.findLatestFileForDocument(id);
+  if (!file || !file.thumbnailPath) throw notFound("No thumbnail");
+  const stream = await getStorage().getStream(file.thumbnailPath);
+  res.setHeader("Content-Type", file.thumbnailMimeType ?? "image/jpeg");
+  res.setHeader("Cache-Control", "private, max-age=300");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  stream.pipe(res);
 }
