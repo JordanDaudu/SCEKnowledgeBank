@@ -254,16 +254,36 @@ async function ensureDocument(spec: DocSpec) {
   // server-generated thumbnail on images. Backfills nulls only — once
   // the fields are non-null we skip the (relatively expensive) re-run
   // to keep `seed:demo` idempotent and fast.
-  // Re-run extraction when *any* relevant metadata column is still
-  // null. Using OR (rather than "all null") means partial seeds — e.g.
-  // a previous run where extractedText landed but the thumbnail upload
-  // failed — get topped up on the next `seed:demo`.
-  const needsMetadata =
-    docFile.extractedText == null ||
-    docFile.pageCount == null ||
-    docFile.imageWidth == null ||
-    docFile.detectedTitle == null ||
-    docFile.thumbnailPath == null;
+  // Type-aware backfill predicate. Each MIME class has different
+  // metadata columns the upload pipeline will actually populate, so
+  // checking unsupported columns (e.g. `imageWidth` on a PDF, or
+  // `pageCount` on a markdown file) would force an endless re-extract
+  // on every `seed:demo` run. We mirror the dispatch in
+  // `metadata.service.ts` and only require the columns each branch
+  // produces.
+  const mt = spec.mimeType;
+  let needsMetadata = false;
+  if (mt === "application/pdf") {
+    needsMetadata =
+      docFile.extractedText == null || docFile.pageCount == null;
+  } else if (
+    mt === "text/plain" ||
+    mt === "text/markdown" ||
+    mt === "text/csv"
+  ) {
+    needsMetadata = docFile.extractedText == null;
+  } else if (mt.startsWith("image/")) {
+    needsMetadata =
+      docFile.imageWidth == null ||
+      docFile.imageHeight == null ||
+      docFile.thumbnailPath == null;
+  } else {
+    // Office / unknown: deep text extraction is best-effort. The
+    // upload pipeline sets `fallbackIconType` at DTO-assembly time
+    // (not on the file row), so there is no per-file column to
+    // re-check — leave alone once seeded.
+    needsMetadata = false;
+  }
   if (needsMetadata) {
     const meta = await extractMetadata({
       buffer: spec.body,

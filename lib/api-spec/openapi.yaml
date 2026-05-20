@@ -567,6 +567,48 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/UserSummary" }
 
+  /admin/users/pending-lecturers:
+    get:
+      operationId: adminListPendingLecturers
+      tags: [users]
+      summary: Admin alias for /users/pending-lecturers
+      responses:
+        "200":
+          description: Pending lecturers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserSummary" }
+
+  /admin/users/{userId}/approve:
+    post:
+      operationId: adminApproveUser
+      tags: [users]
+      summary: Admin alias for /users/{id}/approve
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
+  /admin/users/{userId}/disable:
+    post:
+      operationId: adminDisableUser
+      tags: [users]
+      summary: Admin alias for /users/{id}/disable
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+
   /users/search:
     get:
       operationId: searchUsers

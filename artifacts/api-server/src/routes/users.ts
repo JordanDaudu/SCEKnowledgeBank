@@ -61,6 +61,58 @@ router.post(
   },
 );
 
+// ─── Admin route aliases (Sprint-2 audit) ──────────────────────────
+// The audit asked for `/admin/users/...` paths alongside the
+// historical `/users/...` paths so the admin-only operations are
+// discoverable under an explicit admin namespace. Both paths reuse
+// the exact same handlers (single source of truth), and both keep
+// the `requireRole("admin")` guard. The OpenAPI spec advertises both
+// so generated clients can pick either alias.
+router.get(
+  "/admin/users/pending-lecturers",
+  requireRole("admin"),
+  async (_req, res, next) => {
+    try {
+      const summaries = await usersService.listPendingLecturers();
+      res.json(summaries);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+const AdminUserIdParam = z.object({ userId: z.string().uuid() });
+
+router.post(
+  "/admin/users/:userId/approve",
+  requireRole("admin"),
+  async (req, res, next) => {
+    try {
+      const { userId } = AdminUserIdParam.parse(req.params);
+      await authService.approveUser(userId, req.authUser!.id);
+      const summary = await usersService.getUserSummary(userId);
+      res.json(summary);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/admin/users/:userId/disable",
+  requireRole("admin"),
+  async (req, res, next) => {
+    try {
+      const { userId } = AdminUserIdParam.parse(req.params);
+      await authService.disableUser(userId, req.authUser!.id);
+      const summary = await usersService.getUserSummary(userId);
+      res.json(summary);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // Authenticated user search for the @mention picker. Returns a small,
 // capped list of active users matching by display name / email.
 // Intentionally not admin-only: any signed-in user composing a comment

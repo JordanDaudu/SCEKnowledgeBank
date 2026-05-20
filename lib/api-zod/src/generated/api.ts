@@ -1080,6 +1080,56 @@ export const DisableUserResponse = zod.object({
 });
 
 /**
+ * @summary Admin alias for /users/pending-lecturers
+ */
+export const AdminListPendingLecturersResponseItem = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListPendingLecturersResponse = zod.array(
+  AdminListPendingLecturersResponseItem,
+);
+
+/**
+ * @summary Admin alias for /users/{id}/approve
+ */
+export const AdminApproveUserParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+export const AdminApproveUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Admin alias for /users/{id}/disable
+ */
+export const AdminDisableUserParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+export const AdminDisableUserResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  isActive: zod.boolean(),
+  status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Autocomplete-style user search for the @mention picker
  */
 export const searchUsersQueryQMax = 64;

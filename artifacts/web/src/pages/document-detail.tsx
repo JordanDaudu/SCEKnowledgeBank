@@ -19,6 +19,13 @@ import MetadataPanel from "@/components/document-detail/MetadataPanel";
 import EditMetadataModal from "@/components/document-detail/EditMetadataModal";
 import CommentsThread from "@/components/document-detail/CommentsThread";
 
+// Recently-viewed history is server-backed (task #29): visiting a
+// document calls `GET /documents/:id`, which records a row in
+// `view_history` via the documents service. `RecentlyViewedStrip`
+// reads from `/documents/recent`, so this page no longer needs to
+// mirror anything into `localStorage` — the API is the source of
+// truth, and `localStorage` only survives as the strip's offline
+// fallback.
 const RECENTLY_VIEWED_KEY = "kb:recently-viewed";
 const RECENTLY_VIEWED_CAP = 8;
 
@@ -27,7 +34,12 @@ interface RecentItem {
   title: string;
 }
 
-function appendRecentlyViewed(item: RecentItem) {
+/**
+ * Best-effort write to the offline fallback used by
+ * `RecentlyViewedStrip` when `/documents/recent` errors. Never the
+ * source of truth.
+ */
+function appendRecentlyViewedFallback(item: RecentItem) {
   try {
     const raw = localStorage.getItem(RECENTLY_VIEWED_KEY);
     const list: RecentItem[] = raw ? JSON.parse(raw) : [];
@@ -89,7 +101,7 @@ export default function DocumentDetail() {
   // Persist this document into the recently-viewed list (read by browse page)
   useEffect(() => {
     if (!doc) return;
-    appendRecentlyViewed({ id: doc.id, title: doc.title });
+    appendRecentlyViewedFallback({ id: doc.id, title: doc.title });
   }, [doc]);
 
   const handleDownload = async () => {

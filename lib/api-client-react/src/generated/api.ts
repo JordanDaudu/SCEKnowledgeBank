@@ -2835,6 +2835,250 @@ export const useDisableUser = <
 };
 
 /**
+ * @summary Admin alias for /users/pending-lecturers
+ */
+export const getAdminListPendingLecturersUrl = () => {
+  return `/api/admin/users/pending-lecturers`;
+};
+
+export const adminListPendingLecturers = async (
+  options?: RequestInit,
+): Promise<UserSummary[]> => {
+  return customFetch<UserSummary[]>(getAdminListPendingLecturersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListPendingLecturersQueryKey = () => {
+  return [`/api/admin/users/pending-lecturers`] as const;
+};
+
+export const getAdminListPendingLecturersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListPendingLecturersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>
+  > = ({ signal }) => adminListPendingLecturers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListPendingLecturersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListPendingLecturers>>
+>;
+export type AdminListPendingLecturersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin alias for /users/pending-lecturers
+ */
+
+export function useAdminListPendingLecturers<
+  TData = Awaited<ReturnType<typeof adminListPendingLecturers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPendingLecturers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListPendingLecturersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin alias for /users/{id}/approve
+ */
+export const getAdminApproveUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/approve`;
+};
+
+export const adminApproveUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getAdminApproveUserUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminApproveUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminApproveUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminApproveUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminApproveUser>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminApproveUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminApproveUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminApproveUser>>
+>;
+
+export type AdminApproveUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin alias for /users/{id}/approve
+ */
+export const useAdminApproveUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminApproveUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminApproveUserMutationOptions(options));
+};
+
+/**
+ * @summary Admin alias for /users/{id}/disable
+ */
+export const getAdminDisableUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/disable`;
+};
+
+export const adminDisableUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<UserSummary> => {
+  return customFetch<UserSummary>(getAdminDisableUserUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminDisableUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDisableUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDisableUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminDisableUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDisableUser>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminDisableUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDisableUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDisableUser>>
+>;
+
+export type AdminDisableUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin alias for /users/{id}/disable
+ */
+export const useAdminDisableUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDisableUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDisableUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminDisableUserMutationOptions(options));
+};
+
+/**
  * @summary Autocomplete-style user search for the @mention picker
  */
 export const getSearchUsersUrl = (params: SearchUsersParams) => {

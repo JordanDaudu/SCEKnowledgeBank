@@ -486,6 +486,18 @@ export async function uploadDocuments(
   user: AuthenticatedUser,
 ): Promise<UploadResultEntry[]> {
   if (input.files.length === 0) throw badRequest("No files provided");
+
+  // Sprint-2 audit: restricted visibility is only meaningful when the
+  // document is bound to a course (`permissions.canView` requires
+  // enrollment in `doc.courseId` for restricted reads). Refusing this
+  // combination at the *service* boundary keeps every caller — HTTP,
+  // tests, scripts — from creating a structurally-unreadable row.
+  if (input.visibility === "restricted" && !input.courseId) {
+    throw badRequest(
+      "Restricted documents must be linked to a course.",
+    );
+  }
+
   // Authoritative course-aware upload check — keeps internal callers
   // (not just the HTTP route) honest. Lecturers may only upload into
   // courses they actually teach; admins may upload anywhere.
@@ -495,6 +507,15 @@ export async function uploadDocuments(
         ? "You can only upload to courses you teach"
         : "Only admins or lecturers with at least one taught course may upload",
     );
+  }
+
+  // If the caller supplied a courseId, prove it resolves to a real
+  // course before we touch storage. Without this the FK would only
+  // fire mid-insert, surfacing as a 500 instead of a clean 400 and
+  // leaving an orphan blob in object storage.
+  if (input.courseId) {
+    const exists = await taxonomyRepo.courseExists(input.courseId);
+    if (!exists) throw badRequest("Target course does not exist");
   }
 
   const storage = getStorage();

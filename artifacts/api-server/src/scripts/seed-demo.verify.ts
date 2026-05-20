@@ -5,6 +5,8 @@
  * Exits non-zero on any failure.
  */
 import { db } from "@workspace/db";
+import * as documentsService from "../services/documents.service";
+import type { AuthenticatedUser } from "../middlewares/auth";
 
 const DEMO_EMAILS = [
   "admin@knowledgebank.demo",
@@ -304,23 +306,56 @@ const checks: Check[] = [
     },
   },
   {
-    // Cheap full-text search smoke: the markdown fixtures contain
-    // distinctive tokens (e.g. "Sprint Planning", "Big-O") which the
-    // extractor copies verbatim into `extractedText`. If extraction
-    // ran, at least one of those tokens must be searchable.
-    name: "demo: at least one demo doc is full-text-searchable for a fixture token",
+    // Sprint-2 audit (strengthened): prove the full-text-search
+    // pipeline actually returns a seeded document because of a phrase
+    // that lives *inside extractedText* — not just in the title /
+    // description (which would pass even if extraction were a no-op).
+    //
+    // Strategy: pick a token that appears only in the fixture body
+    // (`# Sprint Planning\n1. Refine backlog…` lives in the
+    // sprint-planning.md fixture), then call the same
+    // `documentsService.listDocuments` path the web app uses, as an
+    // admin user (visibility-unrestricted). The expected document is
+    // "Sprint Planning Guide" and its match must come via the FTS
+    // route — i.e. only after the extracted-text trigger has fed the
+    // tsvector. If extraction is broken (or the trigger didn't fire),
+    // the title alone does contain "Sprint Planning", so we *also*
+    // search for a body-only word ("Refine") that cannot match the
+    // title or description and must come from extractedText.
+    name: "demo: full-text search returns a seeded doc by a phrase from extractedText",
     run: async () => {
-      const tokens = ["Sprint", "Cheat Sheet", "Variables", "Metadata"];
-      for (const t of tokens) {
-        const n = await db.documentFile.count({
-          where: {
-            document: { title: { in: DEMO_DOC_TITLES } },
-            extractedText: { contains: t, mode: "insensitive" },
-          },
-        });
-        if (n >= 1) return true;
+      const admin = await db.user.findFirst({
+        where: { email: "admin@knowledgebank.demo" },
+      });
+      if (!admin) return "admin demo user missing";
+      const authed = {
+        id: admin.id,
+        email: admin.email,
+        displayName: admin.displayName,
+        isActive: true,
+        primaryRole: "admin",
+        roles: ["admin"],
+        enrollments: [],
+      } as unknown as AuthenticatedUser;
+
+      // "Refine" only appears in the body of sprint-planning.md
+      // (`1. Refine backlog`). It is not in any DEMO_DOC_TITLES nor
+      // in any course code / tag, so a hit here proves the FTS
+      // pipeline indexed `document_files.extracted_text`.
+      const res = await documentsService.listDocuments(
+        { q: "Refine", page: 1, pageSize: 10 } as Parameters<
+          typeof documentsService.listDocuments
+        >[0],
+        authed,
+      );
+      const hit = res.items.find(
+        (d) => d.title === "Sprint Planning Guide",
+      );
+      if (!hit) {
+        const titles = res.items.map((d) => d.title).join(", ");
+        return `expected "Sprint Planning Guide" via FTS on body token "Refine"; got [${titles}]`;
       }
-      return "no demo doc matches any known fixture token";
+      return true;
     },
   },
   {

@@ -29,6 +29,13 @@ vi.mock("./taxonomy.service", () => ({
   loadCourses: vi.fn().mockResolvedValue(new Map()),
   loadCategories: vi.fn().mockResolvedValue(new Map()),
 }));
+// Sprint-2 audit: uploadDocuments now verifies that any supplied
+// courseId resolves to a real course before touching storage. Default
+// the mock to "exists" so legacy tests pass; the "invalid courseId"
+// case overrides it.
+vi.mock("../repositories/taxonomy.repo", () => ({
+  courseExists: vi.fn().mockResolvedValue(true),
+}));
 vi.mock("./audit.service", () => ({ record: vi.fn() }));
 vi.mock("./permissions.service", () => ({
   canUploadToCourse: vi.fn().mockReturnValue(true),
@@ -65,12 +72,16 @@ vi.mock("../lib/storage", () => ({
 
 import * as docsRepo from "../repositories/documents.repo";
 import * as usersRepo from "../repositories/users.repo";
+import * as taxonomyRepo from "../repositories/taxonomy.repo";
+import * as permissionsService from "./permissions.service";
 import { uploadDocuments } from "./documents.service";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
 const findDup = vi.mocked(docsRepo.findAliveFileByUploaderAndChecksum);
 const insertTx = vi.mocked(docsRepo.insertDocumentWithFileAndQuota);
 const findQuota = vi.mocked(usersRepo.findQuotaById);
+const courseExists = vi.mocked(taxonomyRepo.courseExists);
+const canUploadToCourse = vi.mocked(permissionsService.canUploadToCourse);
 
 const uploader: AuthenticatedUser = {
   id: "u1",
@@ -106,7 +117,7 @@ function input(files: Express.Multer.File[]) {
     materialType: "lecture_notes",
     semester: undefined,
     academicYear: undefined,
-    visibility: "public" as const,
+    visibility: "public" as string,
     tagIds: [] as string[],
     description: "",
   };
@@ -220,5 +231,76 @@ describe("uploadDocuments duplicate-file short-circuit", () => {
         fileValues: expect.objectContaining({ checksum: expected }),
       }),
     );
+  });
+});
+
+// Sprint-2 audit (T1): restricted-without-course + invalid courseId
+// + lecturer scoping. These exercise the service guards directly so
+// we know internal callers (not just the HTTP route) can't bypass
+// them.
+describe("uploadDocuments restricted/course guards", () => {
+  beforeEach(() => {
+    findQuota.mockResolvedValue({ usedBytes: 0n, quotaBytes: 1_000_000n });
+    findDup.mockResolvedValue(null);
+  });
+
+  it("rejects a restricted upload with no courseId via clean 400", async () => {
+    const badInput = { ...input([makeFile("a.pdf", "x")]) };
+    badInput.visibility = "restricted";
+    delete (badInput as { courseId?: string }).courseId;
+
+    await expect(uploadDocuments(badInput, uploader)).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("Restricted documents must be linked to a course"),
+    });
+    expect(storagePut).not.toHaveBeenCalled();
+    expect(insertTx).not.toHaveBeenCalled();
+  });
+
+  it("accepts a restricted upload when the user teaches the course", async () => {
+    canUploadToCourse.mockReturnValue(true);
+    courseExists.mockResolvedValue(true);
+    const okInput = { ...input([makeFile("a.pdf", "x")]) };
+    okInput.visibility = "restricted";
+    okInput.courseId = "c1";
+
+    const res = await uploadDocuments(okInput, uploader);
+    expect(res[0].success).toBe(true);
+    expect(insertTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentValues: expect.objectContaining({
+          visibility: "restricted",
+          courseId: "c1",
+        }),
+      }),
+    );
+  });
+
+  it("blocks a lecturer uploading restricted material to a course they do not teach", async () => {
+    canUploadToCourse.mockReturnValue(false);
+    courseExists.mockResolvedValue(true);
+    const badInput = { ...input([makeFile("a.pdf", "x")]) };
+    badInput.visibility = "restricted";
+    badInput.courseId = "c-not-mine";
+
+    await expect(uploadDocuments(badInput, uploader)).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(storagePut).not.toHaveBeenCalled();
+    expect(insertTx).not.toHaveBeenCalled();
+  });
+
+  it("returns a clean 400 when courseId is well-formed but unknown", async () => {
+    canUploadToCourse.mockReturnValue(true);
+    courseExists.mockResolvedValue(false);
+    const badInput = { ...input([makeFile("a.pdf", "x")]) };
+    badInput.courseId = "00000000-0000-0000-0000-000000000000";
+
+    await expect(uploadDocuments(badInput, uploader)).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("Target course does not exist"),
+    });
+    expect(storagePut).not.toHaveBeenCalled();
+    expect(insertTx).not.toHaveBeenCalled();
   });
 });
