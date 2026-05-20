@@ -35,13 +35,22 @@ docker compose down -v
 
 ### Demo logins
 
-The seed script creates three accounts. They all use the password `demo1234`.
+The seed script (`pnpm --filter @workspace/api-server run seed`, aliased to
+`seed:demo`) provisions the full Sprint-2 demo dataset: courses, enrollments,
+documents, comments, requests, votes, view history, and the accounts below.
+Every demo user has the same password: `Demo1234!`.
 
-| Role       | Email            | Password   |
-| ---------- | ---------------- | ---------- |
-| Student    | `student@demo`   | `demo1234` |
-| Lecturer   | `lecturer@demo`  | `demo1234` |
-| Admin      | `admin@demo`     | `demo1234` |
+| Role             | Email                                  |
+| ---------------- | -------------------------------------- |
+| Admin            | `admin@knowledgebank.demo`             |
+| Lecturer         | `maya.cohen@knowledgebank.demo`        |
+| Lecturer         | `daniel.levi@knowledgebank.demo`       |
+| Pending lecturer | `pending.lecturer@knowledgebank.demo`  |
+| Student          | `noa.student@knowledgebank.demo`       |
+| Student          | `amir.student@knowledgebank.demo`      |
+| Student          | `yael.student@knowledgebank.demo`      |
+| Restricted student | `restricted.student@knowledgebank.demo` |
+| Disabled user    | `disabled.user@knowledgebank.demo`     |
 
 ### Environment variables
 
@@ -83,7 +92,7 @@ pnpm --filter @workspace/web run dev
 
 ### Schema changes
 
-The database schema lives in `lib/db/src/schema`. When you change it:
+The database schema lives in `lib/db/prisma/schema.prisma` (Prisma; migrations under `lib/db/prisma/migrations/`). When you change it:
 
 ```bash
 # Produce a new Prisma migration file under lib/db/prisma/migrations/

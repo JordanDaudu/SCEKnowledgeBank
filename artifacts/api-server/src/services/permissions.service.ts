@@ -155,6 +155,27 @@ export function canUploadToCourse(
 }
 
 /**
+ * Can the user *create* a material request for this course?
+ *
+ * - Global requests (`courseId === null`) are open to any authenticated
+ *   user — anyone can ask for help that isn't tied to a specific course.
+ * - Admins may create requests under any course.
+ * - For course-scoped requests every other user must have an enrollment
+ *   in that course (lecturers teaching it, students enrolled in it).
+ *   This mirrors the visibility/voting scoping in
+ *   `requests.service` — you cannot raise a request in a course you
+ *   would not even be able to see.
+ */
+export function canCreateRequestForCourse(
+  user: AuthenticatedUser,
+  courseId: string | null | undefined,
+): boolean {
+  if (!courseId) return true;
+  if (isAdmin(user)) return true;
+  return enrolledCourseIds(user).includes(courseId);
+}
+
+/**
  * Can the user fulfil (or close) a material request? If the request is
  * scoped to a course, lecturers must teach that course.
  */

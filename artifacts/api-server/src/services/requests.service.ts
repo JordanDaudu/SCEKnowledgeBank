@@ -93,6 +93,37 @@ export async function createRequest(
   body: { title: string; description?: string; courseId?: string },
   user: AuthenticatedUser,
 ): Promise<RequestDTO> {
+  // Course-aware creation (Sprint-2 audit). Mirrors the
+  // visibility/voting scoping in `canSeeRequest` / `visibleCourseIdsFor`:
+  // you cannot raise a request in a course you wouldn't otherwise be
+  // able to see, so any enrollment (lecturer- or student-role) grants
+  // creation rights for that course.
+  //   - Admin: any course (or none).
+  //   - Lecturer: courses they have any enrollment in (typically the
+  //     ones they teach).
+  //   - Student: courses they are enrolled in.
+  //   - Any authenticated user: a global request with no courseId.
+  if (body.courseId) {
+    const courses = await taxonomyService.loadCourses([body.courseId]);
+    const exists = courses.has(body.courseId);
+    const allowed =
+      exists && permissions.canCreateRequestForCourse(user, body.courseId);
+    if (!exists || !allowed) {
+      // Collapse "course doesn't exist" and "you can't see this course"
+      // into the same 404 for non-admins so course ids aren't
+      // enumerable via the create endpoint. Admins still get a precise
+      // 404 because they have visibility to everything.
+      if (!exists) throw notFound("Course not found");
+      if (permissions.isAdmin(user)) {
+        // Unreachable in practice (admin is always allowed when the
+        // course exists) but kept for explicitness.
+        throw forbidden(
+          "You do not have access to create a request for this course",
+        );
+      }
+      throw notFound("Course not found");
+    }
+  }
   const values: requestsRepo.RequestInsert = {
     title: body.title,
     description: body.description ?? "",
