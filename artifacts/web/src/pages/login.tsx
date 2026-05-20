@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { useLogin, useGetCurrentUser, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
-import { useLocation, Link } from "wouter";
+import { useLocation, Link, Redirect } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -32,17 +31,12 @@ export default function Login() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
-  // If already logged in, redirect. Must run as an effect — calling
-  // setLocation during render produces an infinite update loop
-  // ("Maximum update depth exceeded") because wouter's setter
-  // schedules a state update on the router, which re-renders <Login>,
-  // which calls setLocation again, etc.
+  // Track auth state — used at the bottom of the function to render
+  // a declarative <Redirect> if the user is already logged in. We
+  // deliberately do NOT early-return before the remaining hooks
+  // (useForm) — early-returning would change the hook call order
+  // between renders and produce "Invalid hook call".
   const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
-  useEffect(() => {
-    if (user && !isUserLoading) {
-      setLocation("/");
-    }
-  }, [user, isUserLoading, setLocation]);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -77,6 +71,12 @@ export default function Login() {
     form.setValue("password", "demo1234");
     onSubmit({ email, password: "demo1234" });
   };
+
+  // Declarative redirect (loop-free, runs after all hooks above so
+  // hook order is stable across renders).
+  if (user && !isUserLoading) {
+    return <Redirect to="/" />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
