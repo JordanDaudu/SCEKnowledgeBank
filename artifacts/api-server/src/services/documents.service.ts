@@ -233,6 +233,25 @@ export async function listDocuments(
     filters.restrictDocumentIds = docIds;
   }
 
+  // When `q` is present we route through the Postgres FTS path
+  // (task #28): same filters, but ranked by ts_rank against the GIN
+  // index on `documents.search_vector`. Without `q` we keep the
+  // existing prisma-based list path so sort/popularity semantics are
+  // unchanged.
+  if (q.q) {
+    const visibilitySql = permissions.visibleDocumentFilterSql(user);
+    const [total, rows] = await Promise.all([
+      docsRepo.countSearchDocuments(q.q, filters, visibilitySql),
+      docsRepo.searchDocumentsRanked(q.q, filters, visibilitySql, {
+        sort: q.sort,
+        page: q.page,
+        pageSize: q.pageSize,
+      }),
+    ]);
+    const items = await assembleDocuments(rows);
+    return { items, total, page: q.page, pageSize: q.pageSize };
+  }
+
   const total = await docsRepo.countDocuments(filters);
   const rows = await docsRepo.listDocuments(filters, {
     sort: q.sort,

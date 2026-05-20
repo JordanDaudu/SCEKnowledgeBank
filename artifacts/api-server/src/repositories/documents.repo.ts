@@ -1,5 +1,4 @@
-import { db } from "@workspace/db";
-import type { Prisma } from "@workspace/db";
+import { db, Prisma } from "@workspace/db";
 
 export interface DocumentRow {
   id: string;
@@ -144,14 +143,10 @@ function buildBaseWhere(
     }
     and.push({ createdAt });
   }
-  if (filters.q) {
-    and.push({
-      OR: [
-        { title: { contains: filters.q, mode: "insensitive" } },
-        { description: { contains: filters.q, mode: "insensitive" } },
-      ],
-    });
-  }
+  // NOTE: `filters.q` is intentionally NOT applied here. The FTS code
+  // path (`searchDocumentsRanked` + `countSearchDocuments`) takes over
+  // when `q` is set; the prisma list/count helpers only run for the
+  // non-FTS case where `filters.q` is absent.
   if (filters.restrictCourseIds) {
     if (filters.restrictCourseIds.length === 0) {
       // Force empty set, matching the previous Drizzle `sql\`false\`` clause.
@@ -223,6 +218,126 @@ export async function listDocuments(
     take: options.pageSize,
     skip: (options.page - 1) * options.pageSize,
   });
+}
+
+// ─── Full-text search (task #28) ─────────────────────────────────
+//
+// When `q` is provided, callers route through `searchDocumentsRanked`
+// + `countSearchDocuments` instead of the prisma-based helpers above.
+// The two paths share the same filter shape but FTS uses raw SQL so
+// we can `ORDER BY ts_rank(...)` and exploit the GIN index on
+// `documents.search_vector`. All non-`q` filters compose into both
+// paths identically.
+//
+// The `d.` alias is required by `visibilitySql` (built by
+// `permissions.service.visibleDocumentFilterSql`).
+
+function buildFilterFragmentsSql(filters: DocumentListFilters): Prisma.Sql[] {
+  const parts: Prisma.Sql[] = [Prisma.sql`d.deleted_at IS NULL`];
+  if (filters.courseId)
+    parts.push(Prisma.sql`d.course_id = ${filters.courseId}::uuid`);
+  if (filters.categoryId)
+    parts.push(Prisma.sql`d.category_id = ${filters.categoryId}::uuid`);
+  if (filters.materialType)
+    parts.push(Prisma.sql`d.material_type = ${filters.materialType}`);
+  if (filters.semester)
+    parts.push(Prisma.sql`d.semester = ${filters.semester}`);
+  if (filters.academicYear != null)
+    parts.push(Prisma.sql`d.academic_year = ${filters.academicYear}`);
+  if (filters.dateFrom)
+    parts.push(Prisma.sql`d.created_at >= ${filters.dateFrom}`);
+  if (filters.dateTo) {
+    const d = new Date(filters.dateTo);
+    d.setUTCHours(23, 59, 59, 999);
+    parts.push(Prisma.sql`d.created_at <= ${d}`);
+  }
+  if (filters.restrictCourseIds) {
+    if (filters.restrictCourseIds.length === 0) {
+      parts.push(Prisma.sql`FALSE`);
+    } else {
+      parts.push(
+        Prisma.sql`d.course_id IN (${Prisma.join(
+          filters.restrictCourseIds.map((id) => Prisma.sql`${id}::uuid`),
+        )})`,
+      );
+    }
+  }
+  if (filters.restrictDocumentIds) {
+    if (filters.restrictDocumentIds.length === 0) {
+      parts.push(Prisma.sql`FALSE`);
+    } else {
+      parts.push(
+        Prisma.sql`d.id IN (${Prisma.join(
+          filters.restrictDocumentIds.map((id) => Prisma.sql`${id}::uuid`),
+        )})`,
+      );
+    }
+  }
+  return parts;
+}
+
+export async function countSearchDocuments(
+  q: string,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+): Promise<number> {
+  const where = Prisma.join(
+    [
+      ...buildFilterFragmentsSql(filters),
+      visibilitySql,
+      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+    ],
+    " AND ",
+  );
+  const rows = await db.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM documents d
+    WHERE ${where}
+  `;
+  return Number(rows[0]?.count ?? 0n);
+}
+
+export async function searchDocumentsRanked(
+  q: string,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+  options: { sort: DocumentSort; page: number; pageSize: number },
+): Promise<DocumentRow[]> {
+  const where = Prisma.join(
+    [
+      ...buildFilterFragmentsSql(filters),
+      visibilitySql,
+      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+    ],
+    " AND ",
+  );
+  // Ranking is always ts_rank-first when `q` is present (the task
+  // contract). `options.sort` only changes the tie-breaker so it stays
+  // stable with the non-FTS code path.
+  const tieBreaker =
+    options.sort === "oldest"
+      ? Prisma.sql`d.created_at ASC`
+      : options.sort === "title"
+        ? Prisma.sql`d.title ASC`
+        : Prisma.sql`d.created_at DESC`;
+  const offset = (options.page - 1) * options.pageSize;
+  const idRows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT d.id
+    FROM documents d
+    WHERE ${where}
+    ORDER BY ts_rank(d.search_vector, plainto_tsquery('english', ${q})) DESC,
+             ${tieBreaker}
+    LIMIT ${options.pageSize} OFFSET ${offset}
+  `;
+  if (idRows.length === 0) return [];
+  const ids = idRows.map((r) => r.id);
+  // Re-load full rows in the ranked order. We can't ORDER BY a
+  // CASE/array_position cleanly through Prisma's typed find, so sort
+  // in JS — the page is at most `pageSize` rows.
+  const docs = await db.document.findMany({ where: { id: { in: ids } } });
+  const order = new Map(ids.map((id, i) => [id, i]));
+  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return docs;
 }
 
 export interface SuggestionRow {

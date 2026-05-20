@@ -12,7 +12,12 @@
  * Prisma is the only ORM in runtime code; the previous Drizzle modules have
  * been removed in this commit.
  */
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
+
+// Re-export the `Prisma` value namespace so repositories can use
+// `Prisma.sql` / `Prisma.join` / `Prisma.empty` template helpers
+// without depending on `@prisma/client` directly.
+export { Prisma };
 import pg from "pg";
 
 const { Pool } = pg;
@@ -46,7 +51,6 @@ if (process.env.NODE_ENV !== "production") {
 // Re-export Prisma's generated types so downstream packages don't have to
 // pull `@prisma/client` directly.
 export type {
-  Prisma,
   Role,
   User,
   UserRole,

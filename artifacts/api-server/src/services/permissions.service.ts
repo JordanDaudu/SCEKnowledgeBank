@@ -12,6 +12,7 @@
  *   course, and private only when they are the uploader, owner, or admin.
  */
 import type { Prisma } from "@workspace/db";
+import { Prisma as PrismaNs } from "@workspace/db";
 import type {
   AuthenticatedUser,
   UserCourseEnrollment,
@@ -194,6 +195,29 @@ export function visibleDocumentFilter(
       },
     ],
   };
+}
+
+/**
+ * Raw-SQL twin of `visibleDocumentFilter` for the FTS path. Returns a
+ * `Prisma.Sql` fragment safe to AND into a `WHERE` clause; the alias
+ * `d` must refer to the `documents` table.
+ *
+ * Returns `Prisma.sql\`TRUE\`` for admins so callers can unconditionally
+ * AND the fragment in.
+ */
+export function visibleDocumentFilterSql(user: AuthenticatedUser): Prisma.Sql {
+  if (isAdmin(user)) return PrismaNs.sql`TRUE`;
+  const enrolled = enrolledCourseIds(user);
+  const restrictedClause = enrolled.length
+    ? PrismaNs.sql`d.course_id IN (${PrismaNs.join(
+        enrolled.map((id) => PrismaNs.sql`${id}::uuid`),
+      )})`
+    : PrismaNs.sql`FALSE`;
+  return PrismaNs.sql`(
+    d.visibility = 'public'
+    OR (d.visibility = 'restricted' AND d.course_id IS NOT NULL AND ${restrictedClause})
+    OR (d.visibility = 'private' AND (d.uploader_id = ${user.id}::uuid OR d.owner_id = ${user.id}::uuid))
+  )`;
 }
 
 /** Convenience accessor for tests and the suggestions raw query. */
