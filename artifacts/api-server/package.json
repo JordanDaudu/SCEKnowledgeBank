@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@prisma/client": "^6.18.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/storage": "workspace:*",
@@ -20,7 +21,6 @@
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
-    "drizzle-orm": "catalog:",
     "express": "^5",
     "express-session": "^1.18.1",
     "multer": "^2.0.2",

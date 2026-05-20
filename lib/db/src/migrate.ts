@@ -1,28 +1,28 @@
 /**
- * Apply Drizzle SQL migrations from ./drizzle to the database in DATABASE_URL.
+ * Apply Prisma migrations to the database in DATABASE_URL.
  *
- * Run with `pnpm --filter @workspace/db run migrate`. Idempotent: drizzle's
- * migrator records which migrations have been applied in `__drizzle_migrations`.
+ * This is a thin wrapper that shells out to `prisma migrate deploy` so the
+ * same script works both in dev (`pnpm --filter @workspace/db run migrate`)
+ * and in any Dockerfile / start-up hook that wants to run pending
+ * migrations before launching the API.
  */
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { db, pool } from "./index";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migrationsFolder = path.resolve(here, "..", "drizzle");
+const schemaPath = path.resolve(here, "..", "prisma", "schema.prisma");
 
-async function main() {
-  console.log(`[db:migrate] applying migrations from ${migrationsFolder}`);
-  await migrate(db, { migrationsFolder });
-  console.log("[db:migrate] done");
+console.log(`[db:migrate] running prisma migrate deploy (schema=${schemaPath})`);
+
+const result = spawnSync(
+  "npx",
+  ["prisma", "migrate", "deploy", `--schema=${schemaPath}`],
+  { stdio: "inherit" },
+);
+
+if (result.status !== 0) {
+  console.error("[db:migrate] failed");
+  process.exit(result.status ?? 1);
 }
-
-main()
-  .catch((err) => {
-    console.error("[db:migrate] failed:", err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await pool.end();
-  });
+console.log("[db:migrate] done");

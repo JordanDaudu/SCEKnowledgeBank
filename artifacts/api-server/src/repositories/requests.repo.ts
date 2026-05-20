@@ -1,9 +1,27 @@
-import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
-import { db, materialRequests, requestVotes } from "@workspace/db";
+import { db } from "@workspace/db";
+import type { Prisma } from "@workspace/db";
 
-export type RequestRow = typeof materialRequests.$inferSelect;
-export type RequestInsert = typeof materialRequests.$inferInsert;
-export type VoteRow = typeof requestVotes.$inferSelect;
+export interface RequestRow {
+  id: string;
+  title: string;
+  description: string;
+  courseId: string | null;
+  requestedBy: string;
+  status: string;
+  fulfillingDocumentId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
+export type RequestInsert = Prisma.MaterialRequestUncheckedCreateInput;
+
+export interface VoteRow {
+  id: string;
+  requestId: string;
+  userId: string;
+  createdAt: Date;
+}
 
 export interface ListRequestsFilters {
   status?: string;
@@ -13,55 +31,40 @@ export interface ListRequestsFilters {
 export async function listAliveIds(
   filters: ListRequestsFilters,
 ): Promise<string[]> {
-  const conds: SQL[] = [isNull(materialRequests.deletedAt)];
-  if (filters.status) conds.push(eq(materialRequests.status, filters.status));
-  if (filters.courseId)
-    conds.push(eq(materialRequests.courseId, filters.courseId));
-  const rows = await db
-    .select({ id: materialRequests.id })
-    .from(materialRequests)
-    .where(and(...conds))
-    .orderBy(desc(materialRequests.createdAt));
+  const rows = await db.materialRequest.findMany({
+    where: {
+      deletedAt: null,
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.courseId ? { courseId: filters.courseId } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
   return rows.map((r) => r.id);
 }
 
 export async function findAliveByIds(ids: string[]): Promise<RequestRow[]> {
   if (ids.length === 0) return [];
-  return db
-    .select()
-    .from(materialRequests)
-    .where(
-      and(
-        isNull(materialRequests.deletedAt),
-        inArray(materialRequests.id, ids),
-      ),
-    );
+  return db.materialRequest.findMany({
+    where: { deletedAt: null, id: { in: ids } },
+  });
 }
 
 export async function findAliveById(id: string): Promise<RequestRow | null> {
-  const rows = await db
-    .select()
-    .from(materialRequests)
-    .where(and(eq(materialRequests.id, id), isNull(materialRequests.deletedAt)))
-    .limit(1);
-  return rows[0] ?? null;
+  return db.materialRequest.findFirst({ where: { id, deletedAt: null } });
 }
 
 export async function insertRequest(
   values: RequestInsert,
 ): Promise<RequestRow> {
-  const rows = await db.insert(materialRequests).values(values).returning();
-  return rows[0];
+  return db.materialRequest.create({ data: values });
 }
 
 export async function updateRequestById(
   id: string,
-  patch: Partial<RequestInsert>,
+  patch: Prisma.MaterialRequestUncheckedUpdateInput,
 ): Promise<void> {
-  await db
-    .update(materialRequests)
-    .set(patch)
-    .where(eq(materialRequests.id, id));
+  await db.materialRequest.update({ where: { id }, data: patch });
 }
 
 export async function countVotesByRequestIds(
@@ -69,15 +72,12 @@ export async function countVotesByRequestIds(
 ): Promise<Map<string, number>> {
   const result = new Map<string, number>();
   if (requestIds.length === 0) return result;
-  const rows = await db
-    .select({
-      requestId: requestVotes.requestId,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(requestVotes)
-    .where(inArray(requestVotes.requestId, requestIds))
-    .groupBy(requestVotes.requestId);
-  for (const r of rows) result.set(r.requestId, Number(r.count));
+  const rows = await db.requestVote.groupBy({
+    by: ["requestId"],
+    where: { requestId: { in: requestIds } },
+    _count: { _all: true },
+  });
+  for (const r of rows) result.set(r.requestId, r._count._all);
   return result;
 }
 
@@ -87,15 +87,10 @@ export async function findUserVotedRequestIds(
 ): Promise<Set<string>> {
   const result = new Set<string>();
   if (requestIds.length === 0) return result;
-  const rows = await db
-    .select({ requestId: requestVotes.requestId })
-    .from(requestVotes)
-    .where(
-      and(
-        eq(requestVotes.userId, userId),
-        inArray(requestVotes.requestId, requestIds),
-      ),
-    );
+  const rows = await db.requestVote.findMany({
+    where: { userId, requestId: { in: requestIds } },
+    select: { requestId: true },
+  });
   for (const r of rows) result.add(r.requestId);
   return result;
 }
@@ -104,17 +99,7 @@ export async function findVote(
   requestId: string,
   userId: string,
 ): Promise<VoteRow | null> {
-  const rows = await db
-    .select()
-    .from(requestVotes)
-    .where(
-      and(
-        eq(requestVotes.requestId, requestId),
-        eq(requestVotes.userId, userId),
-      ),
-    )
-    .limit(1);
-  return rows[0] ?? null;
+  return db.requestVote.findFirst({ where: { requestId, userId } });
 }
 
 /**
@@ -126,12 +111,9 @@ export async function insertVoteIfAbsent(
   requestId: string,
   userId: string,
 ): Promise<boolean> {
-  const rows = await db
-    .insert(requestVotes)
-    .values({ requestId, userId })
-    .onConflictDoNothing({
-      target: [requestVotes.userId, requestVotes.requestId],
-    })
-    .returning({ id: requestVotes.id });
-  return rows.length > 0;
+  const result = await db.requestVote.createMany({
+    data: [{ requestId, userId }],
+    skipDuplicates: true,
+  });
+  return result.count > 0;
 }

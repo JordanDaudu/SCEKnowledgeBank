@@ -1,11 +1,10 @@
-import { desc, eq, inArray, sql } from "drizzle-orm";
-import { db, materialViewHistory } from "@workspace/db";
+import { db } from "@workspace/db";
 
 export async function recordView(
   documentId: string,
   userId: string,
 ): Promise<void> {
-  await db.insert(materialViewHistory).values({ documentId, userId });
+  await db.materialViewHistory.create({ data: { documentId, userId } });
 }
 
 export async function tryRecordView(
@@ -13,9 +12,10 @@ export async function tryRecordView(
   userId: string,
 ): Promise<void> {
   try {
-    await db.insert(materialViewHistory).values({ documentId, userId });
+    await db.materialViewHistory.create({ data: { documentId, userId } });
   } catch {
-    // Non-fatal
+    // Non-fatal — preserves previous Drizzle behaviour where a failed insert
+    // (e.g. FK race when a document is being soft-deleted) is silently ignored.
   }
 }
 
@@ -23,17 +23,18 @@ export async function listRecentDocumentIdsForUser(
   userId: string,
   limit: number,
 ): Promise<string[]> {
-  const rows = await db
-    .select({
-      documentId: materialViewHistory.documentId,
-      viewedAt: sql<Date>`max(${materialViewHistory.viewedAt})`,
-    })
-    .from(materialViewHistory)
-    .where(eq(materialViewHistory.userId, userId))
-    .groupBy(materialViewHistory.documentId)
-    .orderBy(desc(sql`max(${materialViewHistory.viewedAt})`))
-    .limit(limit);
-  return rows.map((r) => r.documentId);
+  // Prisma can't express `ORDER BY max(viewed_at)` with groupBy directly in
+  // a portable way that returns the IDs sorted by recency. Use a raw query
+  // (same SQL semantics as the previous Drizzle implementation).
+  const rows = await db.$queryRaw<Array<{ document_id: string }>>`
+    SELECT document_id
+    FROM material_view_history
+    WHERE user_id = ${userId}::uuid
+    GROUP BY document_id
+    ORDER BY max(viewed_at) DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((r) => r.document_id);
 }
 
 export async function countViewsByDocumentIds(
@@ -41,15 +42,11 @@ export async function countViewsByDocumentIds(
 ): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (ids.length === 0) return map;
-  const rows = await db
-    .select({
-      documentId: materialViewHistory.documentId,
-      n: sql<number>`count(*)::int`,
-    })
-    .from(materialViewHistory)
-    .where(inArray(materialViewHistory.documentId, ids))
-    .groupBy(materialViewHistory.documentId);
-  for (const r of rows) map.set(r.documentId, r.n);
+  const rows = await db.materialViewHistory.groupBy({
+    by: ["documentId"],
+    where: { documentId: { in: ids } },
+    _count: { _all: true },
+  });
+  for (const r of rows) map.set(r.documentId, r._count._all);
   return map;
 }
-

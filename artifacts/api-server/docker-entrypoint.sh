@@ -4,8 +4,8 @@
 #   start              (default in runtime image) — exec the bundled API server.
 #                      Does not touch the schema; the api-init service handles
 #                      migrations and seeding before the API starts.
-#   migrate            — apply the drizzle schema and exit. Requires the
-#                      migrate image (drizzle-kit + workspace sources).
+#   migrate            — apply Prisma migrations and exit. Requires the
+#                      migrate image (prisma CLI + workspace sources).
 #   seed               — run the seed script and exit. Requires the migrate
 #                      image (tsx + workspace sources).
 #   migrate-and-seed   (default in migrate image) — apply the schema, then run
@@ -17,8 +17,8 @@ set -eu
 SEED_SENTINEL="${SEED_SENTINEL:-/data/storage/.seeded}"
 
 run_migrate() {
-  echo "[entrypoint] applying database schema via drizzle-kit push"
-  pnpm --filter @workspace/db run push
+  echo "[entrypoint] applying database schema via prisma migrate deploy"
+  pnpm --filter @workspace/db run migrate
 }
 
 run_seed() {

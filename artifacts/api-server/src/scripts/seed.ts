@@ -9,7 +9,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { db } from "@workspace/db";
+import type {
+  Role,
+  User,
+  Course,
+  Category,
+  Tag,
+  Document as DocumentRow,
+} from "@workspace/db";
+import { getStorage } from "../lib/storage";
+import { logger } from "../lib/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // lib/db/src/seed/fixtures is the canonical fixtures directory — versioned
@@ -32,37 +42,11 @@ const FIXTURES_DIR = path.resolve(
 function fixture(name: string): Buffer {
   return fs.readFileSync(path.join(FIXTURES_DIR, name));
 }
-import {
-  db,
-  roles,
-  users,
-  userRoles,
-  courses,
-  categories,
-  tags,
-  documents,
-  documentFiles,
-  documentTags,
-  comments,
-  materialRequests,
-  requestVotes,
-  materialViewHistory,
-} from "@workspace/db";
-import { getStorage } from "../lib/storage";
-import { logger } from "../lib/logger";
 
-async function upsertRole(name: string, description: string) {
-  const existing = await db
-    .select()
-    .from(roles)
-    .where(eq(roles.name, name))
-    .limit(1);
-  if (existing[0]) return existing[0];
-  const inserted = await db
-    .insert(roles)
-    .values({ name, description })
-    .returning();
-  return inserted[0];
+async function upsertRole(name: string, description: string): Promise<Role> {
+  const existing = await db.role.findFirst({ where: { name } });
+  if (existing) return existing;
+  return db.role.create({ data: { name, description } });
 }
 
 async function upsertUser(
@@ -71,31 +55,19 @@ async function upsertUser(
   displayName: string,
   primaryRoleId: string,
   roleIds: string[],
-) {
-  const existing = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  let user = existing[0];
+): Promise<User> {
+  let user = await db.user.findFirst({ where: { email } });
   if (!user) {
     const hash = await bcrypt.hash(password, 10);
-    const inserted = await db
-      .insert(users)
-      .values({
-        email,
-        passwordHash: hash,
-        displayName,
-        primaryRoleId,
-      })
-      .returning();
-    user = inserted[0];
+    user = await db.user.create({
+      data: { email, passwordHash: hash, displayName, primaryRoleId },
+    });
   }
-  for (const roleId of roleIds) {
-    await db
-      .insert(userRoles)
-      .values({ userId: user.id, roleId })
-      .onConflictDoNothing();
+  if (roleIds.length > 0) {
+    await db.userRole.createMany({
+      data: roleIds.map((roleId) => ({ userId: user!.id, roleId })),
+      skipDuplicates: true,
+    });
   }
   return user;
 }
@@ -104,44 +76,26 @@ async function upsertCourse(
   code: string,
   title: string,
   lecturerName: string,
-) {
-  const existing = await db
-    .select()
-    .from(courses)
-    .where(eq(courses.code, code))
-    .limit(1);
-  if (existing[0]) return existing[0];
-  return (
-    await db
-      .insert(courses)
-      .values({ code, title, lecturerName })
-      .returning()
-  )[0];
+): Promise<Course> {
+  const existing = await db.course.findFirst({ where: { code } });
+  if (existing) return existing;
+  return db.course.create({ data: { code, title, lecturerName } });
 }
 
-async function upsertCategory(name: string, slug: string, description: string) {
-  const existing = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.slug, slug))
-    .limit(1);
-  if (existing[0]) return existing[0];
-  return (
-    await db
-      .insert(categories)
-      .values({ name, slug, description })
-      .returning()
-  )[0];
+async function upsertCategory(
+  name: string,
+  slug: string,
+  description: string,
+): Promise<Category> {
+  const existing = await db.category.findFirst({ where: { slug } });
+  if (existing) return existing;
+  return db.category.create({ data: { name, slug, description } });
 }
 
-async function upsertTag(name: string) {
-  const existing = await db
-    .select()
-    .from(tags)
-    .where(eq(tags.name, name))
-    .limit(1);
-  if (existing[0]) return existing[0];
-  return (await db.insert(tags).values({ name }).returning())[0];
+async function upsertTag(name: string): Promise<Tag> {
+  const existing = await db.tag.findFirst({ where: { name } });
+  if (existing) return existing;
+  return db.tag.create({ data: { name } });
 }
 
 async function ensureDocument(
@@ -160,17 +114,12 @@ async function ensureDocument(
     mimeType?: string;
     filename: string;
   },
-) {
-  const existing = await db
-    .select()
-    .from(documents)
-    .where(eq(documents.title, title))
-    .limit(1);
-  if (existing[0]) return existing[0];
+): Promise<DocumentRow> {
+  const existing = await db.document.findFirst({ where: { title } });
+  if (existing) return existing;
 
-  const inserted = await db
-    .insert(documents)
-    .values({
+  const doc = await db.document.create({
+    data: {
       title,
       description: opts.description,
       materialType: opts.materialType,
@@ -183,9 +132,8 @@ async function ensureDocument(
       ...(opts.categoryId ? { categoryId: opts.categoryId } : {}),
       ...(opts.semester ? { semester: opts.semester } : {}),
       ...(opts.academicYear != null ? { academicYear: opts.academicYear } : {}),
-    })
-    .returning();
-  const doc = inserted[0];
+    },
+  });
 
   const ext = opts.filename.includes(".")
     ? opts.filename.slice(opts.filename.lastIndexOf("."))
@@ -197,23 +145,25 @@ async function ensureDocument(
     contentType: opts.mimeType ?? "application/octet-stream",
   });
 
-  await db.insert(documentFiles).values({
-    documentId: doc.id,
-    originalFilename: opts.filename,
-    displayFilename: opts.filename,
-    storedFilename: key.split("/").pop() ?? key,
-    mimeType: opts.mimeType ?? "application/octet-stream",
-    sizeBytes: body.length,
-    storagePath: put.key,
-    storageDriver: put.driver,
-    checksum: put.checksum,
+  await db.documentFile.create({
+    data: {
+      documentId: doc.id,
+      originalFilename: opts.filename,
+      displayFilename: opts.filename,
+      storedFilename: key.split("/").pop() ?? key,
+      mimeType: opts.mimeType ?? "application/octet-stream",
+      sizeBytes: BigInt(body.length),
+      storagePath: put.key,
+      storageDriver: put.driver,
+      checksum: put.checksum,
+    },
   });
 
   if (opts.tagIds && opts.tagIds.length > 0) {
-    await db
-      .insert(documentTags)
-      .values(opts.tagIds.map((tagId) => ({ documentId: doc.id, tagId })))
-      .onConflictDoNothing();
+    await db.documentTag.createMany({
+      data: opts.tagIds.map((tagId) => ({ documentId: doc.id, tagId })),
+      skipDuplicates: true,
+    });
   }
 
   return doc;
@@ -310,11 +260,7 @@ async function main() {
     "Operating Systems",
     "Dr. Morgan Reyes",
   );
-  const cs350 = await upsertCourse(
-    "CS350",
-    "Databases",
-    "Prof. Aiko Tanaka",
-  );
+  const cs350 = await upsertCourse("CS350", "Databases", "Prof. Aiko Tanaka");
   const econ200 = await upsertCourse(
     "ECON200",
     "Microeconomics",
@@ -467,8 +413,7 @@ async function main() {
     lecturer.id,
     fixture("sample-syllabus.md"),
     {
-      description:
-        "Course syllabus, schedule, and grading policy for CS101.",
+      description: "Course syllabus, schedule, and grading policy for CS101.",
       courseId: cs101.id,
       categoryId: catLectureNotes.id,
       materialType: "syllabus",
@@ -586,7 +531,7 @@ async function main() {
   ];
   const semesters = ["fall", "spring", "summer"] as const;
   const uploaders = [lecturer, admin];
-  const bulkDocs: (typeof documents.$inferSelect)[] = [];
+  const bulkDocs: DocumentRow[] = [];
   let bulkIdx = 0;
   for (const course of courseList) {
     for (let week = 1; week <= 4; week++) {
@@ -604,10 +549,7 @@ async function main() {
       const d = await ensureDocument(
         title,
         uploader.id,
-        minimalPdf(
-          title,
-          `Demo material for ${course.code} week ${week}.`,
-        ),
+        minimalPdf(title, `Demo material for ${course.code} week ${week}.`),
         {
           description: `Auto-generated demo ${cat.name.toLowerCase()} for ${course.code}, week ${week}.`,
           courseId: course.id,
@@ -626,31 +568,32 @@ async function main() {
   }
 
   // Comments on doc1
-  const existingComments = await db
-    .select()
-    .from(comments)
-    .where(eq(comments.documentId, doc1.id))
-    .limit(1);
-  if (!existingComments[0]) {
-    const c1 = await db
-      .insert(comments)
-      .values({
+  const existingComment = await db.comment.findFirst({
+    where: { documentId: doc1.id },
+  });
+  if (!existingComment) {
+    const c1 = await db.comment.create({
+      data: {
         documentId: doc1.id,
         authorId: student.id,
         body: "Are slides for this lecture posted somewhere? The pseudocode example was great.",
         pageNumber: 1,
-      })
-      .returning();
-    await db.insert(comments).values({
-      documentId: doc1.id,
-      authorId: lecturer.id,
-      parentId: c1[0].id,
-      body: "Good catch — I'll upload the slide deck this week. In the meantime, the textbook section 1.3 covers the same material.",
+      },
     });
-    await db.insert(comments).values({
-      documentId: doc2.id,
-      authorId: student.id,
-      body: "Q3 is open-ended — should I cover both space and time complexity?",
+    await db.comment.create({
+      data: {
+        documentId: doc1.id,
+        authorId: lecturer.id,
+        parentId: c1.id,
+        body: "Good catch — I'll upload the slide deck this week. In the meantime, the textbook section 1.3 covers the same material.",
+      },
+    });
+    await db.comment.create({
+      data: {
+        documentId: doc2.id,
+        authorId: student.id,
+        body: "Q3 is open-ended — should I cover both space and time complexity?",
+      },
     });
   }
 
@@ -663,120 +606,115 @@ async function main() {
     if (i % 2 === 0) viewers.push(lecturer.id);
     if (i % 3 === 0) viewers.push(admin.id);
     for (const viewerId of viewers) {
-      const exists = await db
-        .select()
-        .from(materialViewHistory)
-        .where(eq(materialViewHistory.documentId, allDocsForViews[i].id))
-        .limit(50);
-      if (exists.some((e) => e.userId === viewerId)) continue;
-      await db
-        .insert(materialViewHistory)
-        .values({ documentId: allDocsForViews[i].id, userId: viewerId });
+      const exists = await db.materialViewHistory.findFirst({
+        where: { documentId: allDocsForViews[i].id, userId: viewerId },
+      });
+      if (exists) continue;
+      await db.materialViewHistory.create({
+        data: { documentId: allDocsForViews[i].id, userId: viewerId },
+      });
     }
   }
 
   // Material requests
-  const existingReq = await db.select().from(materialRequests).limit(1);
-  if (existingReq.length === 0) {
-    const r1 = await db
-      .insert(materialRequests)
-      .values({
+  const existingReq = await db.materialRequest.findFirst();
+  if (!existingReq) {
+    const r1 = await db.materialRequest.create({
+      data: {
         title: "CS201 Final 2024 solutions",
         description:
           "The 2024 CS201 final exam paper is here but solutions aren't posted. Would help with revision.",
         courseId: cs201.id,
         requestedBy: student.id,
         status: "open",
-      })
-      .returning();
-    const r2 = await db
-      .insert(materialRequests)
-      .values({
+      },
+    });
+    const r2 = await db.materialRequest.create({
+      data: {
         title: "Annotated slides for MATH210 Lecture 8",
         description:
           "Could a lecturer share the annotated whiteboard photos from the eigenvectors lecture?",
         courseId: math210.id,
         requestedBy: student.id,
         status: "open",
-      })
-      .returning();
-    await db
-      .insert(materialRequests)
-      .values({
+      },
+    });
+    await db.materialRequest.create({
+      data: {
         title: "PHYS150 problem set 4 solutions",
-        description:
-          "Solutions were promised but never uploaded last semester.",
+        description: "Solutions were promised but never uploaded last semester.",
         courseId: phys150.id,
         requestedBy: student.id,
         status: "fulfilled",
-      });
+      },
+    });
     // Votes
-    await db
-      .insert(requestVotes)
-      .values({ requestId: r1[0].id, userId: lecturer.id })
-      .onConflictDoNothing();
-    await db
-      .insert(requestVotes)
-      .values({ requestId: r1[0].id, userId: admin.id })
-      .onConflictDoNothing();
-    await db
-      .insert(requestVotes)
-      .values({ requestId: r2[0].id, userId: admin.id })
-      .onConflictDoNothing();
+    await db.requestVote.createMany({
+      data: [
+        { requestId: r1.id, userId: lecturer.id },
+        { requestId: r1.id, userId: admin.id },
+        { requestId: r2.id, userId: admin.id },
+      ],
+      skipDuplicates: true,
+    });
   }
 
   // Additional open requests so the requests board has substance.
   // Idempotent on title.
   {
-    const extraOpen: Array<{ title: string; description: string; courseId: string; requestedBy: string }> = [
+    const extraOpen: Array<{
+      title: string;
+      description: string;
+      courseId: string;
+      requestedBy: string;
+    }> = [
       {
         title: "CS310 Lab handouts archive",
-        description: "Would love an archive of all CS310 lab handouts from last year.",
+        description:
+          "Would love an archive of all CS310 lab handouts from last year.",
         courseId: cs310.id,
         requestedBy: student.id,
       },
       {
         title: "STAT230 sample midterms",
-        description: "Sample midterms with worked solutions would massively help revision.",
+        description:
+          "Sample midterms with worked solutions would massively help revision.",
         courseId: stat230.id,
         requestedBy: student.id,
       },
       {
         title: "ECON200 textbook chapter summaries",
-        description: "Concise per-chapter summaries of the assigned textbook chapters.",
+        description:
+          "Concise per-chapter summaries of the assigned textbook chapters.",
         courseId: econ200.id,
         requestedBy: student.id,
       },
       {
         title: "CS350 SQL practice problem bank",
-        description: "A pool of SQL practice problems with answers for the upcoming final.",
+        description:
+          "A pool of SQL practice problems with answers for the upcoming final.",
         courseId: cs350.id,
         requestedBy: student.id,
       },
     ];
     for (const r of extraOpen) {
-      const existing = await db
-        .select()
-        .from(materialRequests)
-        .where(eq(materialRequests.title, r.title))
-        .limit(1);
+      const existing = await db.materialRequest.findFirst({
+        where: { title: r.title },
+      });
       const row =
-        existing[0] ??
-        (
-          await db
-            .insert(materialRequests)
-            .values({ ...r, status: "open" })
-            .returning()
-        )[0];
-      await db
-        .insert(requestVotes)
-        .values({ requestId: row.id, userId: lecturer.id })
-        .onConflictDoNothing();
+        existing ??
+        (await db.materialRequest.create({
+          data: { ...r, status: "open" },
+        }));
+      await db.requestVote.createMany({
+        data: [{ requestId: row.id, userId: lecturer.id }],
+        skipDuplicates: true,
+      });
       if (r.title.includes("STAT230")) {
-        await db
-          .insert(requestVotes)
-          .values({ requestId: row.id, userId: admin.id })
-          .onConflictDoNothing();
+        await db.requestVote.createMany({
+          data: [{ requestId: row.id, userId: admin.id }],
+          skipDuplicates: true,
+        });
       }
     }
   }

@@ -1,40 +1,44 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { db, comments } from "@workspace/db";
+import { db } from "@workspace/db";
+import type { Prisma } from "@workspace/db";
 
-export type CommentRow = typeof comments.$inferSelect;
-export type CommentInsert = typeof comments.$inferInsert;
+export interface CommentRow {
+  id: string;
+  documentId: string;
+  authorId: string;
+  parentId: string | null;
+  body: string;
+  pageNumber: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
+export type CommentInsert = Prisma.CommentUncheckedCreateInput;
 
 export async function listAliveByDocument(
   documentId: string,
 ): Promise<CommentRow[]> {
-  return db
-    .select()
-    .from(comments)
-    .where(and(eq(comments.documentId, documentId), isNull(comments.deletedAt)))
-    .orderBy(asc(comments.createdAt));
+  return db.comment.findMany({
+    where: { documentId, deletedAt: null },
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 export async function findAliveById(id: string): Promise<CommentRow | null> {
-  const rows = await db
-    .select()
-    .from(comments)
-    .where(and(eq(comments.id, id), isNull(comments.deletedAt)))
-    .limit(1);
-  return rows[0] ?? null;
+  return db.comment.findFirst({ where: { id, deletedAt: null } });
 }
 
 export async function insertComment(
   values: CommentInsert,
 ): Promise<CommentRow> {
-  const rows = await db.insert(comments).values(values).returning();
-  return rows[0];
+  return db.comment.create({ data: values });
 }
 
 export async function softDeleteById(id: string): Promise<void> {
-  await db
-    .update(comments)
-    .set({ deletedAt: new Date() })
-    .where(eq(comments.id, id));
+  await db.comment.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 }
 
 export interface CommentUpdate {
@@ -46,15 +50,10 @@ export async function updateById(
   id: string,
   patch: CommentUpdate,
 ): Promise<CommentRow> {
-  const setValues: Record<string, unknown> = { updatedAt: new Date() };
-  if (patch.body !== undefined) setValues.body = patch.body;
-  if (patch.pageNumber !== undefined) setValues.pageNumber = patch.pageNumber;
-  const rows = await db
-    .update(comments)
-    .set(setValues)
-    .where(eq(comments.id, id))
-    .returning();
-  return rows[0];
+  const data: Prisma.CommentUncheckedUpdateInput = { updatedAt: new Date() };
+  if (patch.body !== undefined) data.body = patch.body;
+  if (patch.pageNumber !== undefined) data.pageNumber = patch.pageNumber;
+  return db.comment.update({ where: { id }, data });
 }
 
 export async function countAliveByDocumentIds(
@@ -62,14 +61,11 @@ export async function countAliveByDocumentIds(
 ): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (ids.length === 0) return map;
-  const rows = await db
-    .select({
-      documentId: comments.documentId,
-      n: sql<number>`count(*)::int`,
-    })
-    .from(comments)
-    .where(and(inArray(comments.documentId, ids), isNull(comments.deletedAt)))
-    .groupBy(comments.documentId);
-  for (const r of rows) map.set(r.documentId, r.n);
+  const rows = await db.comment.groupBy({
+    by: ["documentId"],
+    where: { documentId: { in: ids }, deletedAt: null },
+    _count: { _all: true },
+  });
+  for (const r of rows) map.set(r.documentId, r._count._all);
   return map;
 }
