@@ -56,12 +56,6 @@ export interface DocumentFileInsert {
 
 export type DocumentSort = "newest" | "oldest" | "title" | "popularity";
 
-export interface VisibilityScope {
-  /** If "private-allowed-for", restrict private docs to this user. If "all", admin-style. */
-  mode: "all" | "private-allowed-for";
-  userId?: string;
-}
-
 export interface DocumentListFilters {
   courseId?: string;
   categoryId?: string;
@@ -75,7 +69,12 @@ export interface DocumentListFilters {
   restrictCourseIds?: string[];
   /** Pre-resolved document ids to restrict to (e.g. after tag lookup). */
   restrictDocumentIds?: string[];
-  visibility: VisibilityScope;
+  /**
+   * Visibility scope, computed by the permissions service. `undefined`
+   * means no extra constraint (e.g. admins). Otherwise it is AND'd into
+   * the base where clause.
+   */
+  visibility: Prisma.DocumentWhereInput | undefined;
 }
 
 /** Convert a Prisma row (BigInt sizeBytes) to the number-based shape callers expect. */
@@ -139,15 +138,8 @@ function buildBaseWhere(
       and.push({ id: { in: filters.restrictDocumentIds } });
     }
   }
-  if (filters.visibility.mode === "private-allowed-for") {
-    const uid = filters.visibility.userId!;
-    and.push({
-      OR: [
-        { visibility: { not: "private" } },
-        { uploaderId: uid },
-        { ownerId: uid },
-      ],
-    });
+  if (filters.visibility) {
+    and.push(filters.visibility);
   }
   return { AND: and };
 }
@@ -211,17 +203,25 @@ export interface SuggestionRow {
   courseId: string | null;
 }
 
+export interface SuggestionVisibilityScope {
+  /** True when no visibility filter should be applied (admin). */
+  unrestricted: boolean;
+  userId: string;
+}
+
 export async function findSuggestions(
   term: string,
   limit: number,
-  visibility: VisibilityScope,
+  scope: SuggestionVisibilityScope,
 ): Promise<SuggestionRow[]> {
   // Uses the pg_trgm `%` operator and `similarity()` (both depend on the
   // pg_trgm extension created in the init migration). Implemented as raw
-  // SQL because Prisma cannot express trigram operators directly.
+  // SQL because Prisma cannot express trigram operators directly. The
+  // enrollment-based restricted-visibility check is expressed as a
+  // correlated subquery against `course_enrollments` so we don't have to
+  // bind a uuid[] parameter.
   const ilikeTerm = `%${term}%`;
-  if (visibility.mode === "private-allowed-for") {
-    const uid = visibility.userId!;
+  if (scope.unrestricted) {
     const rows = await db.$queryRaw<
       Array<{
         id: string;
@@ -234,7 +234,6 @@ export async function findSuggestions(
       FROM documents
       WHERE deleted_at IS NULL
         AND (title % ${term} OR description % ${term} OR title ILIKE ${ilikeTerm})
-        AND (visibility <> 'private' OR uploader_id = ${uid}::uuid OR owner_id = ${uid}::uuid)
       ORDER BY greatest(similarity(title, ${term}), similarity(coalesce(description, ''), ${term})) DESC,
                created_at DESC
       LIMIT ${limit}
@@ -246,6 +245,7 @@ export async function findSuggestions(
       courseId: r.course_id,
     }));
   }
+  const uid = scope.userId;
   const rows = await db.$queryRaw<
     Array<{
       id: string;
@@ -258,6 +258,18 @@ export async function findSuggestions(
     FROM documents
     WHERE deleted_at IS NULL
       AND (title % ${term} OR description % ${term} OR title ILIKE ${ilikeTerm})
+      AND (
+        visibility = 'public'
+        OR uploader_id = ${uid}::uuid
+        OR owner_id = ${uid}::uuid
+        OR (
+          visibility = 'restricted'
+          AND course_id IS NOT NULL
+          AND course_id IN (
+            SELECT course_id FROM course_enrollments WHERE user_id = ${uid}::uuid
+          )
+        )
+      )
     ORDER BY greatest(similarity(title, ${term}), similarity(coalesce(description, ''), ${term})) DESC,
              created_at DESC
     LIMIT ${limit}

@@ -58,6 +58,7 @@ model User {
   requestVotes      RequestVote[]
   viewHistory       MaterialViewHistory[]
   auditLogs         AuditLog[]
+  courseEnrollments CourseEnrollment[]
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
   @@map("users")
@@ -109,13 +110,29 @@ model Course {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz()
 
-  lecturer  User?             @relation(fields: [lecturerUserId], references: [id], onDelete: SetNull)
-  documents Document[]
-  requests  MaterialRequest[]
+  lecturer    User?              @relation(fields: [lecturerUserId], references: [id], onDelete: SetNull)
+  documents   Document[]
+  requests    MaterialRequest[]
+  enrollments CourseEnrollment[]
 
   @@unique([code], map: "courses_code_unique")
   @@index([lecturerName], map: "courses_lecturer_name_idx")
   @@map("courses")
+}
+
+model CourseEnrollment {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  courseId     String   @map("course_id") @db.Uuid
+  roleInCourse String   @map("role_in_course")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId], map: "course_enrollments_user_course_unique")
+  @@index([courseId], map: "course_enrollments_course_idx")
+  @@map("course_enrollments")
 }
 
 model Category {

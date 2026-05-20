@@ -52,6 +52,7 @@ const user: AuthenticatedUser = {
   isActive: true,
   primaryRole: "student",
   roles: ["student"],
+  enrollments: [],
 };
 const admin: AuthenticatedUser = { ...user, id: "admin", roles: ["admin"] };
 

@@ -8,6 +8,11 @@ vi.mock("../repositories/users.repo", () => ({
   findActiveUserIdsOrderedByCreatedAt: vi.fn(),
 }));
 
+vi.mock("../repositories/enrollments.repo", () => ({
+  findEnrollmentsForUser: vi.fn().mockResolvedValue([]),
+  upsertEnrollments: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("./audit.service", () => ({
   record: vi.fn().mockResolvedValue(undefined),
 }));

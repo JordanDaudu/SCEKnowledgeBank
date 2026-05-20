@@ -45,6 +45,7 @@ const owner: AuthenticatedUser = {
   isActive: true,
   primaryRole: "student",
   roles: ["student"],
+  enrollments: [],
 };
 const other: AuthenticatedUser = { ...owner, id: "other" };
 const admin: AuthenticatedUser = { ...owner, id: "admin", roles: ["admin"] };

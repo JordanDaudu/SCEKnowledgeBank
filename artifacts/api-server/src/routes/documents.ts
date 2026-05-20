@@ -15,10 +15,11 @@ import {
   PreviewDocumentParams,
   PreviewDocumentQueryParams,
 } from "@workspace/api-zod";
-import { requireAuth, isLecturerOrAdmin } from "../middlewares/auth";
+import { requireAuth } from "../middlewares/auth";
 import { forbidden } from "../lib/errors";
 import { env } from "../lib/env";
 import * as documentsService from "../services/documents.service";
+import * as permissions from "../services/permissions.service";
 
 const router: IRouter = Router();
 
@@ -86,7 +87,7 @@ router.post(
   "/documents/upload",
   requireAuth,
   (req, res, next) => {
-    if (!isLecturerOrAdmin(req.authUser)) {
+    if (!req.authUser || !permissions.canUpload(req.authUser)) {
       return next(forbidden("Only lecturers and admins can upload"));
     }
     next();

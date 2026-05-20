@@ -53,6 +53,7 @@ export type {
   Permission,
   RolePermission,
   Course,
+  CourseEnrollment,
   Category,
   Tag,
   Document,

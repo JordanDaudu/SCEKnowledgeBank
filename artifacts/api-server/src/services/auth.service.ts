@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import * as usersRepo from "../repositories/users.repo";
+import * as enrollmentsRepo from "../repositories/enrollments.repo";
 import * as auditService from "./audit.service";
 import { unauthorized } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
@@ -22,6 +23,7 @@ export async function loadAuthenticatedUser(
   } else if (u.roles.length > 0) {
     primaryRole = u.roles[0];
   }
+  const enrollments = await enrollmentsRepo.findEnrollmentsForUser(u.id);
   return {
     id: u.id,
     email: u.email,
@@ -29,6 +31,7 @@ export async function loadAuthenticatedUser(
     isActive: u.isActive,
     primaryRole,
     roles: u.roles,
+    enrollments,
   };
 }
 

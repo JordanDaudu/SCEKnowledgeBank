@@ -3,6 +3,7 @@ import * as docsRepo from "../repositories/documents.repo";
 import * as taxonomyService from "./taxonomy.service";
 import * as usersService from "./users.service";
 import * as auditService from "./audit.service";
+import * as permissions from "./permissions.service";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -100,20 +101,26 @@ export async function updateRequest(
   const r = await requestsRepo.findAliveById(id);
   if (!r) throw notFound("Request not found");
   const isOwner = r.requestedBy === user.id;
-  const isAdmin = user.roles.includes("admin");
-  const isLecturer = user.roles.includes("lecturer");
   const wantsStatusChange =
     body.status !== undefined || body.fulfillingDocumentId !== undefined;
   const wantsContentChange =
     body.title !== undefined || body.description !== undefined;
-  // Status fulfillment is open to lecturer/admin (they curate the library);
-  // editing title/description stays restricted to the author or an admin.
-  if (wantsStatusChange && !isOwner && !isAdmin && !isLecturer) {
+  // Status fulfillment is open to admins, the author, and lecturers who
+  // teach the request's course (or any lecturer when the request is
+  // course-less). Editing title/description stays restricted to the
+  // author or an admin.
+  if (
+    wantsStatusChange &&
+    !permissions.canFulfilRequest(user, {
+      requestedBy: r.requestedBy,
+      courseId: r.courseId,
+    })
+  ) {
     throw forbidden(
-      "Only the request author, a lecturer, or an admin can change request status",
+      "Only the request author, a lecturer for this course, or an admin can change request status",
     );
   }
-  if (wantsContentChange && !isOwner && !isAdmin) {
+  if (wantsContentChange && !isOwner && !permissions.isAdmin(user)) {
     throw forbidden("Only the request author or an admin can edit this request");
   }
   if (body.fulfillingDocumentId) {

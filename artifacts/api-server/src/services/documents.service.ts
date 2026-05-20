@@ -7,6 +7,7 @@ import * as viewRepo from "../repositories/viewHistory.repo";
 import * as usersService from "./users.service";
 import * as taxonomyService from "./taxonomy.service";
 import * as auditService from "./audit.service";
+import * as permissions from "./permissions.service";
 import { badRequest, forbidden, notFound, unauthorized } from "../lib/errors";
 import { signToken, verifyToken } from "../lib/sign-url";
 import { getStorage } from "../lib/storage";
@@ -42,32 +43,7 @@ export interface DocumentDTO {
   };
 }
 
-function isAdmin(u: AuthenticatedUser): boolean {
-  return u.roles.includes("admin");
-}
-
-function canView(
-  doc: docsRepo.DocumentRow,
-  user: AuthenticatedUser,
-): boolean {
-  if (doc.visibility === "public") return true;
-  if (doc.visibility === "restricted") return true;
-  if (doc.visibility === "private") {
-    return (
-      doc.uploaderId === user.id ||
-      doc.ownerId === user.id ||
-      user.roles.includes("admin")
-    );
-  }
-  return false;
-}
-
-function visibilityScope(
-  user: AuthenticatedUser,
-): docsRepo.VisibilityScope {
-  if (isAdmin(user)) return { mode: "all" };
-  return { mode: "private-allowed-for", userId: user.id };
-}
+// All visibility / role checks are delegated to permissions.service.
 
 export async function assembleDocuments(
   docs: docsRepo.DocumentRow[],
@@ -175,7 +151,7 @@ export async function listDocuments(
   user: AuthenticatedUser,
 ): Promise<ListDocumentsResult> {
   const filters: docsRepo.DocumentListFilters = {
-    visibility: visibilityScope(user),
+    visibility: permissions.visibleDocumentFilter(user),
   };
   if (q.courseId) filters.courseId = q.courseId;
   if (q.categoryId) filters.categoryId = q.categoryId;
@@ -222,9 +198,14 @@ export async function listRecentForUser(
   const ids = await viewRepo.listRecentDocumentIdsForUser(user.id, limit);
   if (ids.length === 0) return [];
   const docs = await docsRepo.findManyByIdsAlive(ids);
+  // Recently-viewed history can outlive a user's access — e.g. if a
+  // restricted document's course enrollment is revoked, or a private doc
+  // changes owners. Re-check visibility every time so the recents strip
+  // honors the same rules as `listDocuments` / `getById`.
+  const visible = docs.filter((d) => permissions.canView(d, user));
   const order = new Map(ids.map((id, i) => [id, i]));
-  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-  return assembleDocuments(docs);
+  visible.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return assembleDocuments(visible);
 }
 
 export interface SuggestionDTO {
@@ -239,11 +220,10 @@ export async function suggest(
   limit: number,
   user: AuthenticatedUser,
 ): Promise<SuggestionDTO[]> {
-  const rows = await docsRepo.findSuggestions(
-    term,
-    limit,
-    visibilityScope(user),
-  );
+  const rows = await docsRepo.findSuggestions(term, limit, {
+    unrestricted: permissions.isAdmin(user),
+    userId: user.id,
+  });
   const courseIds = rows
     .map((r) => r.courseId)
     .filter((i): i is string => !!i);
@@ -264,7 +244,8 @@ export async function getById(
 ): Promise<DocumentDTO> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  if (!canView(doc, user)) throw forbidden("Cannot view this document");
+  if (!permissions.canView(doc, user))
+    throw forbidden("Cannot view this document");
   await viewRepo.recordView(doc.id, user.id);
   const assembled = await assembleDocuments([doc]);
   return assembled[0];
@@ -290,8 +271,8 @@ export async function updateDocument(
 ): Promise<DocumentDTO> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  const owns = doc.uploaderId === user.id || doc.ownerId === user.id;
-  if (!owns && !isAdmin(user)) throw forbidden("Cannot edit this document");
+  if (!permissions.canEdit(doc, user))
+    throw forbidden("Cannot edit this document");
 
   const patch: Partial<docsRepo.DocumentInsert> = {
     updatedAt: new Date(),
@@ -326,8 +307,8 @@ export async function deleteDocument(
 ): Promise<void> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  const owns = doc.uploaderId === user.id || doc.ownerId === user.id;
-  if (!owns && !isAdmin(user)) throw forbidden("Cannot delete this document");
+  if (!permissions.canDelete(doc, user))
+    throw forbidden("Cannot delete this document");
   await docsRepo.softDeleteDocument(id, user.id);
   await auditService.record(user.id, "document.delete", "document", id);
 }
@@ -518,7 +499,7 @@ export async function issueAccessToken(
 ): Promise<SignedTokenDTO> {
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  if (!canView(doc, user)) {
+  if (!permissions.canView(doc, user)) {
     throw forbidden(
       action === "preview"
         ? "Cannot preview this document"

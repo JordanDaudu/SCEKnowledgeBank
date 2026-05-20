@@ -2,6 +2,7 @@ import * as commentsRepo from "../repositories/comments.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as usersService from "./users.service";
 import * as auditService from "./audit.service";
+import * as permissions from "./permissions.service";
 import { badRequest, forbidden, notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -26,19 +27,15 @@ export interface CommentDTO {
   replies: CommentDTO[];
 }
 
-async function assertDocumentReadable(
+async function loadReadableDocument(
   documentId: string,
   user: AuthenticatedUser,
-): Promise<void> {
+): Promise<docsRepo.DocumentRow> {
   const doc = await docsRepo.findByIdAlive(documentId);
   if (!doc) throw notFound("Document not found");
-  if (doc.visibility === "private") {
-    const allowed =
-      doc.uploaderId === user.id ||
-      doc.ownerId === user.id ||
-      user.roles.includes("admin");
-    if (!allowed) throw forbidden("Cannot access this document");
-  }
+  if (!permissions.canComment(doc, user))
+    throw forbidden("Cannot access this document");
+  return doc;
 }
 
 function toDTO(
@@ -72,7 +69,7 @@ export async function listForDocument(
   documentId: string,
   user: AuthenticatedUser,
 ): Promise<CommentDTO[]> {
-  await assertDocumentReadable(documentId, user);
+  await loadReadableDocument(documentId, user);
   const rows = await commentsRepo.listAliveByDocument(documentId);
   const authors = await usersService.loadUserSummaries(
     rows.map((r) => r.authorId),
@@ -96,7 +93,7 @@ export async function createForDocument(
   body: { body: string; parentId?: string; pageNumber?: number },
   user: AuthenticatedUser,
 ): Promise<CommentDTO> {
-  await assertDocumentReadable(documentId, user);
+  await loadReadableDocument(documentId, user);
   if (body.parentId) {
     const parent = await commentsRepo.findAliveById(body.parentId);
     if (!parent || parent.documentId !== documentId) {
@@ -130,8 +127,11 @@ export async function updateComment(
 ): Promise<CommentDTO> {
   const c = await commentsRepo.findAliveById(commentId);
   if (!c) throw notFound("Comment not found");
-  if (c.authorId !== user.id && !user.roles.includes("admin")) {
-    throw forbidden("Cannot edit this comment");
+  if (c.authorId !== user.id) {
+    const doc = await docsRepo.findByIdAlive(c.documentId);
+    if (!doc || !permissions.canModerateCommentOnDocument(doc, user)) {
+      throw forbidden("Cannot edit this comment");
+    }
   }
   if (body.body === undefined && body.pageNumber === undefined) {
     throw badRequest("No changes provided");
@@ -153,8 +153,11 @@ export async function deleteComment(
 ): Promise<void> {
   const c = await commentsRepo.findAliveById(commentId);
   if (!c) throw notFound("Comment not found");
-  if (c.authorId !== user.id && !user.roles.includes("admin")) {
-    throw forbidden("Cannot delete this comment");
+  if (c.authorId !== user.id) {
+    const doc = await docsRepo.findByIdAlive(c.documentId);
+    if (!doc || !permissions.canModerateCommentOnDocument(doc, user)) {
+      throw forbidden("Cannot delete this comment");
+    }
   }
   await commentsRepo.softDeleteById(commentId);
   await auditService.record(user.id, "comment.delete", "comment", commentId);

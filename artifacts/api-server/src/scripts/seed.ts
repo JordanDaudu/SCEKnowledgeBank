@@ -282,6 +282,29 @@ async function main() {
     stat230,
   ];
 
+  // ─── Course enrollments ────────────────────────────────────────
+  // The demo lecturer (Dr. Morgan Reyes) teaches the CS courses.
+  // The demo student is enrolled in a subset of the catalogue so the
+  // restricted-visibility rule has both positive and negative cases.
+  // The admin is enrolled in nothing — admins bypass enrollment checks.
+  const lecturerCourseIds = [cs101.id, cs201.id, cs310.id];
+  const studentCourseIds = [cs101.id, cs201.id, math210.id];
+  await db.courseEnrollment.createMany({
+    data: [
+      ...lecturerCourseIds.map((courseId) => ({
+        userId: lecturer.id,
+        courseId,
+        roleInCourse: "lecturer",
+      })),
+      ...studentCourseIds.map((courseId) => ({
+        userId: student.id,
+        courseId,
+        roleInCourse: "student",
+      })),
+    ],
+    skipDuplicates: true,
+  });
+
   const catLectureNotes = await upsertCategory(
     "Lecture Notes",
     "lecture-notes",
@@ -372,6 +395,31 @@ async function main() {
 
   // One real text fixture and one real image fixture so the preview pane has
   // non-PDF demo content out of the box.
+  // Restricted document in CS350 — the demo student is NOT enrolled in
+  // CS350, so this should be invisible to them and serves as the canary
+  // for the enrollment-based visibility rule.
+  await ensureDocument(
+    "CS350 — Restricted Exam Solutions (Spring 2025)",
+    lecturer.id,
+    minimalPdf(
+      "CS350 Restricted Exam Solutions",
+      "Solutions to the CS350 final — restricted to enrolled students.",
+    ),
+    {
+      description:
+        "Worked solutions to the CS350 final exam. Restricted: only students enrolled in CS350 can see this.",
+      courseId: cs350.id,
+      categoryId: catPastExams.id,
+      materialType: "exam",
+      semester: "spring",
+      academicYear: 2025,
+      visibility: "restricted",
+      tagIds: [tagExamPrep.id, tagSolutions.id],
+      mimeType: "application/pdf",
+      filename: "cs350-final-solutions-spring-2025.pdf",
+    },
+  );
+
   await ensureDocument(
     "CS350 — SQL Joins Cheat Sheet",
     lecturer.id,

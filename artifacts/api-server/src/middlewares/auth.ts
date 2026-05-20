@@ -2,6 +2,11 @@ import type { NextFunction, Request, Response } from "express";
 import { forbidden, unauthorized } from "../lib/errors";
 import { loadAuthenticatedUser } from "../services/auth.service";
 
+export interface UserCourseEnrollment {
+  courseId: string;
+  roleInCourse: string;
+}
+
 export interface AuthenticatedUser {
   id: string;
   email: string;
@@ -9,6 +14,7 @@ export interface AuthenticatedUser {
   isActive: boolean;
   primaryRole: string;
   roles: string[];
+  enrollments: UserCourseEnrollment[];
 }
 
 declare global {
@@ -61,9 +67,5 @@ export function requireRole(...allowed: string[]) {
   };
 }
 
-export function isAdmin(u: AuthenticatedUser | undefined): boolean {
-  return !!u?.roles.includes("admin");
-}
-export function isLecturerOrAdmin(u: AuthenticatedUser | undefined): boolean {
-  return !!u && (u.roles.includes("admin") || u.roles.includes("lecturer"));
-}
+// Role-name helpers have been removed from this module. All role and
+// visibility decisions now live in `services/permissions.service.ts`.
