@@ -19,8 +19,11 @@ interface Props {
  * When the caret is positioned inside an `@token` that has at least
  * one character, we issue an authenticated user search and render a
  * small dropdown below the textarea. Selecting a user replaces the
- * partial token with `@displayName ` (trailing space) — exactly the
- * shape the backend `parseMentionTokens` parser will resolve later.
+ * partial token with `@[<userId>] ` — the explicit-id form the
+ * backend `parseMentionTokens` parser resolves unambiguously, even
+ * for users whose display name contains spaces ("Dr. Maya Cohen"),
+ * which would otherwise be truncated to the first word by the
+ * contiguous-token regex.
  *
  * Falls back to a plain textarea silently when the search errors or
  * returns no matches.
@@ -75,7 +78,9 @@ export default function MentionPicker({
     const caret = el?.selectionStart ?? value.length;
     const before = value.slice(0, tokenStart);
     const after = value.slice(caret);
-    const inserted = `@${u.displayName} `;
+    // Use the explicit `@[uuid]` form so multi-word display names are
+    // resolved unambiguously by the backend mention parser.
+    const inserted = `@[${u.id}] `;
     const next = `${before}${inserted}${after}`;
     onChange(next);
     setActiveQuery(null);
