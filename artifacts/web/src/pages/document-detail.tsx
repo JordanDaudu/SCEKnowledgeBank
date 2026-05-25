@@ -18,6 +18,10 @@ import PreviewPanel from "@/components/document-detail/PreviewPanel";
 import MetadataPanel from "@/components/document-detail/MetadataPanel";
 import EditMetadataModal from "@/components/document-detail/EditMetadataModal";
 import CommentsThread from "@/components/document-detail/CommentsThread";
+import VersionsPanel from "@/components/document-detail/VersionsPanel";
+import {
+  getGetMyStorageQuotaQueryKey,
+} from "@workspace/api-client-react";
 
 // Recently-viewed history is server-backed (task #29): visiting a
 // document calls `GET /documents/:id`, which records a row in
@@ -117,6 +121,12 @@ export default function DocumentDetail() {
     if (!confirm("Are you sure you want to delete this document? This cannot be undone.")) return;
     deleteDocMutation.mutate({ id }, {
       onSuccess: () => {
+        // US-10: deleting a doc releases its bytes from the uploader's
+        // quota server-side. Invalidate the snapshot so the upload page
+        // re-renders with the freed space immediately.
+        queryClient.invalidateQueries({
+          queryKey: getGetMyStorageQuotaQueryKey(),
+        });
         toast({ title: "Document deleted" });
         setLocation("/browse");
       },
@@ -167,6 +177,8 @@ export default function DocumentDetail() {
           isStatusUpdating={updateDocMutation.isPending}
           isDeleting={deleteDocMutation.isPending}
         />
+
+        <VersionsPanel documentId={id} canManage={canEdit} />
 
         <CommentsThread
           documentId={id}

@@ -6,7 +6,7 @@ const router: IRouter = Router();
 
 router.get("/storage/quota/me", requireAuth, async (req, res, next) => {
   try {
-    const dto = await usersService.quotaSnapshotForUser(req.authUser!.id);
+    const dto = await usersService.quotaSnapshotForUser(req.authUser!);
     res.json(dto);
   } catch (err) {
     next(err);

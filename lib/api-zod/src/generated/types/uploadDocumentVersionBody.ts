@@ -6,7 +6,8 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type DownloadDocumentParams = {
-  token: string;
-  versionId?: string;
+export type UploadDocumentVersionBody = {
+  file: Blob;
+  /** @maxLength 500 */
+  changeNote?: string;
 };

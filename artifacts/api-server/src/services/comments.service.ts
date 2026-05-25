@@ -207,11 +207,10 @@ export async function updateComment(
 ): Promise<CommentDTO> {
   const c = await commentsRepo.findAliveById(commentId);
   if (!c) throw notFound("Comment not found");
-  if (c.authorId !== user.id) {
-    const doc = await docsRepo.findByIdAlive(c.documentId);
-    if (!doc || !permissions.canModerateCommentOnDocument(doc, user)) {
-      throw forbidden("Cannot edit this comment");
-    }
+  // Only the author may edit a comment (see permissions.canEditComment).
+  // Moderation lets lecturers/admins remove a comment but not rewrite it.
+  if (!permissions.canEditComment(c, user)) {
+    throw forbidden("Cannot edit this comment");
   }
   if (body.body === undefined && body.pageNumber === undefined) {
     throw badRequest("No changes provided");
@@ -250,11 +249,10 @@ export async function deleteComment(
 ): Promise<void> {
   const c = await commentsRepo.findAliveById(commentId);
   if (!c) throw notFound("Comment not found");
-  if (c.authorId !== user.id) {
-    const doc = await docsRepo.findByIdAlive(c.documentId);
-    if (!doc || !permissions.canModerateCommentOnDocument(doc, user)) {
-      throw forbidden("Cannot delete this comment");
-    }
+  // Author OR a doc-level moderator (see permissions.canDeleteComment).
+  const doc = await docsRepo.findByIdAlive(c.documentId);
+  if (!doc || !permissions.canDeleteComment(c, doc, user)) {
+    throw forbidden("Cannot delete this comment");
   }
   await commentsRepo.softDeleteById(commentId);
   await auditService.record(user.id, "comment.delete", "comment", commentId);

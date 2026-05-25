@@ -17,6 +17,9 @@ import {
   PreviewDocumentQueryParams,
   GetDocumentThumbnailParams,
   GetDocumentThumbnailQueryParams,
+  ListDocumentVersionsParams,
+  UploadDocumentVersionParams,
+  RestoreDocumentVersionParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { forbidden } from "../lib/errors";
@@ -227,6 +230,68 @@ router.get(
   },
 );
 
+// ─── Versions (US-5) ─────────────────────────────────────────────
+router.get(
+  "/documents/:id/versions",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { id } = ListDocumentVersionsParams.parse(req.params);
+      const dto = await documentsService.listVersions(id, req.authUser!);
+      res.json(dto);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/documents/:id/versions",
+  requireAuth,
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      const { id } = UploadDocumentVersionParams.parse(req.params);
+      const file = req.file as Express.Multer.File | undefined;
+      if (!file) return next(forbidden("No file provided"));
+      const changeNoteRaw =
+        typeof req.body?.changeNote === "string"
+          ? req.body.changeNote
+          : undefined;
+      const input: documentsService.UploadVersionInput = { file };
+      if (changeNoteRaw && changeNoteRaw.trim().length > 0) {
+        input.changeNote = changeNoteRaw.slice(0, 500);
+      }
+      const dto = await documentsService.uploadNewVersion(
+        id,
+        input,
+        req.authUser!,
+      );
+      res.status(201).json(dto);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/documents/:id/versions/:versionId/restore",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { id, versionId } = RestoreDocumentVersionParams.parse(req.params);
+      const dto = await documentsService.restoreVersion(
+        id,
+        versionId,
+        req.authUser!,
+      );
+      res.json(dto);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 router.get("/documents/:id/preview", async (req, res, next) => {
   try {
     const { id } = PreviewDocumentParams.parse(req.params);
@@ -250,8 +315,8 @@ router.get("/documents/:id/thumbnail", async (req, res, next) => {
 router.get("/documents/:id/download", async (req, res, next) => {
   try {
     const { id } = DownloadDocumentParams.parse(req.params);
-    const { token } = DownloadDocumentQueryParams.parse(req.query);
-    await documentsService.streamDownload(id, token, res);
+    const { token, versionId } = DownloadDocumentQueryParams.parse(req.query);
+    await documentsService.streamDownload(id, token, res, versionId);
   } catch (err) {
     next(err);
   }

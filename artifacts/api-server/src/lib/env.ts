@@ -55,9 +55,15 @@ const envSchema = z.object({
 
   SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(50),
-  // Server-wide default per-user storage quota (in MB). Individual users
-  // can override via `users.quota_bytes`; when NULL this value is used.
+  // Server-wide default per-user storage quota (in MB). Used as the
+  // *floor* when no role-specific default applies, and as the value
+  // returned for users with no roles. Individual users can override via
+  // `users.quota_bytes`; when NULL the role-based default kicks in.
   DEFAULT_USER_STORAGE_QUOTA_MB: z.coerce.number().int().positive().default(500),
+  // Role-based quota defaults (US-10). Admins are effectively unlimited
+  // via a sentinel; lecturers get 10 GB; students 1 GB. All in MB.
+  DEFAULT_STUDENT_QUOTA_MB: z.coerce.number().int().positive().default(1024),
+  DEFAULT_LECTURER_QUOTA_MB: z.coerce.number().int().positive().default(10240),
 
   ALLOWED_MIME_TYPES: csvList.default(DEFAULT_ALLOWED_MIME_TYPES),
 
@@ -88,6 +94,14 @@ export const env = {
   maxUploadMb: e.MAX_UPLOAD_MB,
   defaultUserStorageQuotaBytes:
     BigInt(e.DEFAULT_USER_STORAGE_QUOTA_MB) * BigInt(1024 * 1024),
+  defaultStudentQuotaBytes:
+    BigInt(e.DEFAULT_STUDENT_QUOTA_MB) * BigInt(1024 * 1024),
+  defaultLecturerQuotaBytes:
+    BigInt(e.DEFAULT_LECTURER_QUOTA_MB) * BigInt(1024 * 1024),
+  // Sentinel "unlimited" for admins. Comfortably above any per-user
+  // override but still inside the PostgreSQL BIGINT range so arithmetic
+  // never traps. ≈ 8 EB.
+  unlimitedQuotaBytes: BigInt("9000000000000000000"),
   allowedMimeTypes: e.ALLOWED_MIME_TYPES,
   storageDriver: e.STORAGE_DRIVER,
   storageLocalRoot: e.STORAGE_LOCAL_ROOT

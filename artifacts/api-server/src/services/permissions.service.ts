@@ -127,6 +127,44 @@ export function canModerateCommentOnDocument(
   return false;
 }
 
+/**
+ * Can the user edit this comment? Authors may always edit their own
+ * comments. Moderation does *not* extend to edits (it would let
+ * lecturers/admins put words in other users' mouths) — only deletes.
+ */
+export function canEditComment(
+  comment: { authorId: string },
+  user: AuthenticatedUser,
+): boolean {
+  return comment.authorId === user.id;
+}
+
+/**
+ * Can the user delete this comment? Authors may delete their own;
+ * lecturers/admins may moderate-delete others' comments on documents
+ * they manage.
+ */
+export function canDeleteComment(
+  comment: { authorId: string },
+  doc: DocumentForPermission,
+  user: AuthenticatedUser,
+): boolean {
+  if (comment.authorId === user.id) return true;
+  return canModerateCommentOnDocument(doc, user);
+}
+
+/**
+ * Can the user upload a new version of this document, or restore an
+ * older one as the latest? Same rule as editing the document metadata
+ * (US-5). Centralised here so routes and service layer share one truth.
+ */
+export function canManageVersions(
+  doc: DocumentForPermission,
+  user: AuthenticatedUser,
+): boolean {
+  return canEdit(doc, user);
+}
+
 /** Can the user upload new documents at all? */
 export function canUpload(user: AuthenticatedUser): boolean {
   return isAdmin(user) || hasRole(user, "lecturer");

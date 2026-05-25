@@ -1,0 +1,401 @@
+You are continuing the EXISTING Sprint 2 codebase in this Replit workspace.
+
+IMPORTANT:
+This is NOT a rewrite.
+This is NOT Sprint 3.
+Do NOT overengineer.
+Do NOT introduce enterprise infrastructure.
+Do NOT change the core architecture.
+
+Your task is ONLY to add lightweight completion-level improvements for:
+- US-5 Versioning
+- US-10 Storage Quotas
+- US-34 Granular Permissions
+
+The goal is:
+- complete the missing MVP-level functionality
+- improve architecture maturity
+- prepare clean extension points for Sprint 3
+- preserve all existing working functionality
+
+==================================================
+CRITICAL RULES
+==================================================
+
+DO NOT:
+- rewrite upload architecture
+- replace auth system
+- replace RBAC system
+- introduce microservices
+- add heavy background job systems
+- add distributed storage logic
+- add enterprise ACL engines
+- add complex version graphs
+- add workflow engines
+- add billing/accounting systems
+- refactor the whole database
+
+PRESERVE:
+- current routes
+- current APIs
+- current frontend structure
+- current OpenAPI setup
+- current repository/service layering
+- current storage abstraction
+
+Only extend existing architecture cleanly.
+
+==================================================
+GOALS
+==================================================
+
+Implement lightweight but REAL:
+1. document version history
+2. persistent quota tracking
+3. centralized policy-based permission layer
+
+These should:
+- improve UX
+- improve maintainability
+- improve backend consistency
+- improve Sprint 3 readiness
+
+WITHOUT turning Sprint 2 into an enterprise platform.
+
+==================================================
+1. LIGHTWEIGHT DOCUMENT VERSIONING (US-5)
+==================================================
+
+Current state:
+- upload system already exists
+- documents/files already exist
+- architecture is version-ready
+
+Implement a SIMPLE linear version history system.
+
+==================================================
+BACKEND REQUIREMENTS
+==================================================
+
+Create or extend a lightweight version model.
+
+Suggested structure:
+- DocumentVersion
+  - id
+  - documentId
+  - versionNumber
+  - fileId or file reference
+  - createdBy
+  - createdAt
+  - changeNote (optional)
+
+Requirements:
+- preserve previous file versions
+- latest upload becomes current version
+- previous versions remain accessible
+- no destructive overwrite of historical versions
+- maintain compatibility with current document APIs
+
+Add:
+- repository methods
+- service methods
+- validation
+- audit logging
+
+==================================================
+VERSIONING FLOW
+==================================================
+
+When uploading replacement/new version:
+- create new DocumentVersion row
+- increment version number
+- mark latest/current version cleanly
+- preserve old versions
+
+==================================================
+API REQUIREMENTS
+==================================================
+
+Add endpoints such as:
+- GET /documents/:id/versions
+- POST /documents/:id/restore-version/:versionId
+
+Keep APIs simple and RESTful.
+
+==================================================
+FRONTEND REQUIREMENTS
+==================================================
+
+Add lightweight UI ONLY.
+
+Examples:
+- Version History modal/panel
+- show:
+  - version number
+  - upload date
+  - uploader
+  - optional change note
+
+Allow:
+- download/view older version
+- restore older version as latest
+
+DO NOT build:
+- side-by-side diff
+- compare UI
+- advanced history browser
+
+==================================================
+IMPORTANT VERSIONING RULES
+==================================================
+
+DO NOT:
+- create branching/version trees
+- implement Git-like history
+- implement merge logic
+- rewrite storage architecture
+
+Keep versioning:
+- linear
+- lightweight
+- maintainable
+- Sprint-2-sized
+
+==================================================
+2. PERSISTENT STORAGE QUOTAS (US-10)
+==================================================
+
+Current state:
+- upload validation exists
+- storage abstraction exists
+- auth/users already exist
+
+Implement a SIMPLE but REAL quota system.
+
+==================================================
+BACKEND REQUIREMENTS
+==================================================
+
+Add persistent storage tracking.
+
+Suggested:
+- user.storageUsedBytes
+OR
+- calculated aggregation service
+
+Requirements:
+- track actual uploaded storage usage
+- update usage during upload/delete/version replace
+- prevent uploads exceeding quota
+- reject before storage write if possible
+
+==================================================
+ROLE-BASED QUOTAS
+==================================================
+
+Implement lightweight role-based quota config.
+
+Example:
+- student: 1GB
+- lecturer: 10GB
+- admin: unlimited
+
+Use:
+- env config
+OR
+- centralized config service
+
+DO NOT hardcode values everywhere.
+
+==================================================
+QUOTA SERVICE
+==================================================
+
+Create centralized service:
+- quotaService.canUpload(...)
+- quotaService.getUsage(...)
+- quotaService.getLimit(...)
+
+Keep logic OUT of route handlers.
+
+==================================================
+FRONTEND REQUIREMENTS
+==================================================
+
+Add lightweight quota UI:
+- usage progress bar
+- used/remaining display
+- upload rejection messaging
+
+Requirements:
+- clear UX
+- no silent failure
+- no broken upload queue after rejection
+
+==================================================
+IMPORTANT QUOTA RULES
+==================================================
+
+DO NOT implement:
+- billing
+- tenant accounting
+- cloud provider sync
+- archive lifecycle systems
+- distributed reconciliation
+
+Keep this:
+- local
+- simple
+- maintainable
+- extensible later
+
+==================================================
+3. CENTRALIZED POLICY-BASED PERMISSIONS (US-34)
+==================================================
+
+Current state:
+- RBAC exists
+- backend checks exist
+- middleware exists
+
+Current problem:
+authorization logic is likely scattered.
+
+Your task:
+CENTRALIZE authorization logic.
+
+==================================================
+BACKEND REQUIREMENTS
+==================================================
+
+Create lightweight policy modules/services.
+
+Examples:
+- documentPolicies.ts
+- commentPolicies.ts
+- requestPolicies.ts
+
+OR:
+- permissionService.ts
+
+==================================================
+POLICY EXAMPLES
+==================================================
+
+Examples:
+- canEditDocument(user, document)
+- canDeleteComment(user, comment)
+- canRestoreVersion(user, document)
+- canVoteRequest(user, request)
+
+==================================================
+REQUIREMENTS
+==================================================
+
+Move authorization logic OUT of:
+- controllers
+- routes
+- random frontend checks
+
+Centralize backend policy decisions.
+
+==================================================
+IMPLEMENT OWNERSHIP-AWARE RULES
+==================================================
+
+Support clean rules such as:
+- uploader can edit own document
+- lecturer can manage own course materials
+- admin bypasses restrictions
+- comment owner can delete own comment
+
+==================================================
+MIDDLEWARE CLEANUP
+==================================================
+
+Improve middleware consistency:
+- standardized forbidden responses
+- reusable authorization helpers
+- cleaner policy evaluation flow
+
+==================================================
+IMPORTANT PERMISSION RULES
+==================================================
+
+DO NOT implement:
+- enterprise ACL tables
+- GUI permission editors
+- dynamic role builders
+- policy DSL systems
+- inheritance graphs
+- delegated sharing systems
+
+Keep this:
+- code-based
+- centralized
+- maintainable
+- extensible
+
+==================================================
+4. ARCHITECTURE REQUIREMENTS
+==================================================
+
+Maintain:
+- existing modular monolith architecture
+- repository/service layering
+- OpenAPI compatibility
+- generated client compatibility
+
+Add:
+- clean extension points for Sprint 3
+- TODO comments where future scaling hooks belong
+
+Examples:
+- advanced ACL TODO
+- cloud storage TODO
+- advanced version diff TODO
+
+==================================================
+5. TESTING REQUIREMENTS
+==================================================
+
+Add focused tests for:
+- version creation
+- restore latest
+- quota rejection
+- quota calculations
+- policy evaluation
+- ownership checks
+- forbidden access
+
+Do NOT add huge testing frameworks.
+
+==================================================
+6. FINAL QA REQUIREMENTS
+==================================================
+
+Before finishing:
+- ensure TypeScript passes
+- ensure no broken imports
+- ensure existing upload flow still works
+- ensure search/filtering unaffected
+- ensure preview/download unaffected
+- ensure audit logging still works
+- ensure signed URLs still work
+
+==================================================
+FINAL OUTPUT
+==================================================
+
+At the end provide:
+1. files changed
+2. DB/schema changes
+3. APIs added
+4. UI additions
+5. policy architecture summary
+6. remaining intentionally deferred Sprint 3 concerns
+
+MOST IMPORTANT:
+This is a lightweight completion pass and Sprint-3 preparation pass.
+NOT an enterprise rewrite.
+Preserve existing working behavior.

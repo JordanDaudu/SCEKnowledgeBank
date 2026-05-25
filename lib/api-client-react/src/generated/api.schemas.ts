@@ -318,6 +318,23 @@ export interface StorageQuota {
   remainingBytes: number;
 }
 
+export interface DocumentVersion {
+  id: string;
+  documentId: string;
+  /** @minimum 1 */
+  versionNumber: number;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** SHA-256 hex */
+  checksum: string;
+  changeNote?: string | null;
+  uploadedAt: string;
+  uploader?: UserSummary | null;
+  /** True for the row whose versionNumber is highest. */
+  isCurrent: boolean;
+}
+
 export interface SignedTokenResponse {
   token: string;
   expiresAt: string;
@@ -503,6 +520,13 @@ export type PreviewDocumentParams = {
 
 export type DownloadDocumentParams = {
   token: string;
+  versionId?: string;
+};
+
+export type UploadDocumentVersionBody = {
+  file: Blob;
+  /** @maxLength 500 */
+  changeNote?: string;
 };
 
 export type ListRequestsParams = {

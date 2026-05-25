@@ -6,6 +6,7 @@ import * as taxonomyRepo from "../repositories/taxonomy.repo";
 import * as commentsRepo from "../repositories/comments.repo";
 import * as viewRepo from "../repositories/viewHistory.repo";
 import * as usersService from "./users.service";
+import * as quotaService from "./quota.service";
 import * as taxonomyService from "./taxonomy.service";
 import * as auditService from "./audit.service";
 import * as permissions from "./permissions.service";
@@ -447,7 +448,12 @@ export async function deleteDocument(
   if (!doc) throw notFound("Document not found");
   if (!permissions.canDelete(doc, user))
     throw forbidden("Cannot delete this document");
-  await docsRepo.softDeleteDocument(id, user.id);
+  // US-10: free the bytes from the uploader's quota atomically with
+  // the soft-delete. Storage blobs are intentionally NOT purged here —
+  // an admin can hard-restore by un-setting `deleted_at` if needed.
+  // TODO(sprint-3): background reaper that hard-deletes blobs after a
+  // grace period and reconciles the quota counter.
+  await docsRepo.softDeleteDocumentAndReleaseQuota(id, user.id);
   await auditService.record(user.id, "document.delete", "document", id);
 }
 
@@ -527,7 +533,7 @@ export async function uploadDocuments(
   // in BigInt throughout to avoid Number precision loss on multi-GB
   // quotas.
   const { usedBytes: startUsed, quotaBytes } =
-    await usersService.resolveEffectiveQuotaBytes(user.id);
+    await usersService.resolveEffectiveQuotaBytes(user);
   let plannedUsed = startUsed;
 
   const existingNames = await docsRepo.findUploaderDisplayFilenames(user.id);
@@ -746,6 +752,234 @@ export async function uploadDocuments(
   return results;
 }
 
+// ─── Versioning (US-5) ─────────────────────────────────────────────
+export interface DocumentVersionDTO {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  checksum: string;
+  changeNote: string | null;
+  uploadedAt: string;
+  uploader: usersService.UserSummaryDTO | null;
+  isCurrent: boolean;
+}
+
+async function toVersionDTOs(
+  rows: docsRepo.DocumentVersionRow[],
+): Promise<DocumentVersionDTO[]> {
+  const uploaderIds = Array.from(
+    new Set(rows.map((r) => r.uploadedById).filter((id): id is string => !!id)),
+  );
+  const uploaders = await usersService.loadUserSummaries(uploaderIds);
+  return rows.map((r) => ({
+    id: r.id,
+    documentId: r.documentId,
+    versionNumber: r.versionNumber,
+    originalFilename: r.originalFilename,
+    mimeType: r.mimeType,
+    sizeBytes: r.sizeBytes,
+    checksum: r.checksum,
+    changeNote: r.changeNote,
+    uploadedAt: r.uploadedAt.toISOString(),
+    uploader: r.uploadedById ? uploaders.get(r.uploadedById) ?? null : null,
+    isCurrent: r.isCurrent,
+  }));
+}
+
+export async function listVersions(
+  documentId: string,
+  user: AuthenticatedUser,
+): Promise<DocumentVersionDTO[]> {
+  const doc = await docsRepo.findByIdAlive(documentId);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canView(doc, user))
+    throw forbidden("Cannot view this document");
+  const rows = await docsRepo.findVersionsByDocument(documentId);
+  return toVersionDTOs(rows);
+}
+
+export interface UploadVersionInput {
+  file: Express.Multer.File;
+  changeNote?: string;
+}
+
+export async function uploadNewVersion(
+  documentId: string,
+  input: UploadVersionInput,
+  user: AuthenticatedUser,
+): Promise<DocumentVersionDTO> {
+  const doc = await docsRepo.findByIdAlive(documentId);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canManageVersions(doc, user))
+    throw forbidden("Cannot upload a new version of this document");
+
+  const file = input.file;
+  if (!file) throw badRequest("No file provided");
+  if (
+    env.allowedMimeTypes.length > 0 &&
+    !env.allowedMimeTypes.includes(file.mimetype)
+  ) {
+    throw badRequest(`Disallowed mime type: ${file.mimetype}`);
+  }
+  if (!mimeMatchesContent(file.mimetype, file.buffer)) {
+    throw badRequest(
+      `File content does not match declared type ${file.mimetype}`,
+    );
+  }
+
+  // Quota gate against the original uploader (storage bytes always
+  // belong to the user who owns the document, not the user uploading
+  // the new version). In the common case those are the same person and
+  // we can reuse the in-memory roles; otherwise we look the uploader
+  // up by id so the role-based default still applies.
+  const q =
+    doc.uploaderId === user.id
+      ? await quotaService.effectiveQuotaForUser(user)
+      : await quotaService.effectiveQuotaById(doc.uploaderId);
+  const fileSize = BigInt(file.size);
+  if (!quotaService.canFit(q, fileSize)) {
+    throw badRequest(
+      `Storage quota exceeded for the document's uploader — ${Number(q.quotaBytes - q.usedBytes > 0n ? q.quotaBytes - q.usedBytes : 0n)} bytes remaining of ${Number(q.quotaBytes)}.`,
+    );
+  }
+
+  // Persist the new blob under a versioned key.
+  const checksum = sha256Hex(file.buffer);
+  const ext = file.originalname.includes(".")
+    ? file.originalname.slice(file.originalname.lastIndexOf("."))
+    : "";
+  const safeExt = ext.replace(/[^A-Za-z0-9.]/g, "").slice(0, 16);
+  const nextVersionGuess = doc.currentVersion + 1;
+  const key = `documents/${documentId.slice(0, 2)}/${documentId}.v${nextVersionGuess}-${uuidv4().slice(0, 8)}${safeExt}`;
+  const put = await getStorage().put({
+    key,
+    body: file.buffer,
+    contentType: file.mimetype,
+    precomputedChecksum: checksum,
+  });
+
+  // Run extractor; failures are non-fatal — version still uploads.
+  const extracted = await extractMetadata({
+    buffer: file.buffer,
+    mimeType: file.mimetype,
+    filename: file.originalname,
+  });
+  let thumbnailPath: string | null = null;
+  let thumbnailMimeType: string | null = null;
+  if (extracted.thumbnail) {
+    try {
+      const thumbKey = `thumbnails/${documentId.slice(0, 2)}/${documentId}.v${nextVersionGuess}.jpg`;
+      const thumbPut = await getStorage().put({
+        key: thumbKey,
+        body: extracted.thumbnail.body,
+        contentType: extracted.thumbnail.mimeType,
+      });
+      thumbnailPath = thumbPut.key;
+      thumbnailMimeType = extracted.thumbnail.mimeType;
+    } catch {
+      thumbnailPath = null;
+    }
+  }
+
+  const inserted = await docsRepo.insertNewVersionFile({
+    documentId,
+    uploadedById: user.id,
+    countTowardQuota: true,
+    uploaderIdForQuota: doc.uploaderId,
+    fileValues: {
+      originalFilename: file.originalname,
+      displayFilename: file.originalname,
+      storedFilename: key.split("/").pop() ?? key,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      storagePath: put.key,
+      storageDriver: put.driver,
+      checksum: put.checksum,
+      extractedText: extracted.extractedText ?? null,
+      pageCount: extracted.pageCount ?? null,
+      detectedTitle: extracted.detectedTitle ?? null,
+      author: extracted.author ?? null,
+      imageWidth: extracted.imageWidth ?? null,
+      imageHeight: extracted.imageHeight ?? null,
+      thumbnailPath,
+      thumbnailMimeType,
+      changeNote: input.changeNote?.trim() || null,
+    },
+  });
+
+  await auditService.record(
+    user.id,
+    "document.version.create",
+    "document",
+    documentId,
+    { versionNumber: inserted.versionNumber, sizeBytes: file.size },
+  );
+
+  const [dto] = await toVersionDTOs([inserted]);
+  return dto;
+}
+
+/**
+ * "Restore" an older version by making it the new latest. Implemented
+ * as a *forward* operation: insert a new DocumentFile row that points
+ * at the same storage blob as the source version, with a fresh
+ * versionNumber. The original old row stays intact, preserving full
+ * linear history. No bytes are added to the user's quota — the blob
+ * is shared.
+ */
+export async function restoreVersion(
+  documentId: string,
+  versionId: string,
+  user: AuthenticatedUser,
+): Promise<DocumentVersionDTO> {
+  const doc = await docsRepo.findByIdAlive(documentId);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canManageVersions(doc, user))
+    throw forbidden("Cannot restore versions of this document");
+  const source = await docsRepo.findVersionByIdAndDocument(versionId, documentId);
+  if (!source) throw notFound("Version not found");
+  if (source.isCurrent) {
+    throw badRequest("This version is already the current one");
+  }
+
+  const inserted = await docsRepo.insertNewVersionFile({
+    documentId,
+    uploadedById: user.id,
+    // The blob is shared with the source version → do NOT double-count
+    // it against quota. The original upload already paid the cost.
+    countTowardQuota: false,
+    uploaderIdForQuota: doc.uploaderId,
+    fileValues: {
+      originalFilename: source.originalFilename,
+      displayFilename: source.displayFilename,
+      storedFilename: source.storagePath.split("/").pop() ?? source.storagePath,
+      mimeType: source.mimeType,
+      sizeBytes: source.sizeBytes,
+      storagePath: source.storagePath,
+      storageDriver: source.storageDriver,
+      checksum: source.checksum,
+      changeNote: `Restored from version ${source.versionNumber}`,
+    },
+  });
+
+  await auditService.record(
+    user.id,
+    "document.version.restore",
+    "document",
+    documentId,
+    {
+      restoredFromVersion: source.versionNumber,
+      newVersionNumber: inserted.versionNumber,
+    },
+  );
+
+  const [dto] = await toVersionDTOs([inserted]);
+  return dto;
+}
+
 // ─── Signed tokens ─────────────────────────────────────────────────
 export interface SignedTokenDTO {
   token: string;
@@ -788,10 +1022,27 @@ async function streamFile(
   documentId: string,
   res: Response,
   disposition: "inline" | "attachment",
+  versionId?: string,
 ): Promise<void> {
   const doc = await docsRepo.findByIdAlive(documentId);
   if (!doc) throw notFound("Document not found");
-  const file = await docsRepo.findLatestFileForDocument(doc.id);
+  let file: {
+    storagePath: string;
+    mimeType: string;
+    sizeBytes: number | bigint;
+    originalFilename: string;
+  } | null = null;
+  if (versionId) {
+    // Caller asked for a specific historical version. We've already
+    // verified the user can view the document via the signed token; an
+    // older version is no broader than the current one, so allowing
+    // download is safe.
+    const v = await docsRepo.findVersionByIdAndDocument(versionId, documentId);
+    if (!v) throw notFound("Version not found");
+    file = v;
+  } else {
+    file = await docsRepo.findLatestFileForDocument(doc.id);
+  }
   if (!file) throw notFound("Document has no file");
   const stream = await getStorage().getStream(file.storagePath);
   res.setHeader("Content-Type", file.mimeType);
@@ -822,10 +1073,11 @@ export async function streamDownload(
   id: string,
   token: string,
   res: Response,
+  versionId?: string,
 ): Promise<void> {
   const result = verifyToken(token, id, "download");
   if (!result.valid) throw unauthorized("Invalid or expired token");
-  await streamFile(id, res, "attachment");
+  await streamFile(id, res, "attachment", versionId);
   void auditService.record(
     result.userId ?? null,
     "document.download",

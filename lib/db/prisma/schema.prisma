@@ -68,6 +68,7 @@ model User {
   documentsOwned    Document[]            @relation("DocumentOwner")
   documentsCreated  Document[]            @relation("DocumentCreator")
   documentsUpdated  Document[]            @relation("DocumentUpdater")
+  documentFilesUploaded DocumentFile[]    @relation("DocumentFileUploadedBy")
   coursesLectured   Course[]
   comments          Comment[]
   commentMentions   CommentMention[]      @relation("CommentMentionUser")
@@ -237,6 +238,23 @@ model DocumentFile {
   versionLabel     String?  @map("version_label")
   uploadedAt       DateTime @default(now()) @map("uploaded_at") @db.Timestamptz()
 
+  // ─── Versioning (US-5) ─────────────────────────────────────────
+  // Each DocumentFile row is a linear version of its parent Document.
+  // `versionNumber` is monotonically assigned per document (1, 2, 3…).
+  // `changeNote` is the optional uploader note ("Fixed typos on p.4").
+  // `uploadedById` records who uploaded this revision; nullable so
+  // historical rows backfilled from the pre-versioning era stay valid.
+  // TODO(sprint-3): richer diff/compare UI, branching versions,
+  // ETag-style content-addressed dedup across versions.
+  versionNumber     Int      @default(1) @map("version_number")
+  changeNote        String?  @map("change_note")
+  uploadedById      String?  @map("uploaded_by_id") @db.Uuid
+  // Was this row billed against the uploader's quota at insert time?
+  // `false` is set by restoreVersion (it reuses an existing
+  // storage_path / blob, so we must not re-bill). Used by
+  // softDeleteDocumentAndReleaseQuota to release the right amount.
+  countedTowardQuota Boolean @default(true) @map("counted_toward_quota")
+
   // ─── Extracted metadata (Sprint 2, task #27) ──────────────────
   // Populated server-side on upload by `metadata.service.ts`. All
   // fields are nullable: extraction failure or unsupported file types
@@ -251,9 +269,11 @@ model DocumentFile {
   thumbnailMimeType String? @map("thumbnail_mime_type")
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy User?  @relation("DocumentFileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([documentId], map: "document_files_document_idx")
   @@index([checksum], map: "document_files_checksum_idx")
+  @@index([documentId, versionNumber(sort: Desc)], map: "document_files_document_version_idx")
   @@map("document_files")
 }
 
