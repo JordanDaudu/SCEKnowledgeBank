@@ -16,7 +16,24 @@ import AdminUsers from "@/pages/admin-users";
 import { Layout } from "@/components/layout";
 import { AuthGuard } from "@/components/auth-guard";
 
-const queryClient = new QueryClient();
+// Sensible defaults so currently-fresh reference data (courses, tags,
+// categories, current user, storage quota) isn't refetched on every mount
+// or tab focus — the API logs were showing repeated bursts of identical
+// GETs caused by multiple components each independently subscribing.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      retry: 1,
+    },
+    mutations: {
+      retry: 0,
+    },
+  },
+});
 
 function Router() {
   return (

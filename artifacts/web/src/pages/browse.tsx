@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useListDocuments,
   useListCourses,
@@ -44,8 +44,8 @@ function readView(): BrowseView {
 }
 
 export default function Browse() {
-  const initialSearch = useSearch();
-  const initialParams = useMemo(() => new URLSearchParams(initialSearch), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const currentSearch = useSearch();
+  const initialParams = useMemo(() => new URLSearchParams(currentSearch), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [query, setQuery] = useState(initialParams.get("q") ?? "");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -62,6 +62,29 @@ export default function Browse() {
   const [dateTo, setDateTo] = useState<string>(initialParams.get("dateTo") ?? "");
   const [sort, setSort] = useState<Sort>(((initialParams.get("sort") as Sort) || "newest") as Sort);
   const [page, setPage] = useState<number>(Number(initialParams.get("page") ?? "1") || 1);
+
+  // Two-way URL sync: when the URL search string changes from outside
+  // (browser back/forward, an external setLocation), rehydrate state.
+  // We use a guard ref so our own writes (via useQueryStateSync below)
+  // don't trigger a spurious re-rehydration cycle.
+  const lastAppliedSearchRef = useRef<string>(currentSearch);
+  useEffect(() => {
+    if (currentSearch === lastAppliedSearchRef.current) return;
+    lastAppliedSearchRef.current = currentSearch;
+    const p = new URLSearchParams(currentSearch);
+    setQuery(p.get("q") ?? "");
+    setCourseId(p.get("courseId") ?? "all");
+    setLecturerName(p.get("lecturerName") ?? "");
+    setSemester(((p.get("semester") as Semester) || "") as Semester);
+    setAcademicYear(p.get("academicYear") ?? "");
+    setCategoryId(p.get("categoryId") ?? "all");
+    setMaterialType(p.get("materialType") ?? "all");
+    setTagIds(p.getAll("tagIds"));
+    setDateFrom(p.get("dateFrom") ?? "");
+    setDateTo(p.get("dateTo") ?? "");
+    setSort(((p.get("sort") as Sort) || "newest") as Sort);
+    setPage(Number(p.get("page") ?? "1") || 1);
+  }, [currentSearch]);
   const [view, setView] = useState<BrowseView>(() => readView());
 
   useEffect(() => {
@@ -71,47 +94,84 @@ export default function Browse() {
   const debouncedQuery = useDebounce(query, 300);
   const debouncedLecturer = useDebounce(lecturerName, 300);
 
+  // Serialize tagIds so the page-reset effect doesn't fire on a new array
+  // identity that contains the same ids.
+  const tagIdsKey = tagIds.join(",");
+
+  // Skip the initial-mount page-reset so a deep link like
+  // `/browse?page=3&q=foo` is preserved on first render. Subsequent
+  // filter changes still snap back to page 1.
+  const filtersSettled = useRef(false);
   useEffect(() => {
+    if (!filtersSettled.current) {
+      filtersSettled.current = true;
+      return;
+    }
     setPage(1);
   }, [
     debouncedQuery, debouncedLecturer, courseId, semester, academicYear,
-    categoryId, materialType, tagIds, dateFrom, dateTo, sort,
+    categoryId, materialType, tagIdsKey, dateFrom, dateTo, sort,
   ]);
 
-  useQueryStateSync({
-    q: debouncedQuery || undefined,
-    courseId: courseId !== "all" ? courseId : undefined,
-    lecturerName: debouncedLecturer || undefined,
-    semester: semester || undefined,
-    academicYear: academicYear || undefined,
-    categoryId: categoryId !== "all" ? categoryId : undefined,
-    materialType: materialType !== "all" ? materialType : undefined,
-    tagIds: tagIds.length > 0 ? tagIds : undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
-    sort: sort !== "newest" ? sort : undefined,
-    page: page > 1 ? page : undefined,
-  });
+  // Rebuild the tagIds array from the canonical primitive key so
+  // downstream memos are driven purely by primitive deps.
+  const tagIdsStable = useMemo<string[]>(
+    () => (tagIdsKey ? tagIdsKey.split(",") : []),
+    [tagIdsKey],
+  );
+
+  // Memoize the URL-sync input on purely primitive deps so
+  // useQueryStateSync's internal useMemo([state]) sees a stable
+  // reference between renders.
+  const urlState = useMemo(
+    () => ({
+      q: debouncedQuery || undefined,
+      courseId: courseId !== "all" ? courseId : undefined,
+      lecturerName: debouncedLecturer || undefined,
+      semester: semester || undefined,
+      academicYear: academicYear || undefined,
+      categoryId: categoryId !== "all" ? categoryId : undefined,
+      materialType: materialType !== "all" ? materialType : undefined,
+      tagIds: tagIdsStable.length > 0 ? tagIdsStable : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      sort: sort !== "newest" ? sort : undefined,
+      page: page > 1 ? page : undefined,
+    }),
+    [
+      debouncedQuery, courseId, debouncedLecturer, semester, academicYear,
+      categoryId, materialType, tagIdsStable, dateFrom, dateTo, sort, page,
+    ],
+  );
+  useQueryStateSync(urlState);
 
   const { data: courses } = useListCourses();
   const { data: categories } = useListCategories();
   const { data: tags } = useListTags();
 
-  const params: ListDocumentsParams = {
-    q: debouncedQuery || undefined,
-    courseId: courseId !== "all" ? courseId : undefined,
-    lecturerName: debouncedLecturer || undefined,
-    semester: (semester || undefined) as ListDocumentsParams["semester"],
-    academicYear: academicYear ? Number(academicYear) : undefined,
-    categoryId: categoryId !== "all" ? categoryId : undefined,
-    materialType: materialType !== "all" ? materialType : undefined,
-    tagIds: tagIds.length > 0 ? tagIds : undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
-    sort,
-    page,
-    pageSize: 12,
-  };
+  // Memoize the request params on primitives so TanStack Query keys stay
+  // referentially stable and we don't generate duplicate in-flight fetches.
+  const params = useMemo<ListDocumentsParams>(
+    () => ({
+      q: debouncedQuery || undefined,
+      courseId: courseId !== "all" ? courseId : undefined,
+      lecturerName: debouncedLecturer || undefined,
+      semester: (semester || undefined) as ListDocumentsParams["semester"],
+      academicYear: academicYear ? Number(academicYear) : undefined,
+      categoryId: categoryId !== "all" ? categoryId : undefined,
+      materialType: materialType !== "all" ? materialType : undefined,
+      tagIds: tagIdsStable.length > 0 ? tagIdsStable : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      sort,
+      page,
+      pageSize: 12,
+    }),
+    [
+      debouncedQuery, courseId, debouncedLecturer, semester, academicYear,
+      categoryId, materialType, tagIdsStable, dateFrom, dateTo, sort, page,
+    ],
+  );
 
   const { data: pageData, isLoading, isFetching, isError, refetch } = useListDocuments(params, {
     query: {
@@ -120,6 +180,7 @@ export default function Browse() {
       // pauses refetchInterval automatically when the window is blurred.
       refetchInterval: 30_000,
       refetchOnWindowFocus: true,
+      staleTime: 15_000,
     },
   });
 
