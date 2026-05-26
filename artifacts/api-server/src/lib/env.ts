@@ -84,9 +84,25 @@ export const env = {
   nodeEnv: e.NODE_ENV,
   isProduction,
   port: e.PORT,
-  webOrigins: e.WEB_ORIGIN.split(",")
-    .map((s) => s.trim())
-    .filter(Boolean),
+  // CORS allowlist. Manually-configured WEB_ORIGIN (comma-separated)
+  // wins, but we also auto-include the Replit-injected deployment
+  // domains (REPLIT_DOMAINS) and the dev domain (REPLIT_DEV_DOMAIN)
+  // so a fresh deploy works without the user touching env vars.
+  webOrigins: Array.from(
+    new Set([
+      ...e.WEB_ORIGIN.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      ...(process.env.REPLIT_DOMAINS ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((host) => `https://${host}`),
+      ...(process.env.REPLIT_DEV_DOMAIN
+        ? [`https://${process.env.REPLIT_DEV_DOMAIN.trim()}`]
+        : []),
+    ]),
+  ),
   databaseUrl: e.DATABASE_URL,
   sessionSecret: e.SESSION_SECRET,
   signedUrlSecret: e.SIGNED_URL_SECRET,
