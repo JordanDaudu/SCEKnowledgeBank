@@ -1053,6 +1053,17 @@ async function streamFile(
     `${disposition}; filename="${safeName}"`,
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
+  if (disposition === "inline") {
+    // Inline (preview) responses are loaded inside an <iframe> on the
+    // web app. Without explicit framing permissions, Chrome shows its
+    // "This page has been blocked by Chrome" interstitial when any
+    // upstream proxy injects a restrictive X-Frame-Options or COEP
+    // header. Authorise same-origin framing on the response itself.
+    res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+    res.setHeader("Cache-Control", "private, no-store");
+  }
   stream.pipe(res);
 }
 
@@ -1107,5 +1118,11 @@ export async function streamThumbnail(
   res.setHeader("Content-Type", file.thumbnailMimeType ?? "image/jpeg");
   res.setHeader("Cache-Control", "private, max-age=300");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  // Thumbnails are rendered as <img> in the SPA but may also surface
+  // inside iframed preview panes (e.g. fallback when in-browser
+  // preview is unsupported). Authorise same-origin embedding so
+  // upstream proxy defaults can't block them.
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
   stream.pipe(res);
 }
