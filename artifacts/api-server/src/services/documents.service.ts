@@ -1018,6 +1018,19 @@ export async function issueAccessToken(
 }
 
 // ─── Streaming ────────────────────────────────────────────────────
+/**
+ * Recognise "blob is missing from underlying storage" across drivers.
+ * Local: `fs.createReadStream` rejects with `err.code === "ENOENT"`.
+ * GCS:   the adapter pre-checks existence and synthesises `ENOENT`, but
+ *        a race or a direct stream call can still produce a Google API
+ *        error whose numeric `.code` is 404.
+ */
+function isStorageNotFound(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: unknown };
+  return e.code === "ENOENT" || e.code === 404;
+}
+
 async function streamFile(
   documentId: string,
   res: Response,
@@ -1044,7 +1057,20 @@ async function streamFile(
     file = await docsRepo.findLatestFileForDocument(doc.id);
   }
   if (!file) throw notFound("Document has no file");
-  const stream = await getStorage().getStream(file.storagePath);
+  let stream;
+  try {
+    stream = await getStorage().getStream(file.storagePath);
+  } catch (err) {
+    // Translate "blob missing from underlying storage" into a clean 404
+    // instead of a 500. This guards against drift between the DB
+    // (DocumentFile row exists) and the storage backend (object was
+    // deleted out-of-band, a stateless deploy lost its local cache,
+    // or a driver switch left the old keys behind). Without this,
+    // every such request becomes a 500 and Chrome renders the JSON
+    // error body as its blocked-page interstitial.
+    if (isStorageNotFound(err)) throw notFound("File not found");
+    throw err;
+  }
   res.setHeader("Content-Type", file.mimeType);
   res.setHeader("Content-Length", String(file.sizeBytes));
   const safeName = file.originalFilename.replace(/[^A-Za-z0-9._-]/g, "_");
@@ -1123,7 +1149,13 @@ export async function streamThumbnail(
   if (!result.valid) throw unauthorized("Invalid or expired token");
   const file = await docsRepo.findLatestFileForDocument(id);
   if (!file || !file.thumbnailPath) throw notFound("No thumbnail");
-  const stream = await getStorage().getStream(file.thumbnailPath);
+  let stream;
+  try {
+    stream = await getStorage().getStream(file.thumbnailPath);
+  } catch (err) {
+    if (isStorageNotFound(err)) throw notFound("No thumbnail");
+    throw err;
+  }
   res.setHeader("Content-Type", file.thumbnailMimeType ?? "image/jpeg");
   res.setHeader("Cache-Control", "private, max-age=300");
   res.setHeader("X-Content-Type-Options", "nosniff");
