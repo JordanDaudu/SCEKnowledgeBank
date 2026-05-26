@@ -1,0 +1,1 @@
+- [api-server production env requirements](api-server-prod-env.md) — env.ts fails fast in prod on missing/weak secrets; dev has fallbacks. Deployment "port never opened" usually means this.
