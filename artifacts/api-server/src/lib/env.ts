@@ -67,7 +67,7 @@ const envSchema = z.object({
 
   ALLOWED_MIME_TYPES: csvList.default(DEFAULT_ALLOWED_MIME_TYPES),
 
-  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  STORAGE_DRIVER: z.enum(["local", "s3", "gcs"]).optional(),
   STORAGE_LOCAL_ROOT: z.string().optional(),
 });
 
@@ -119,7 +119,19 @@ export const env = {
   // never traps. ≈ 8 EB.
   unlimitedQuotaBytes: BigInt("9000000000000000000"),
   allowedMimeTypes: e.ALLOWED_MIME_TYPES,
-  storageDriver: e.STORAGE_DRIVER,
+  // Storage driver selection:
+  //  - explicit STORAGE_DRIVER wins (local | s3 | gcs);
+  //  - otherwise auto-pick `gcs` when Replit Object Storage is
+  //    provisioned (DEFAULT_OBJECT_STORAGE_BUCKET_ID + PRIVATE_OBJECT_DIR
+  //    are injected by the platform);
+  //  - else fall back to `local` for dev convenience. This makes
+  //    deployments persist uploads automatically once Object Storage
+  //    is provisioned, without the user touching env vars.
+  storageDriver: (e.STORAGE_DRIVER ??
+    (process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID &&
+    process.env.PRIVATE_OBJECT_DIR
+      ? "gcs"
+      : "local")) as "local" | "s3" | "gcs",
   storageLocalRoot: e.STORAGE_LOCAL_ROOT
     ? path.resolve(e.STORAGE_LOCAL_ROOT)
     : path.resolve(process.cwd(), ".data/storage"),
