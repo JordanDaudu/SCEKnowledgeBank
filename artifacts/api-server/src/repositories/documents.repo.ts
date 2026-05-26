@@ -464,6 +464,200 @@ export async function softDeleteDocument(
   });
 }
 
+/**
+ * Soft-delete a document and release its storage bytes from the
+ * uploader's quota in a single transaction (US-10). Bytes are summed
+ * across every DocumentFile (i.e. every version) belonging to the doc.
+ * The uploader's `usedBytes` is floored at zero defensively in case
+ * historical drift exists.
+ */
+export async function softDeleteDocumentAndReleaseQuota(
+  id: string,
+  updatedBy: string,
+): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const doc = await tx.document.findUnique({
+      where: { id },
+      select: { uploaderId: true, deletedAt: true },
+    });
+    if (!doc || doc.deletedAt) return;
+    // Only release bytes that were *actually billed* on insert. Restore
+    // rows (countedTowardQuota=false) share an existing blob with an
+    // earlier version, so they were never debited and must not be
+    // credited back — otherwise repeated restore+delete would zero out
+    // the user's used_bytes while real storage is still in use.
+    const files = await tx.documentFile.findMany({
+      where: { documentId: id, countedTowardQuota: true },
+      select: { sizeBytes: true },
+    });
+    const total = files.reduce((s, f) => s + f.sizeBytes, 0n);
+    await tx.document.update({
+      where: { id },
+      data: { deletedAt: new Date(), updatedBy },
+    });
+    if (total > 0n) {
+      // GREATEST(0, used_bytes - total) so a counter that has drifted
+      // negative through historical migrations cannot wrap around.
+      await tx.$executeRaw`
+        UPDATE "users"
+        SET "used_bytes" = GREATEST(0, "used_bytes" - ${total}::bigint)
+        WHERE "id" = ${doc.uploaderId}::uuid
+      `;
+    }
+  });
+}
+
+// ─── Document versions (US-5) ────────────────────────────────────
+//
+// Each DocumentFile row is a version. The "current" version is the
+// row with the highest `versionNumber`; older rows are preserved
+// (never overwritten or deleted) so download/restore can reach them.
+
+export interface DocumentVersionRow {
+  id: string;
+  documentId: string;
+  versionNumber: number;
+  originalFilename: string;
+  displayFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  storagePath: string;
+  storageDriver: string;
+  checksum: string;
+  changeNote: string | null;
+  uploadedById: string | null;
+  uploadedAt: Date;
+  isCurrent: boolean;
+}
+
+export async function findVersionsByDocument(
+  documentId: string,
+): Promise<DocumentVersionRow[]> {
+  const rows = await db.documentFile.findMany({
+    where: { documentId },
+    orderBy: [{ versionNumber: "desc" }, { uploadedAt: "desc" }],
+  });
+  if (rows.length === 0) return [];
+  const maxVersion = rows[0]!.versionNumber;
+  return rows.map((r) => ({
+    id: r.id,
+    documentId: r.documentId,
+    versionNumber: r.versionNumber,
+    originalFilename: r.originalFilename,
+    displayFilename: r.displayFilename,
+    mimeType: r.mimeType,
+    sizeBytes: Number(r.sizeBytes),
+    storagePath: r.storagePath,
+    storageDriver: r.storageDriver,
+    checksum: r.checksum,
+    changeNote: r.changeNote,
+    uploadedById: r.uploadedById,
+    uploadedAt: r.uploadedAt,
+    isCurrent: r.versionNumber === maxVersion,
+  }));
+}
+
+export async function findVersionByIdAndDocument(
+  versionId: string,
+  documentId: string,
+): Promise<DocumentVersionRow | null> {
+  const r = await db.documentFile.findFirst({
+    where: { id: versionId, documentId },
+  });
+  if (!r) return null;
+  const maxRow = await db.documentFile.findFirst({
+    where: { documentId },
+    orderBy: { versionNumber: "desc" },
+    select: { versionNumber: true },
+  });
+  return {
+    id: r.id,
+    documentId: r.documentId,
+    versionNumber: r.versionNumber,
+    originalFilename: r.originalFilename,
+    displayFilename: r.displayFilename,
+    mimeType: r.mimeType,
+    sizeBytes: Number(r.sizeBytes),
+    storagePath: r.storagePath,
+    storageDriver: r.storageDriver,
+    checksum: r.checksum,
+    changeNote: r.changeNote,
+    uploadedById: r.uploadedById,
+    uploadedAt: r.uploadedAt,
+    isCurrent: r.versionNumber === (maxRow?.versionNumber ?? r.versionNumber),
+  };
+}
+
+/**
+ * Insert a brand-new version of `documentId`. Performs in one tx:
+ *   1. compute next version number = MAX(version_number) + 1,
+ *   2. insert DocumentFile,
+ *   3. bump documents.current_version, updated_at, updated_by,
+ *   4. increment uploader's used_bytes by sizeBytes.
+ *
+ * `releaseQuota` should be set true for normal new uploads. For
+ * restore-existing-version (where the same blob is reused) pass false
+ * so the same bytes aren't double-counted against the user's quota.
+ */
+export async function insertNewVersionFile(args: {
+  documentId: string;
+  uploadedById: string;
+  fileValues: Omit<DocumentFileInsert, "documentId"> & { changeNote?: string | null };
+  countTowardQuota: boolean;
+  uploaderIdForQuota: string;
+}): Promise<DocumentVersionRow> {
+  const { documentId, uploadedById, fileValues, countTowardQuota, uploaderIdForQuota } = args;
+  return db.$transaction(async (tx) => {
+    const maxRow = await tx.documentFile.findFirst({
+      where: { documentId },
+      orderBy: { versionNumber: "desc" },
+      select: { versionNumber: true },
+    });
+    const nextVersion = (maxRow?.versionNumber ?? 0) + 1;
+    const created = await tx.documentFile.create({
+      data: {
+        ...fileValues,
+        documentId,
+        sizeBytes: BigInt(fileValues.sizeBytes),
+        versionNumber: nextVersion,
+        changeNote: fileValues.changeNote ?? null,
+        uploadedById,
+        countedTowardQuota: countTowardQuota,
+      },
+    });
+    await tx.document.update({
+      where: { id: documentId },
+      data: {
+        currentVersion: nextVersion,
+        updatedAt: new Date(),
+        updatedBy: uploadedById,
+      },
+    });
+    if (countTowardQuota && fileValues.sizeBytes > 0) {
+      await tx.user.update({
+        where: { id: uploaderIdForQuota },
+        data: { usedBytes: { increment: BigInt(fileValues.sizeBytes) } },
+      });
+    }
+    return {
+      id: created.id,
+      documentId: created.documentId,
+      versionNumber: created.versionNumber,
+      originalFilename: created.originalFilename,
+      displayFilename: created.displayFilename,
+      mimeType: created.mimeType,
+      sizeBytes: Number(created.sizeBytes),
+      storagePath: created.storagePath,
+      storageDriver: created.storageDriver,
+      checksum: created.checksum,
+      changeNote: created.changeNote,
+      uploadedById: created.uploadedById,
+      uploadedAt: created.uploadedAt,
+      isCurrent: true,
+    };
+  });
+}
+
 // ─── documentFiles ────────────────────────────────────────────────
 export async function insertDocumentFile(
   values: DocumentFileInsert,

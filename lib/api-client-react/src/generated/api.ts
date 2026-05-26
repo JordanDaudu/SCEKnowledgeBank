@@ -29,6 +29,7 @@ import type {
   DocumentPage,
   DocumentSuggestion,
   DocumentSuggestionsParams,
+  DocumentVersion,
   DownloadDocumentParams,
   GetDocumentThumbnailParams,
   HealthStatus,
@@ -47,6 +48,7 @@ import type {
   UpdateCommentRequest,
   UpdateDocumentRequest,
   UpdateRequestRequest,
+  UploadDocumentVersionBody,
   UploadDocumentsBody,
   UploadResult,
   UserSummary,
@@ -1684,6 +1686,275 @@ export function useDownloadDocument<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Linear version history for a document (newest first)
+ */
+export const getListDocumentVersionsUrl = (id: string) => {
+  return `/api/documents/${id}/versions`;
+};
+
+export const listDocumentVersions = async (
+  id: string,
+  options?: RequestInit,
+): Promise<DocumentVersion[]> => {
+  return customFetch<DocumentVersion[]>(getListDocumentVersionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDocumentVersionsQueryKey = (id: string) => {
+  return [`/api/documents/${id}/versions`] as const;
+};
+
+export const getListDocumentVersionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDocumentVersions>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDocumentVersions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDocumentVersionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDocumentVersions>>
+  > = ({ signal }) => listDocumentVersions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentVersions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDocumentVersionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDocumentVersions>>
+>;
+export type ListDocumentVersionsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Linear version history for a document (newest first)
+ */
+
+export function useListDocumentVersions<
+  TData = Awaited<ReturnType<typeof listDocumentVersions>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDocumentVersions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDocumentVersionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upload a new version of an existing document (US-5)
+ */
+export const getUploadDocumentVersionUrl = (id: string) => {
+  return `/api/documents/${id}/versions`;
+};
+
+export const uploadDocumentVersion = async (
+  id: string,
+  uploadDocumentVersionBody: UploadDocumentVersionBody,
+  options?: RequestInit,
+): Promise<DocumentVersion> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadDocumentVersionBody.file);
+  if (uploadDocumentVersionBody.changeNote !== undefined) {
+    formData.append(`changeNote`, uploadDocumentVersionBody.changeNote);
+  }
+
+  return customFetch<DocumentVersion>(getUploadDocumentVersionUrl(id), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadDocumentVersionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadDocumentVersion>>,
+    TError,
+    { id: string; data: BodyType<UploadDocumentVersionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadDocumentVersion>>,
+  TError,
+  { id: string; data: BodyType<UploadDocumentVersionBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadDocumentVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadDocumentVersion>>,
+    { id: string; data: BodyType<UploadDocumentVersionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return uploadDocumentVersion(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadDocumentVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadDocumentVersion>>
+>;
+export type UploadDocumentVersionMutationBody =
+  BodyType<UploadDocumentVersionBody>;
+export type UploadDocumentVersionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Upload a new version of an existing document (US-5)
+ */
+export const useUploadDocumentVersion = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadDocumentVersion>>,
+    TError,
+    { id: string; data: BodyType<UploadDocumentVersionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadDocumentVersion>>,
+  TError,
+  { id: string; data: BodyType<UploadDocumentVersionBody> },
+  TContext
+> => {
+  return useMutation(getUploadDocumentVersionMutationOptions(options));
+};
+
+/**
+ * @summary Make an older version the current one (preserves history)
+ */
+export const getRestoreDocumentVersionUrl = (id: string, versionId: string) => {
+  return `/api/documents/${id}/versions/${versionId}/restore`;
+};
+
+export const restoreDocumentVersion = async (
+  id: string,
+  versionId: string,
+  options?: RequestInit,
+): Promise<DocumentVersion> => {
+  return customFetch<DocumentVersion>(
+    getRestoreDocumentVersionUrl(id, versionId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getRestoreDocumentVersionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreDocumentVersion>>,
+    TError,
+    { id: string; versionId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreDocumentVersion>>,
+  TError,
+  { id: string; versionId: string },
+  TContext
+> => {
+  const mutationKey = ["restoreDocumentVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreDocumentVersion>>,
+    { id: string; versionId: string }
+  > = (props) => {
+    const { id, versionId } = props ?? {};
+
+    return restoreDocumentVersion(id, versionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreDocumentVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreDocumentVersion>>
+>;
+
+export type RestoreDocumentVersionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Make an older version the current one (preserves history)
+ */
+export const useRestoreDocumentVersion = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreDocumentVersion>>,
+    TError,
+    { id: string; versionId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreDocumentVersion>>,
+  TError,
+  { id: string; versionId: string },
+  TContext
+> => {
+  return useMutation(getRestoreDocumentVersionMutationOptions(options));
+};
 
 export const getListDocumentCommentsUrl = (id: string) => {
   return `/api/documents/${id}/comments`;

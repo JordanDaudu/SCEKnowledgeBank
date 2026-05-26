@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock } from "lucide-react";
+import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { apiEndpoints } from "@/lib/api-url";
@@ -82,14 +82,19 @@ function validateFile(file: File): string | null {
   return null;
 }
 
+interface UploadHandle {
+  promise: Promise<UploadResult>;
+  abort: () => void;
+}
+
 function uploadOne(
   file: File,
   fields: Record<string, string | undefined>,
   tagIds: string[],
   onProgress: (pct: number) => void,
-): Promise<UploadResult> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
+): UploadHandle {
+  const xhr = new XMLHttpRequest();
+  const promise = new Promise<UploadResult>((resolve, reject) => {
     const form = new FormData();
     form.append("files", file);
     for (const [k, v] of Object.entries(fields)) {
@@ -104,7 +109,11 @@ function uploadOne(
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
     xhr.onerror = () => reject(new Error("Network error during upload"));
-    xhr.onabort = () => reject(new Error("Upload aborted"));
+    xhr.onabort = () => {
+      const err = new Error("Upload canceled");
+      (err as Error & { code?: string }).code = "canceled";
+      reject(err);
+    };
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(xhr.response as UploadResult);
@@ -115,6 +124,7 @@ function uploadOne(
     };
     xhr.send(form);
   });
+  return { promise, abort: () => xhr.abort() };
 }
 
 export default function Upload() {
@@ -124,6 +134,10 @@ export default function Upload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [items, setItems] = useState<QueueItem[]>([]);
+  // Track in-flight XHRs by item id so the user can cancel an upload
+  // mid-flight (per file or for the whole batch).
+  const activeUploadsRef = useRef<Map<string, () => void>>(new Map());
+  const canceledIdsRef = useRef<Set<string>>(new Set());
   const [courseId, setCourseId] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [materialType, setMaterialType] = useState<string>("");
@@ -167,6 +181,96 @@ export default function Upload() {
     setItems((prev) => prev.filter((it) => it.id !== id));
   };
 
+  const retryItem = (id: string) => {
+    // Clear any prior cancel marker so the next submit pass actually
+    // picks this item up.
+    canceledIdsRef.current.delete(id);
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+        // Re-run client-side validation so a previously rejected
+        // oversized/unsupported file doesn't requeue invalidly.
+        const err = validateFile(it.file);
+        if (err) {
+          return {
+            ...it,
+            status: "failed",
+            progress: 0,
+            error: err,
+            errorCode: "client_validation",
+            duplicateOfDocumentId: undefined,
+            duplicateOfTitle: undefined,
+          };
+        }
+        return {
+          ...it,
+          status: "queued",
+          progress: 0,
+          error: undefined,
+          errorCode: undefined,
+          duplicateOfDocumentId: undefined,
+          duplicateOfTitle: undefined,
+        };
+      }),
+    );
+  };
+
+  const cancelItem = (id: string) => {
+    canceledIdsRef.current.add(id);
+    const abort = activeUploadsRef.current.get(id);
+    if (abort) {
+      abort();
+    } else {
+      // Not yet started — mark it failed so the loop will skip it.
+      updateItem(id, {
+        status: "failed",
+        error: "Upload canceled",
+        errorCode: "canceled",
+      });
+    }
+  };
+
+  const cancelAll = () => {
+    // Abort any in-flight XHRs.
+    for (const [id, abort] of activeUploadsRef.current.entries()) {
+      canceledIdsRef.current.add(id);
+      abort();
+    }
+    // Mark every still-queued item as canceled AND register it in
+    // canceledIdsRef so the in-progress handleSubmit loop (which
+    // iterates a precomputed snapshot) skips them on the next tick.
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.status === "queued") {
+          canceledIdsRef.current.add(it.id);
+          return { ...it, status: "failed", error: "Upload canceled", errorCode: "canceled" };
+        }
+        return it;
+      }),
+    );
+  };
+
+  const retryAllFailed = () => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.status !== "failed") return it;
+        const err = validateFile(it.file);
+        if (err) return it;
+        // Clear any prior cancel marker so the next submit picks it up.
+        canceledIdsRef.current.delete(it.id);
+        return {
+          ...it,
+          status: "queued",
+          progress: 0,
+          error: undefined,
+          errorCode: undefined,
+          duplicateOfDocumentId: undefined,
+          duplicateOfTitle: undefined,
+        };
+      }),
+    );
+  };
+
   const toggleTag = (tagId: string) => {
     setSelectedTags((prev) =>
       prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId],
@@ -179,6 +283,10 @@ export default function Upload() {
 
   const pendingCount = useMemo(
     () => items.filter((i) => i.status === "queued").length,
+    [items],
+  );
+  const failedCount = useMemo(
+    () => items.filter((i) => i.status === "failed").length,
     [items],
   );
 
@@ -209,14 +317,21 @@ export default function Upload() {
     let renamedCount = 0;
 
     for (const item of toUpload) {
+      // canceledIdsRef is the single source of truth for "skip this
+      // item" — cancelAll() and cancelItem() add to it synchronously,
+      // so a click between iterations is observed here even though
+      // the `items` closure above is stale.
+      if (canceledIdsRef.current.has(item.id)) continue;
       updateItem(item.id, { status: "uploading", progress: 0, error: undefined });
+      const handle = uploadOne(
+        item.file,
+        fields,
+        selectedTags,
+        (pct) => updateItem(item.id, { progress: pct }),
+      );
+      activeUploadsRef.current.set(item.id, handle.abort);
       try {
-        const result = await uploadOne(
-          item.file,
-          fields,
-          selectedTags,
-          (pct) => updateItem(item.id, { progress: pct }),
-        );
+        const result = await handle.promise;
         const fileResult = result.results[0];
         if (fileResult?.success && fileResult.document) {
           const doc = fileResult.document as ApiDocument;
@@ -242,14 +357,18 @@ export default function Upload() {
         }
       } catch (err) {
         failCount++;
+        const code = (err as Error & { code?: string })?.code;
         updateItem(item.id, {
           status: "failed",
           error: err instanceof Error ? err.message : "Upload failed",
-          errorCode: "network",
+          errorCode: code === "canceled" ? "canceled" : "network",
         });
+      } finally {
+        activeUploadsRef.current.delete(item.id);
       }
     }
 
+    canceledIdsRef.current.clear();
     setIsUploading(false);
     await queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
     await queryClient.invalidateQueries({ queryKey: getListRecentDocumentsQueryKey() });
@@ -343,6 +462,24 @@ export default function Upload() {
               />
             </div>
 
+            {failedCount > 0 && (
+              <div className="mt-6 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+                <span className="text-destructive">
+                  {failedCount} file{failedCount === 1 ? "" : "s"} failed.
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={retryAllFailed}
+                  disabled={isUploading}
+                  data-testid="upload-retry-all"
+                >
+                  <RotateCcw className="mr-2 h-3 w-3" /> Retry failed
+                </Button>
+              </div>
+            )}
+
             {items.length > 0 && (
               <ul className="mt-6 space-y-3" data-testid="upload-queue">
                 {items.map((item) => (
@@ -368,9 +505,22 @@ export default function Upload() {
                           </Badge>
                         )}
                         {item.status === "uploading" && (
-                          <Badge variant="outline" className="gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" /> {item.progress}%
-                          </Badge>
+                          <>
+                            <Badge variant="outline" className="gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" /> {item.progress}%
+                            </Badge>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => cancelItem(item.id)}
+                              className="h-7 w-7"
+                              aria-label="Cancel upload"
+                              data-testid="upload-cancel"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
                         {item.status === "success" && (
                           <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-600">
@@ -382,6 +532,20 @@ export default function Upload() {
                             <AlertCircle className="h-3 w-3" /> Failed
                           </Badge>
                         )}
+                        {item.status === "failed" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => retryItem(item.id)}
+                            className="h-7 w-7"
+                            aria-label="Retry upload"
+                            data-testid="upload-retry"
+                            disabled={isUploading}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        )}
                         {item.status !== "uploading" && (
                           <Button
                             type="button"
@@ -390,6 +554,7 @@ export default function Upload() {
                             onClick={() => removeItem(item.id)}
                             className="h-7 w-7"
                             aria-label="Remove file"
+                            disabled={isUploading}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -534,6 +699,16 @@ export default function Upload() {
           <Button type="button" variant="outline" onClick={() => setLocation("/")} disabled={isUploading}>
             Cancel
           </Button>
+          {isUploading && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={cancelAll}
+              data-testid="upload-cancel-all"
+            >
+              Cancel uploads
+            </Button>
+          )}
           <Button
             type="submit"
             disabled={pendingCount === 0 || !courseId || !materialType || isUploading}

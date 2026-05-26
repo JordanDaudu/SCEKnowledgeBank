@@ -1,0 +1,397 @@
+You are continuing the existing Sprint 2 implementation inside the current Replit workspace.
+
+IMPORTANT:
+DO NOT rewrite the architecture.
+DO NOT regenerate the project.
+DO NOT replace existing systems that already work.
+DO NOT introduce breaking refactors.
+DO NOT change stack decisions.
+DO NOT move major folders.
+DO NOT replace Drizzle/OpenAPI/Orval architecture.
+
+Your task is ONLY to:
+- fix remaining Sprint 2 issues
+- stabilize existing features
+- polish incomplete flows
+- close edge cases
+- eliminate runtime problems
+- complete partial user stories
+- harden the MVP for Sprint 2 closure
+
+This is the FINAL Sprint 2 stabilization pass.
+
+==================================================
+CURRENT PROJECT STATUS
+==================================================
+
+The project already has:
+- modular architecture
+- React + Vite frontend
+- Express + TypeScript backend
+- Drizzle ORM
+- OpenAPI + generated client
+- auth baseline
+- RBAC baseline
+- search/filter system
+- pagination
+- comments system
+- request board
+- signed preview/download flow
+- seeded data
+- reusable UI structure
+
+Most Sprint 2 stories are already implemented.
+
+You must PRESERVE all existing working functionality.
+
+Your goal is:
+- fix bugs
+- finish partial stories
+- stabilize frontend state behavior
+- improve edge-case handling
+- harden security and permissions
+- improve UX polish
+- close Sprint 2 cleanly
+
+==================================================
+CRITICAL BUG TO FIX FIRST
+==================================================
+
+There is a React infinite render/update loop causing:
+
+[plugin:runtime-error-plugin]
+Maximum update depth exceeded
+
+MOST LIKELY SOURCE:
+- query/url synchronization logic
+- browse page filter sync
+- useEffect loops
+- setLocation/setSearchParams loops
+- recreated objects in dependencies
+
+High-risk files likely include:
+- use-query-state-sync.ts
+- browse.tsx
+- filter state hooks/components
+
+You MUST:
+- inspect all useEffect hooks
+- inspect all setState calls
+- inspect all URL sync logic
+- inspect all navigate/setLocation calls
+- inspect all TanStack Query state sync logic
+
+Fix all render loops WITHOUT breaking:
+- filters
+- pagination
+- sorting
+- search
+- URL persistence
+
+==================================================
+REQUIRED FIX:
+==================================================
+
+If object state is recreated every render:
+
+BAD:
+const state = { q, sort, page }
+
+GOOD:
+const state = useMemo(() => ({ q, sort, page }), [q, sort, page])
+
+Guard all effects carefully.
+
+Do NOT trigger navigation if URL already matches desired state.
+
+Avoid:
+- circular effects
+- unstable dependencies
+- state derived from state loops
+
+==================================================
+SPRINT 2 CLOSURE TASKS
+==================================================
+
+Complete and polish the following areas ONLY.
+
+==================================================
+1. QUERY/FILTER/PAGINATION STABILITY
+==================================================
+
+Requirements:
+- no render loops
+- stable URL sync
+- pagination persists correctly
+- filters persist correctly
+- browser back/forward works correctly
+- search params do not endlessly rewrite
+- changing filters resets pagination appropriately
+- no duplicate fetch storms
+- no unnecessary rerenders
+
+Verify:
+- TanStack Query keys are stable
+- useMemo/useCallback used appropriately
+- no object recreation problems
+
+==================================================
+2. BULK UPLOAD HARDENING
+==================================================
+
+The upload system already exists.
+DO NOT rebuild it.
+
+Improve:
+- retry failed uploads
+- isolate per-file failure state
+- prevent queue corruption
+- prevent duplicate submissions
+- preserve successful uploads when one file fails
+- improve progress/error UI
+- ensure backend validation errors map cleanly to UI
+
+Handle edge cases:
+- duplicate filenames
+- invalid MIME type
+- oversized file
+- network failure
+- canceled upload
+
+==================================================
+3. METADATA EXTRACTION POLISH
+==================================================
+
+Current extraction is partial.
+
+Improve:
+- filename parsing
+- safer fallback behavior
+- avoid broken extraction
+- avoid malformed metadata
+- preserve manual edits
+- improve prefill accuracy
+
+Do NOT overengineer AI extraction.
+
+==================================================
+4. STORAGE QUOTA BASELINE
+==================================================
+
+Implement a SIMPLE but REAL quota system.
+
+Requirements:
+- calculate total uploaded size per user
+- configurable quota limit from env
+- reject uploads exceeding quota
+- clear frontend error message
+- no partial DB/storage artifacts after rejection
+
+Do NOT build enterprise billing systems.
+
+Simple MVP only.
+
+==================================================
+5. THUMBNAIL / FILE VISUALIZATION POLISH
+==================================================
+
+Current fallback icon system exists.
+
+Improve:
+- thumbnail handling for previewable types if practical
+- fallback icons by mime/material type
+- graceful broken thumbnail handling
+- no UI crashes when thumbnail missing
+
+If true thumbnail generation becomes too heavy:
+- keep fallback strategy clean and consistent
+
+==================================================
+6. VERSIONING FOUNDATION CLEANUP
+==================================================
+
+Current versioning is partial.
+
+Do NOT build full enterprise version history UI.
+
+But:
+- ensure schema supports versions cleanly
+- preserve upload replacement path
+- ensure duplicate/update flow is version-ready
+- expose simple version metadata if already partially implemented
+
+==================================================
+7. COMMENTS / MENTIONS POLISH
+==================================================
+
+Nested comments already exist.
+
+Improve:
+- comment validation
+- empty comment handling
+- mention parsing stability
+- prevent malformed replies
+- ensure page-linked comments work safely
+- improve comment rendering edge cases
+
+Mention notifications are NOT required.
+
+Mention-ready foundation IS required.
+
+==================================================
+8. PERMISSION HARDENING
+==================================================
+
+CRITICAL:
+Backend must remain source of truth.
+
+Audit all endpoints:
+- documents
+- uploads
+- requests
+- comments
+- admin/demo endpoints
+
+Ensure:
+- unauthorized actions rejected server-side
+- hidden frontend actions are ALSO protected backend-side
+- course-aware checks cannot be bypassed
+- signed preview/download tokens are validated correctly
+
+Do NOT trust frontend permissions.
+
+==================================================
+9. SIGNED URL HARDENING
+==================================================
+
+Current implementation exists.
+
+Verify:
+- expired token rejection
+- tampered token rejection
+- missing token handling
+- invalid signature handling
+- permission check before token generation
+- no token leakage in logs
+
+==================================================
+10. AUDIT LOG POLISH
+==================================================
+
+Audit infrastructure already exists.
+
+Ensure audit records for:
+- upload
+- metadata update
+- delete
+- comment create
+- request create
+- request vote
+
+Avoid noisy duplicate logging.
+
+==================================================
+11. UX / EMPTY / ERROR STATES
+==================================================
+
+Audit all pages for:
+- loading states
+- empty states
+- no-results states
+- upload failure states
+- missing file states
+- unauthorized states
+- failed preview states
+
+The app should NEVER:
+- silently fail
+- show blank areas
+- crash on invalid data
+
+==================================================
+12. PERFORMANCE / CLEANUP
+==================================================
+
+Do NOT over-optimize.
+
+But fix obvious problems:
+- unstable query keys
+- unnecessary rerenders
+- duplicated requests
+- large inline objects/functions
+- missing memoization where needed
+- expensive recalculations
+
+==================================================
+13. FINAL QA PASS
+==================================================
+
+Before finishing:
+- run through full end-to-end flows
+- verify no runtime crashes
+- verify TypeScript passes
+- verify no obvious dead components
+- verify all routes load
+- verify no broken imports
+- verify no orphaned hooks
+
+==================================================
+STRICT NON-GOALS
+==================================================
+
+DO NOT:
+- rewrite architecture
+- switch libraries
+- add microservices
+- redesign database heavily
+- rebuild auth
+- rebuild upload system from scratch
+- add unrelated Sprint 3+ features
+- overengineer quota/versioning
+- create fake placeholder features
+
+==================================================
+SPRINT 2 USER STORIES TO CLOSE
+==================================================
+
+Ensure final acceptable coverage for:
+
+File Engine:
+- US-1 to US-10
+
+Smart Discovery:
+- US-11 to US-18
+- US-21
+- US-22
+
+Collaboration:
+- US-23
+- US-24
+- US-25
+
+Request Board:
+- US-57
+- US-58
+- US-59
+
+Security:
+- US-33
+- US-34
+- US-38
+
+==================================================
+FINAL OUTPUT REQUIREMENTS
+==================================================
+
+At the end provide:
+
+1. Files changed
+2. Bugs fixed
+3. Remaining known limitations
+4. Which user stories are now fully complete
+5. Which stories remain intentionally partial/foundation-only
+6. Any TODO hooks intentionally left for Sprint 3+
+
+MOST IMPORTANT:
+Preserve existing working architecture and behavior.
+This is a stabilization/polish pass — NOT a rewrite.

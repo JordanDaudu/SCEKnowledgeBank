@@ -780,6 +780,94 @@ export const DownloadDocumentParams = zod.object({
 
 export const DownloadDocumentQueryParams = zod.object({
   token: zod.coerce.string(),
+  versionId: zod.coerce.string().uuid().optional(),
+});
+
+/**
+ * @summary Linear version history for a document (newest first)
+ */
+export const ListDocumentVersionsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const ListDocumentVersionsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  documentId: zod.string().uuid(),
+  versionNumber: zod.number().min(1),
+  originalFilename: zod.string(),
+  mimeType: zod.string(),
+  sizeBytes: zod.number(),
+  checksum: zod.string().describe("SHA-256 hex"),
+  changeNote: zod.string().nullish(),
+  uploadedAt: zod.coerce.date(),
+  uploader: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .nullish(),
+  isCurrent: zod
+    .boolean()
+    .describe("True for the row whose versionNumber is highest."),
+});
+export const ListDocumentVersionsResponse = zod.array(
+  ListDocumentVersionsResponseItem,
+);
+
+/**
+ * @summary Upload a new version of an existing document (US-5)
+ */
+export const UploadDocumentVersionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const uploadDocumentVersionBodyChangeNoteMax = 500;
+
+export const UploadDocumentVersionBody = zod.object({
+  file: zod.instanceof(File),
+  changeNote: zod
+    .string()
+    .max(uploadDocumentVersionBodyChangeNoteMax)
+    .optional(),
+});
+
+/**
+ * @summary Make an older version the current one (preserves history)
+ */
+export const RestoreDocumentVersionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+  versionId: zod.coerce.string().uuid(),
+});
+
+export const RestoreDocumentVersionResponse = zod.object({
+  id: zod.string().uuid(),
+  documentId: zod.string().uuid(),
+  versionNumber: zod.number().min(1),
+  originalFilename: zod.string(),
+  mimeType: zod.string(),
+  sizeBytes: zod.number(),
+  checksum: zod.string().describe("SHA-256 hex"),
+  changeNote: zod.string().nullish(),
+  uploadedAt: zod.coerce.date(),
+  uploader: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .nullish(),
+  isCurrent: zod
+    .boolean()
+    .describe("True for the row whose versionNumber is highest."),
 });
 
 export const ListDocumentCommentsParams = zod.object({

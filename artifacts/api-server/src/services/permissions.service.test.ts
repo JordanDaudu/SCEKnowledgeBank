@@ -45,6 +45,82 @@ const studentEnrolledA = makeUser({
 });
 const studentEnrolledNone = makeUser({ id: "stu-none" });
 
+describe("permissions.canEditComment", () => {
+  it("only the author may edit (no moderation passthrough)", () => {
+    expect(
+      permissions.canEditComment({ authorId: "stu-A" }, studentEnrolledA),
+    ).toBe(true);
+    // Admin can MODERATE-delete, but cannot EDIT someone else's comment.
+    expect(
+      permissions.canEditComment({ authorId: "stu-A" }, admin),
+    ).toBe(false);
+    // Course lecturer also cannot edit a student's words.
+    expect(
+      permissions.canEditComment({ authorId: "stu-A" }, lecturerA),
+    ).toBe(false);
+  });
+});
+
+describe("permissions.canDeleteComment", () => {
+  const d = doc({ courseId: "c-A" });
+
+  it("author can always delete their own comment", () => {
+    expect(
+      permissions.canDeleteComment(
+        { authorId: "stu-A" },
+        d,
+        studentEnrolledA,
+      ),
+    ).toBe(true);
+  });
+
+  it("admins moderate-delete on any document", () => {
+    expect(
+      permissions.canDeleteComment({ authorId: "stu-A" }, d, admin),
+    ).toBe(true);
+  });
+
+  it("the document's course lecturer moderate-deletes", () => {
+    expect(
+      permissions.canDeleteComment({ authorId: "stu-A" }, d, lecturerA),
+    ).toBe(true);
+  });
+
+  it("a lecturer for a *different* course cannot delete someone else's comment", () => {
+    expect(
+      permissions.canDeleteComment({ authorId: "stu-A" }, d, lecturerB),
+    ).toBe(false);
+  });
+
+  it("an unrelated student cannot delete someone else's comment", () => {
+    expect(
+      permissions.canDeleteComment(
+        { authorId: "stu-A" },
+        d,
+        studentEnrolledNone,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("permissions.canManageVersions", () => {
+  it("admins can manage versions of any doc", () => {
+    expect(
+      permissions.canManageVersions(doc({ visibility: "private" }), admin),
+    ).toBe(true);
+  });
+
+  it("uploader can manage versions of their own doc", () => {
+    expect(permissions.canManageVersions(doc(), lecturerA)).toBe(true);
+  });
+
+  it("an unrelated student cannot manage versions", () => {
+    expect(permissions.canManageVersions(doc(), studentEnrolledNone)).toBe(
+      false,
+    );
+  });
+});
+
 function doc(
   overrides: Partial<permissions.DocumentForPermission> = {},
 ): permissions.DocumentForPermission {

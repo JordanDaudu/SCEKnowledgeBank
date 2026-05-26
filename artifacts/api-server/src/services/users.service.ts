@@ -1,6 +1,7 @@
 import * as usersRepo from "../repositories/users.repo";
-import { env } from "../lib/env";
+import * as quotaService from "./quota.service";
 import { notFound } from "../lib/errors";
+import type { AuthenticatedUser } from "../middlewares/auth";
 
 export interface StorageQuotaDTO {
   usedBytes: number;
@@ -9,29 +10,24 @@ export interface StorageQuotaDTO {
 }
 
 /**
- * Resolve the effective storage quota for a user. Returns BigInts so the
- * upload pipeline can safely compare against multi-GB totals without
- * precision loss; callers that serialise to JSON should convert via
- * `quotaSnapshotForUser`.
+ * Thin compatibility wrapper around `quota.service`. New callers should
+ * prefer `quotaService.effectiveQuotaForUser(user)` directly when they
+ * already hold an `AuthenticatedUser`.
  */
 export async function resolveEffectiveQuotaBytes(
-  userId: string,
+  user: AuthenticatedUser,
 ): Promise<{ usedBytes: bigint; quotaBytes: bigint }> {
-  const row = await usersRepo.findQuotaById(userId);
-  if (!row) throw notFound("User not found");
-  const quotaBytes = row.quotaBytes ?? env.defaultUserStorageQuotaBytes;
-  return { usedBytes: row.usedBytes, quotaBytes };
+  return quotaService.effectiveQuotaForUser(user);
 }
 
 export async function quotaSnapshotForUser(
-  userId: string,
+  user: AuthenticatedUser,
 ): Promise<StorageQuotaDTO> {
-  const { usedBytes, quotaBytes } = await resolveEffectiveQuotaBytes(userId);
-  const remaining = quotaBytes - usedBytes;
+  const q = await quotaService.effectiveQuotaForUser(user);
   return {
-    usedBytes: Number(usedBytes),
-    quotaBytes: Number(quotaBytes),
-    remainingBytes: Number(remaining > 0n ? remaining : 0n),
+    usedBytes: Number(q.usedBytes),
+    quotaBytes: Number(q.quotaBytes),
+    remainingBytes: Number(quotaService.remainingBytes(q)),
   };
 }
 

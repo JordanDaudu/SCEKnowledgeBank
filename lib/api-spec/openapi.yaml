@@ -343,6 +343,10 @@ paths:
       parameters:
         - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
         - { in: query, name: token, required: true, schema: { type: string } }
+        # Optional: download a specific historical version (US-5). When
+        # omitted, the latest version is served. The server validates
+        # that `versionId` belongs to `id`.
+        - { in: query, name: versionId, required: false, schema: { type: string, format: uuid } }
       responses:
         "200":
           description: File stream
@@ -354,6 +358,66 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+
+  /documents/{id}/versions:
+    get:
+      operationId: listDocumentVersions
+      tags: [documents]
+      summary: Linear version history for a document (newest first)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DocumentVersion" }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    post:
+      operationId: uploadDocumentVersion
+      tags: [documents]
+      summary: Upload a new version of an existing document (US-5)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                changeNote: { type: string, maxLength: 500 }
+      responses:
+        "201":
+          description: The new version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentVersion" }
+        "400": { description: Bad request, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/versions/{versionId}/restore:
+    post:
+      operationId: restoreDocumentVersion
+      tags: [documents]
+      summary: Make an older version the current one (preserves history)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: versionId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The new version that promoted the old one
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentVersion" }
+        "400": { description: Bad request, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
   /documents/{id}/comments:
     get:
@@ -935,6 +999,37 @@ components:
           type: integer
           format: int64
           description: Non-negative remainder; clamped to zero when usedBytes exceeds quotaBytes.
+
+    DocumentVersion:
+      type: object
+      required:
+        [
+          id,
+          documentId,
+          versionNumber,
+          originalFilename,
+          mimeType,
+          sizeBytes,
+          checksum,
+          uploadedAt,
+          isCurrent,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        versionNumber: { type: integer, minimum: 1 }
+        originalFilename: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        checksum: { type: string, description: "SHA-256 hex" }
+        changeNote: { type: string, nullable: true }
+        uploadedAt: { type: string, format: date-time }
+        uploader:
+          allOf: [{ $ref: "#/components/schemas/UserSummary" }]
+          nullable: true
+        isCurrent:
+          type: boolean
+          description: True for the row whose versionNumber is highest.
 
     SignedTokenResponse:
       type: object

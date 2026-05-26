@@ -1,17 +1,9 @@
 import { useGetCurrentUser } from "@workspace/api-client-react";
-import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 
 export function AuthGuard({ children, requireRole }: { children: React.ReactNode, requireRole?: "admin" | "lecturer" | "student" }) {
   const { data: user, isLoading, error } = useGetCurrentUser();
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    if (!isLoading && (error || !user)) {
-      setLocation("/login");
-    }
-  }, [isLoading, error, user, setLocation]);
 
   if (isLoading) {
     return (
@@ -21,8 +13,13 @@ export function AuthGuard({ children, requireRole }: { children: React.ReactNode
     );
   }
 
-  if (!user) {
-    return null; // Will redirect
+  // Declarative redirect: wouter's `setLocation` is NOT a stable
+  // reference, so the previous `useEffect(..., [setLocation])` pattern
+  // re-fired on every render and produced "Maximum update depth
+  // exceeded" loops (especially when paired with the Login page also
+  // navigating). <Redirect> avoids the loop entirely.
+  if (error || !user) {
+    return <Redirect to="/login" />;
   }
 
   if (requireRole && user.primaryRole !== "admin") {
