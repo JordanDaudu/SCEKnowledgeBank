@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock, RotateCcw, Sparkles, AlertTriangle } from "lucide-react";
+import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock, RotateCcw, Sparkles, AlertTriangle, HardDrive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { apiEndpoints } from "@/lib/api-url";
@@ -487,26 +487,33 @@ export default function Upload() {
 
       {quota && (
         <Card data-testid="storage-quota-strip">
-          <CardContent className="py-4 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Storage</span>
-              <span className="text-muted-foreground">
-                <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
-                {" of "}
-                <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
-                {" used — "}
-                <span data-testid="quota-remaining">{formatBytes(quota.remainingBytes)}</span>
-                {" remaining"}
-              </span>
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-primary/8 text-primary shrink-0 mt-0.5">
+                <HardDrive className="h-4 w-4" />
+              </div>
+              <div className="flex-1 space-y-2 min-w-0">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Storage quota</span>
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
+                    {" / "}
+                    <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
+                    {" · "}
+                    <span data-testid="quota-remaining" className="text-primary/80 font-medium">{formatBytes(quota.remainingBytes)}</span>
+                    {" free"}
+                  </span>
+                </div>
+                <Progress
+                  value={
+                    quota.quotaBytes > 0
+                      ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
+                      : 0
+                  }
+                  className="h-1.5"
+                />
+              </div>
             </div>
-            <Progress
-              value={
-                quota.quotaBytes > 0
-                  ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
-                  : 0
-              }
-              className="h-2"
-            />
           </CardContent>
         </Card>
       )}
@@ -529,23 +536,32 @@ export default function Upload() {
       <form onSubmit={handleSubmit} className="space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle>Files</CardTitle>
-            <CardDescription>
-              Drag & drop or select files to upload. PDF, DOCX, PPTX, XLSX, images and more — up to {MAX_UPLOAD_MB}MB each.
-            </CardDescription>
+            <div className="flex items-center gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+                1
+              </span>
+              <div>
+                <CardTitle>Select Files</CardTitle>
+                <CardDescription className="mt-0.5">
+                  Drag & drop or click to browse. PDF, DOCX, PPTX, XLSX, images — up to {MAX_UPLOAD_MB}MB each.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div
-              className="border-2 border-dashed border-primary/20 rounded-xl p-10 text-center hover:bg-primary/5 transition-colors cursor-pointer"
+              className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center hover:border-primary/50 hover:bg-primary/5 active:bg-primary/8 transition-all cursor-pointer group"
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               data-testid="upload-dropzone"
             >
-              <UploadCloud className="h-10 w-10 text-primary mx-auto mb-4" />
-              <p className="font-medium">Click to browse or drag files here</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Each file is queued and uploaded with its own progress.
+              <div className="mx-auto mb-4 h-14 w-14 rounded-xl bg-primary/8 flex items-center justify-center group-hover:bg-primary/12 transition-colors">
+                <UploadCloud className="h-7 w-7 text-primary" />
+              </div>
+              <p className="font-semibold text-foreground">Click to browse or drag files here</p>
+              <p className="text-sm text-muted-foreground mt-1.5">
+                PDF, DOCX, PPTX, XLSX, PNG, JPG, ZIP · up to {MAX_UPLOAD_MB}MB per file
               </p>
               <input
                 type="file"
@@ -721,8 +737,15 @@ export default function Upload() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Metadata</CardTitle>
-            <CardDescription>Applied to all files in this batch.</CardDescription>
+            <div className="flex items-center gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+                2
+              </span>
+              <div>
+                <CardTitle>Add Metadata</CardTitle>
+                <CardDescription className="mt-0.5">Applied to all files in this batch. Required fields are marked *.</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -914,43 +937,67 @@ export default function Upload() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Tags</label>
               <div className="flex flex-wrap gap-2">
-                {availableTags?.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant={selectedTags.includes(tag.id) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => toggleTag(tag.id)}
-                  >
-                    {tag.name}
-                  </Badge>
-                ))}
+                {availableTags?.map((tag) => {
+                  const active = selectedTags.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer hover-elevate ${
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary/40 hover:bg-primary/5"
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => setLocation("/")} disabled={isUploading}>
-            Cancel
-          </Button>
-          {isUploading && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={cancelAll}
-              data-testid="upload-cancel-all"
-            >
-              Cancel uploads
+        <div className="space-y-4 border-t pt-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+              3
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Review & Upload</p>
+              <p className="text-xs text-muted-foreground">
+                {pendingCount === 0
+                  ? "Add files above to continue"
+                  : `${pendingCount} file${pendingCount === 1 ? "" : "s"} ready to upload`}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setLocation("/")} disabled={isUploading}>
+              Cancel
             </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={pendingCount === 0 || !courseId || !materialType || isUploading}
-            data-testid="upload-submit"
-          >
-            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Upload {pendingCount} {pendingCount === 1 ? "File" : "Files"}
-          </Button>
+            {isUploading && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancelAll}
+                data-testid="upload-cancel-all"
+              >
+                Cancel uploads
+              </Button>
+            )}
+            <Button
+              type="submit"
+              size="lg"
+              disabled={pendingCount === 0 || !courseId || !materialType || isUploading}
+              data-testid="upload-submit"
+              className="sm:min-w-[180px]"
+            >
+              {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isUploading ? "Uploading…" : `Upload ${pendingCount} ${pendingCount === 1 ? "File" : "Files"}`}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

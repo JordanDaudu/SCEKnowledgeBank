@@ -30,12 +30,7 @@ export default function Login() {
   const loginMutation = useLogin();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  
-  // Track auth state — used at the bottom of the function to render
-  // a declarative <Redirect> if the user is already logged in. We
-  // deliberately do NOT early-return before the remaining hooks
-  // (useForm) — early-returning would change the hook call order
-  // between renders and produce "Invalid hook call".
+
   const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
 
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -66,12 +61,6 @@ export default function Login() {
     });
   };
 
-  // The demo seed (`seed-demo.ts`) provisions every demo account with
-  // the same password ("Demo1234!") and emails under the
-  // @knowledgebank.demo domain. Earlier this page hardcoded the old
-  // lightweight-seed values (e.g. "admin@demo" / "demo1234"), which
-  // silently 401'd every login — leaving the session cookie unset and
-  // making every subsequent request appear unauthenticated.
   const DEMO_PASSWORD = "Demo1234!";
   const loginAsDemo = (email: string) => {
     form.setValue("email", email);
@@ -79,67 +68,79 @@ export default function Login() {
     onSubmit({ email, password: DEMO_PASSWORD });
   };
 
-  // Declarative redirect (loop-free, runs after all hooks above so
-  // hook order is stable across renders).
   if (user && !isUserLoading) {
     return <Redirect to="/" />;
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute top-0 left-0 w-full h-[40vh] bg-primary/5 rounded-b-[100%] border-b border-primary/10 pointer-events-none" />
-      
-      <Card className="w-full max-w-md relative z-10 shadow-xl border-border/50">
-        <CardHeader className="text-center pb-8 pt-10">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg rotate-3">
+      {/* Background: soft top arc */}
+      <div className="absolute top-0 left-0 w-full h-[45vh] bg-gradient-to-b from-primary/8 via-primary/4 to-transparent pointer-events-none" />
+      {/* Background: subtle bottom-right glow */}
+      <div className="absolute bottom-0 right-0 w-[40vw] h-[40vh] bg-gradient-to-tl from-primary/5 to-transparent rounded-tl-[100%] pointer-events-none" />
+
+      <Card className="w-full max-w-md relative z-10 shadow-xl border-border/60">
+        <CardHeader className="text-center pb-6 pt-10">
+          <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-5 shadow-lg rotate-3">
             <Logo className="h-9 w-9 text-primary-foreground -rotate-3" />
           </div>
-          <CardTitle className="font-serif text-3xl mb-2">Knowledge Bank</CardTitle>
-          <CardDescription className="text-base">
-            The university's scholarly reading room.
+          <CardTitle className="font-serif text-3xl mb-1.5">Knowledge Bank</CardTitle>
+          <CardDescription className="text-base leading-relaxed">
+            Academic materials, requests, and course knowledge in one place.
           </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-6">
+          {/* Quick login */}
           <div className="space-y-3">
-            <p className="text-sm font-medium text-center text-muted-foreground uppercase tracking-wider">Quick Login</p>
+            <p className="text-xs font-semibold text-center text-muted-foreground uppercase tracking-wider">
+              Quick demo login
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start h-auto py-3 bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
+              {/* Student */}
+              <button
+                type="button"
                 onClick={() => loginAsDemo("noa.student@knowledgebank.demo")}
-                type="button"
+                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-950/20 dark:hover:border-sky-700/40 transition-all group text-left sm:text-center"
               >
-                <User className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-semibold">Student</span>
-                  <span className="text-xs text-muted-foreground">Riley C.</span>
+                <div className="h-9 w-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center group-hover:bg-sky-200 dark:group-hover:bg-sky-800/40 transition-colors">
+                  <User className="h-4 w-4 text-sky-700 dark:text-sky-400" />
                 </div>
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start h-auto py-3 bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
+                <div className="sm:text-center">
+                  <p className="text-sm font-semibold text-foreground leading-none">Student</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Noa · demo</p>
+                </div>
+              </button>
+
+              {/* Lecturer */}
+              <button
+                type="button"
                 onClick={() => loginAsDemo("maya.cohen@knowledgebank.demo")}
-                type="button"
+                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-primary/5 hover:border-primary/40 dark:hover:border-primary/30 transition-all group text-left sm:text-center"
               >
-                <BookA className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-semibold">Lecturer</span>
-                  <span className="text-xs text-muted-foreground">Dr. Cohen</span>
+                <div className="h-9 w-9 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                  <BookA className="h-4 w-4 text-primary" />
                 </div>
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start h-auto py-3 bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
+                <div className="sm:text-center">
+                  <p className="text-sm font-semibold text-foreground leading-none">Lecturer</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Dr. Cohen · demo</p>
+                </div>
+              </button>
+
+              {/* Admin */}
+              <button
+                type="button"
                 onClick={() => loginAsDemo("admin@knowledgebank.demo")}
-                type="button"
+                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950/20 dark:hover:border-amber-700/40 transition-all group text-left sm:text-center"
               >
-                <ShieldAlert className="mr-2 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-semibold">Admin</span>
-                  <span className="text-xs text-muted-foreground">Admin</span>
+                <div className="h-9 w-9 shrink-0 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center group-hover:bg-amber-200 dark:group-hover:bg-amber-800/40 transition-colors">
+                  <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                 </div>
-              </Button>
+                <div className="sm:text-center">
+                  <p className="text-sm font-semibold text-foreground leading-none">Admin</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">System admin · demo</p>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -148,7 +149,7 @@ export default function Login() {
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              <span className="bg-card px-2 text-muted-foreground tracking-wider">Or sign in</span>
             </div>
           </div>
 
@@ -187,7 +188,8 @@ export default function Login() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex flex-col gap-2 justify-center pb-8">
+
+        <CardFooter className="flex flex-col gap-2 justify-center pb-8 pt-2">
           <p className="text-sm text-muted-foreground">
             New here?{" "}
             <Link
@@ -197,9 +199,6 @@ export default function Login() {
             >
               Create an account
             </Link>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Trusted by the academic community.
           </p>
         </CardFooter>
       </Card>

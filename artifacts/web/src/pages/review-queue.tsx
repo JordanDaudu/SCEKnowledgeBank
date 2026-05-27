@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 import { RejectDialog } from "@/components/document-detail/RejectDialog";
-import { Check, X, FileText } from "lucide-react";
+import { Check, X, FileText, ShieldCheck } from "lucide-react";
 
 // Server clamps pageSize ≤100; 20 matches the notifications/list page
 // pattern and keeps the queue scannable.
@@ -106,19 +106,36 @@ export default function ReviewQueue() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="space-y-4" data-testid="review-queue">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-serif font-bold">Review queue</h1>
-        <span className="text-sm text-muted-foreground">
-          {total} pending
-        </span>
+    <div className="space-y-6" data-testid="review-queue">
+      <div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-950/30 shrink-0">
+              <ShieldCheck className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+            </div>
+            <h1 className="text-3xl font-serif font-bold text-foreground">Review Queue</h1>
+          </div>
+          {total > 0 && (
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-2.5 py-1 rounded-full tabular-nums">
+              {total} pending
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground mt-1 ml-[2.75rem]">
+          Approve or reject student submissions before they appear publicly.
+        </p>
       </div>
 
       {items.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <FileText className="h-8 w-8 mx-auto mb-2 opacity-60" />
-            Nothing waiting for review.
+        <Card className="border-dashed">
+          <CardContent className="py-16 text-center space-y-3">
+            <div className="mx-auto h-14 w-14 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+              <Check className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <h3 className="font-semibold text-foreground">Queue is clear</h3>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              All submissions have been reviewed. Check back later for new uploads.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -138,14 +155,14 @@ export default function ReviewQueue() {
                   >
                     {doc.title}
                   </Link>
-                  <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-muted-foreground items-center">
                     {doc.course && (
-                      <Badge variant="secondary" className="font-mono">
+                      <span className="course-tag inline-flex items-center rounded border px-2 py-0.5 text-xs">
                         {doc.course.code}
-                      </Badge>
+                      </span>
                     )}
                     <span>by {doc.uploader.displayName}</span>
-                    <span>· submitted {formatDateTime(submittedAt)}</span>
+                    <span>· {formatDateTime(submittedAt)}</span>
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">

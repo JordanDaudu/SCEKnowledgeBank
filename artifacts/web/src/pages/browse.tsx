@@ -18,7 +18,7 @@ import { useQueryStateSync } from "@/hooks/use-query-state-sync";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDocumentSnapshot } from "@/hooks/use-document-snapshot";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, Library } from "lucide-react";
 import BrowseFilters, {
   type Sort,
   type Semester,
@@ -276,8 +276,13 @@ export default function Browse() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Browse Library</h1>
-          <p className="text-muted-foreground mt-1">Explore all available academic materials.</p>
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
+              <Library className="h-5 w-5 text-primary" />
+            </div>
+            <h1 className="text-3xl font-serif font-bold text-foreground">Browse Library</h1>
+          </div>
+          <p className="text-muted-foreground">Discover course materials by title, topic, course, or lecturer.</p>
         </div>
       </div>
 
@@ -402,10 +407,11 @@ export default function Browse() {
         ) : viewData?.items && viewData.items.length > 0 ? (
           <>
             {hasNewDocuments && <NewDocsBanner onRefresh={showLatest} />}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {viewData.total} result{viewData.total === 1 ? "" : "s"}
-                {isFetching && " · refreshing…"}
+                <span className="font-semibold text-foreground tabular-nums">{viewData.total}</span>
+                {" "}result{viewData.total === 1 ? "" : "s"}
+                {isFetching && <span className="ml-2 text-primary/60 animate-pulse">· refreshing…</span>}
               </p>
             </div>
 
