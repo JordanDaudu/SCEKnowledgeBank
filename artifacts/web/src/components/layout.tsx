@@ -1,36 +1,99 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useGetCurrentUser, useLogout, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
-import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2, ShieldCheck, BarChart3, type LucideIcon } from "lucide-react";
+import {
+  useGetCurrentUser,
+  useLogout,
+  getGetCurrentUserQueryKey,
+} from "@workspace/api-client-react";
+import {
+  BookOpen,
+  Search,
+  Upload,
+  MessageSquare,
+  Users,
+  LogOut,
+  Loader2,
+  ShieldCheck,
+  BarChart3,
+  Menu,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { Logo } from "./logo";
 import { Button } from "./ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { Badge } from "./ui/badge";
 import { NotificationBell } from "./notification-bell";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetClose,
+} from "./ui/sheet";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: user } = useGetCurrentUser();
   const logout = useLogout();
   const queryClient = useQueryClient();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = () => {
     logout.mutate(undefined, {
       onSuccess: () => {
         queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
         window.location.href = "/login";
-      }
+      },
     });
   };
 
-  const isLecturerOrAdmin = user?.roles?.includes("lecturer") || user?.roles?.includes("admin");
+  const isLecturerOrAdmin =
+    user?.roles?.includes("lecturer") || user?.roles?.includes("admin");
   const isAdmin = user?.roles?.includes("admin");
 
-  const NavLink = ({ href, icon: Icon, children }: { href: string; icon: LucideIcon; children: React.ReactNode }) => {
+  interface NavItem {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+  }
+
+  const navItems: NavItem[] = user
+    ? [
+        { href: "/", icon: BookOpen, label: "Home" },
+        { href: "/browse", icon: Search, label: "Browse" },
+        { href: "/requests", icon: MessageSquare, label: "Requests" },
+        { href: "/upload", icon: Upload, label: "Upload" },
+        ...(isLecturerOrAdmin
+          ? [{ href: "/review-queue", icon: ShieldCheck, label: "Review" }]
+          : []),
+        ...(isAdmin
+          ? [
+              { href: "/admin/users", icon: Users, label: "Admin" },
+              { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
+            ]
+          : []),
+      ]
+    : [];
+
+  const NavLink = ({
+    href,
+    icon: Icon,
+    label,
+    onClick,
+  }: NavItem & { onClick?: () => void }) => {
     const isActive = location === href;
     return (
-      <Link href={href} className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-secondary'}`}>
-        <Icon className="h-4 w-4" />
-        <span className="font-medium text-sm">{children}</span>
+      <Link
+        href={href}
+        onClick={onClick}
+        className={`flex items-center gap-2.5 px-3 py-2 rounded-md transition-colors text-sm font-medium ${
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "text-foreground hover:bg-secondary"
+        }`}
+        aria-current={isActive ? "page" : undefined}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        <span>{label}</span>
       </Link>
     );
   };
@@ -38,54 +101,141 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-card">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2 text-primary font-serif font-bold text-xl">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          {/* Brand */}
+          <div className="flex items-center gap-4 min-w-0">
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-primary font-serif font-bold text-lg sm:text-xl shrink-0"
+            >
               <Logo className="h-7 w-7" />
-              <span>Knowledge Bank</span>
+              <span className="hidden sm:inline">Knowledge Bank</span>
+              <span className="sm:hidden">KB</span>
             </Link>
-            
+
+            {/* Desktop nav */}
             {user && (
-              <nav className="hidden md:flex items-center gap-2">
-                <NavLink href="/" icon={BookOpen}>Home</NavLink>
-                <NavLink href="/browse" icon={Search}>Browse</NavLink>
-                <NavLink href="/requests" icon={MessageSquare}>Requests</NavLink>
-                {/* Sprint-3 completion: Upload is visible to every
-                    authenticated user. Per-page server permission still
-                    rejects users with no upload path (e.g. students
-                    with zero enrollments). */}
-                <NavLink href="/upload" icon={Upload}>Upload</NavLink>
-                {isLecturerOrAdmin && (
-                  <NavLink href="/review-queue" icon={ShieldCheck}>Review</NavLink>
-                )}
-                {isAdmin && <NavLink href="/admin/users" icon={Users}>Admin</NavLink>}
-                {isAdmin && <NavLink href="/admin/analytics" icon={BarChart3}>Analytics</NavLink>}
+              <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
+                {navItems.map((item) => (
+                  <NavLink key={item.href} {...item} />
+                ))}
               </nav>
             )}
           </div>
 
+          {/* Right side controls */}
           {user && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <NotificationBell />
-              <div className="flex items-center gap-3">
+
+              {/* User info — hidden on very small screens */}
+              <div className="hidden sm:flex items-center gap-3">
                 <div className="flex flex-col items-end">
-                  <span className="text-sm font-medium leading-none">{user.displayName}</span>
-                  <span className="text-xs text-muted-foreground mt-1 capitalize">{user.primaryRole}</span>
+                  <span className="text-sm font-medium leading-none">
+                    {user.displayName}
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-1 capitalize">
+                    {user.primaryRole}
+                  </span>
                 </div>
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                   {user.displayName.charAt(0)}
                 </div>
               </div>
-              <div className="w-px h-8 bg-border"></div>
-              <Button variant="ghost" size="icon" onClick={handleLogout} disabled={logout.isPending} title="Log out">
-                {logout.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4 text-muted-foreground" />}
+
+              {/* Avatar only on very small screens */}
+              <div className="sm:hidden h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {user.displayName.charAt(0)}
+              </div>
+
+              <div className="hidden sm:block w-px h-8 bg-border" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                disabled={logout.isPending}
+                title="Log out"
+                aria-label="Log out"
+                className="hidden sm:flex"
+              >
+                {logout.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4 text-muted-foreground" />
+                )}
               </Button>
+
+              {/* Mobile hamburger */}
+              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden"
+                    aria-label="Open navigation menu"
+                  >
+                    {mobileOpen ? (
+                      <X className="h-5 w-5" />
+                    ) : (
+                      <Menu className="h-5 w-5" />
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-72 p-0 flex flex-col">
+                  {/* Sheet header */}
+                  <div className="flex items-center gap-3 p-4 border-b">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                      {user.displayName.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {user.displayName}
+                      </p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {user.primaryRole}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Nav links */}
+                  <nav className="flex flex-col gap-1 p-3 flex-1" aria-label="Mobile navigation">
+                    {navItems.map((item) => (
+                      <SheetClose asChild key={item.href}>
+                        <NavLink
+                          {...item}
+                          onClick={() => setMobileOpen(false)}
+                        />
+                      </SheetClose>
+                    ))}
+                  </nav>
+
+                  {/* Logout at bottom */}
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-2.5 text-muted-foreground"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        handleLogout();
+                      }}
+                      disabled={logout.isPending}
+                    >
+                      {logout.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <LogOut className="h-4 w-4" />
+                      )}
+                      Log out
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
           )}
         </div>
       </header>
-      
-      <main className="flex-1 container mx-auto px-4 py-8">
+
+      <main className="flex-1 container mx-auto px-4 py-6 sm:py-8">
         {children}
       </main>
     </div>

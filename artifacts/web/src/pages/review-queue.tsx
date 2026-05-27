@@ -130,7 +130,7 @@ export default function ReviewQueue() {
             (rejectMutation.isPending && rejectingId === doc.id);
           return (
             <Card key={doc.id} data-testid={`review-row-${doc.id}`}>
-              <CardContent className="py-4 flex items-center justify-between gap-4">
+              <CardContent className="py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/documents/${doc.id}`}
@@ -154,6 +154,7 @@ export default function ReviewQueue() {
                     onClick={() => handleApprove(doc.id)}
                     disabled={busy}
                     data-testid={`approve-${doc.id}`}
+                    className="flex-1 sm:flex-none"
                   >
                     <Check className="mr-1 h-4 w-4" /> Approve
                   </Button>
@@ -163,6 +164,7 @@ export default function ReviewQueue() {
                     onClick={() => setRejectingId(doc.id)}
                     disabled={busy}
                     data-testid={`reject-${doc.id}`}
+                    className="flex-1 sm:flex-none"
                   >
                     <X className="mr-1 h-4 w-4" /> Reject
                   </Button>

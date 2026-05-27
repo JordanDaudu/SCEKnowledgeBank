@@ -80,8 +80,8 @@ Suggestion fetches are best-effort: a failed extract clears the panel without bl
 - `pnpm --filter @workspace/web run dev` — run the web frontend
 - `pnpm --filter @workspace/db run generate` — generate a new SQL migration from the Prisma schema
 - `pnpm --filter @workspace/db run migrate` — apply pending SQL migrations (creates `pg_trgm` first)
-- `pnpm --filter @workspace/api-server run seed` — populate the rich Sprint-2 demo dataset (aliased to `seed:demo`; idempotent)
-- `pnpm --filter @workspace/api-server run seed:demo:verify` — assert the demo dataset is healthy (counts, FK integrity, FTS hits)
+- `pnpm --filter @workspace/api-server run seed` — populate the rich demo dataset (aliased to `seed:demo`; idempotent — safe to re-run against a live DB)
+- `pnpm --filter @workspace/api-server run seed:demo:verify` — assert the demo dataset is healthy (22 checks: user accounts, enrollments, courses, tags, document titles, file presence, comments, review-workflow statuses, favorites, reactions, material requests, analytics FTS)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-server run test` — vitest unit + service tests
@@ -95,10 +95,10 @@ Suggestion fetches are best-effort: a failed extract clears the panel without bl
 
 Run on a freshly-seeded demo DB, both workflows up.
 
-| Driver                              | Wall   | Unit tests        | Playwright smoke |
-| ----------------------------------- | ------ | ----------------- | ---------------- |
-| `local` (`STORAGE_DRIVER=local`)    | ~60 s  | 277 / 277 pass    | 2/2 pass         |
-| `gcs` (auto-pick, default in Replit)| ~55 s  | 277 / 277 pass    | 2/2 pass         |
+| Driver                              | Wall   | Unit tests        | Seed verify      | Playwright smoke |
+| ----------------------------------- | ------ | ----------------- | ---------------- | ---------------- |
+| `local` (`STORAGE_DRIVER=local`)    | ~60 s  | 277 / 277 pass    | 22 / 22 pass     | 2/2 pass         |
+| `gcs` (auto-pick, default in Replit)| ~55 s  | 277 / 277 pass    | 22 / 22 pass     | 2/2 pass         |
 
 To switch drivers for a regression sweep, the wrapper scripts (`pnpm regression:local`, `pnpm regression:gcs`) export `STORAGE_DRIVER` into the vitest run. The Playwright leg drives the *running* `artifacts/api-server: API Server` workflow, so to make the end-to-end leg actually exercise the other driver you must additionally:
 

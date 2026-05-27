@@ -157,15 +157,14 @@ export default function Requests() {
       )}
 
       <Tabs value={statusTab} onValueChange={(val) => setStatusTab(val as typeof statusTab)} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="open" data-testid="requests-tab-open">Open</TabsTrigger>
-          <TabsTrigger value="in_progress" data-testid="requests-tab-in-progress">
-            In Progress
+        <TabsList className="grid w-full grid-cols-4 mb-6 h-auto">
+          <TabsTrigger value="open" data-testid="requests-tab-open" className="text-xs sm:text-sm py-2">Open</TabsTrigger>
+          <TabsTrigger value="in_progress" data-testid="requests-tab-in-progress" className="text-xs sm:text-sm py-2">
+            <span className="hidden sm:inline">In Progress</span>
+            <span className="sm:hidden">In&nbsp;Prog</span>
           </TabsTrigger>
-          <TabsTrigger value="fulfilled" data-testid="requests-tab-fulfilled">
-            Fulfilled
-          </TabsTrigger>
-          <TabsTrigger value="closed" data-testid="requests-tab-closed">Closed</TabsTrigger>
+          <TabsTrigger value="fulfilled" data-testid="requests-tab-fulfilled" className="text-xs sm:text-sm py-2">Fulfilled</TabsTrigger>
+          <TabsTrigger value="closed" data-testid="requests-tab-closed" className="text-xs sm:text-sm py-2">Closed</TabsTrigger>
         </TabsList>
         
         <TabsContent value={statusTab} className="space-y-4 mt-0">

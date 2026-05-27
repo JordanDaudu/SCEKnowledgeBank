@@ -2,11 +2,15 @@ import {
   useListRecentDocuments,
   useListDocuments,
   useGetCurrentUser,
+  useListPendingReviewDocuments,
+  useSearchDocumentsV2,
+  getSearchDocumentsV2QueryKey,
   type Document,
 } from "@workspace/api-client-react";
 import { SearchBar } from "@/components/search-bar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
   FileText,
@@ -18,31 +22,43 @@ import {
   MessageSquare,
   ShieldCheck,
   BarChart3,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateTime } from "@/lib/format";
-import { Skeleton } from "@/components/ui/skeleton";
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-muted text-muted-foreground" },
+const STATUS_BADGE: Record<string, { label: string; className: string; icon?: LucideIcon }> = {
+  draft: {
+    label: "Draft",
+    className: "bg-muted text-muted-foreground",
+  },
   pending_review: {
     label: "Pending review",
     className: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+    icon: Clock,
   },
   rejected: {
     label: "Rejected",
     className: "bg-destructive/15 text-destructive",
+    icon: XCircle,
   },
   approved: {
     label: "Approved",
     className: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+    icon: CheckCircle,
   },
-  archived: { label: "Archived", className: "bg-muted text-muted-foreground" },
+  archived: {
+    label: "Archived",
+    className: "bg-muted text-muted-foreground",
+  },
 };
 
 function renderDocumentCard(doc: Document) {
   const badge = doc.status && doc.status !== "published" ? STATUS_BADGE[doc.status] : null;
+  const StatusIcon = badge?.icon;
   return (
     <Link key={doc.id} href={`/documents/${doc.id}`}>
       <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate focus-within:ring-2 focus-within:ring-primary/40">
@@ -54,8 +70,9 @@ function renderDocumentCard(doc: Document) {
             <div className="flex flex-wrap justify-end gap-1.5">
               {badge && (
                 <span
-                  className={`text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded ${badge.className}`}
+                  className={`inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded ${badge.className}`}
                 >
+                  {StatusIcon && <StatusIcon className="h-3 w-3" />}
                   {badge.label}
                 </span>
               )}
@@ -66,8 +83,10 @@ function renderDocumentCard(doc: Document) {
               )}
             </div>
           </div>
-          <h3 className="font-serif font-semibold text-lg line-clamp-2 mb-1">{doc.title}</h3>
-          <div className="text-sm text-muted-foreground mt-auto flex justify-between items-center pt-4">
+          <h3 className="font-serif font-semibold text-base sm:text-lg line-clamp-2 mb-1">
+            {doc.title}
+          </h3>
+          <div className="text-sm text-muted-foreground mt-auto flex justify-between items-center pt-4 gap-2 flex-wrap">
             <span className="capitalize">{doc.materialType.replace(/[-_]/g, " ")}</span>
             <span className="text-xs">{formatDateTime(doc.createdAt)}</span>
           </div>
@@ -88,7 +107,15 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
   if (actions.length === 0) return null;
   return (
     <section aria-label="Quick actions">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div
+        className={`grid gap-3 ${
+          actions.length <= 3
+            ? "grid-cols-1 sm:grid-cols-3"
+            : actions.length === 4
+            ? "grid-cols-2 sm:grid-cols-4"
+            : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+        }`}
+      >
         {actions.map(({ href, icon: Icon, label, description }) => (
           <Link key={href} href={href}>
             <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate focus-within:ring-2 focus-within:ring-primary/40">
@@ -98,7 +125,7 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
                 </div>
                 <div className="min-w-0">
                   <div className="font-medium text-sm leading-tight">{label}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                  <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2 hidden sm:block">
                     {description}
                   </div>
                 </div>
@@ -109,6 +136,111 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
       </div>
     </section>
   );
+}
+
+function ReviewQueueSummary() {
+  const { data, isLoading } = useListPendingReviewDocuments({ pageSize: 1 });
+  const total = data?.total ?? 0;
+  if (isLoading) return null;
+  return (
+    <section>
+      <Link href="/review-queue">
+        <Card
+          className={`hover:border-primary/50 transition-colors cursor-pointer hover-elevate ${
+            total > 0 ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800" : ""
+          }`}
+        >
+          <CardContent className="py-4 px-5 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-md ${
+                  total > 0
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                    : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">
+                  {total === 0
+                    ? "Review queue is clear"
+                    : `${total} submission${total === 1 ? "" : "s"} awaiting review`}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {total === 0
+                    ? "No documents waiting for your approval."
+                    : "Open the queue to approve or reject."}
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
+      </Link>
+    </section>
+  );
+}
+
+function MySubmissions({ userId }: { userId: string }) {
+  const pendingParams = { uploaderId: userId, status: "pending_review", pageSize: 3 } as const;
+  const rejectedParams = { uploaderId: userId, status: "rejected", pageSize: 3 } as const;
+  const { data: pending } = useSearchDocumentsV2(pendingParams, {
+    query: { queryKey: getSearchDocumentsV2QueryKey(pendingParams), staleTime: 60_000 },
+  });
+  const { data: rejected } = useSearchDocumentsV2(rejectedParams, {
+    query: { queryKey: getSearchDocumentsV2QueryKey(rejectedParams), staleTime: 60_000 },
+  });
+
+  const pendingCount = pending?.total ?? 0;
+  const rejectedCount = rejected?.total ?? 0;
+  if (pendingCount === 0 && rejectedCount === 0) return null;
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-serif font-bold flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-amber-500" />
+          My submissions
+        </h2>
+        <Link
+          href={`/browse?uploaderId=${userId}`}
+          className="text-primary font-medium hover:underline flex items-center text-sm"
+        >
+          View all <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {pendingCount > 0 && (
+          <Link href={`/browse?uploaderId=${userId}&status=pending_review`}>
+            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-lg px-4 py-3 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors cursor-pointer">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                {pendingCount} pending review
+              </span>
+            </div>
+          </Link>
+        )}
+        {rejectedCount > 0 && (
+          <Link href={`/browse?uploaderId=${userId}&status=rejected`}>
+            <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg px-4 py-3 hover:bg-destructive/15 transition-colors cursor-pointer">
+              <XCircle className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                {rejectedCount} rejected — action needed
+              </span>
+            </div>
+          </Link>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground mt-2">
+        Pending documents are only visible to you and your course lecturers until approved.
+      </p>
+    </section>
+  );
+}
+
+function CardSkeleton() {
+  return <Skeleton className="h-40 w-full rounded-xl" />;
 }
 
 export default function Home() {
@@ -122,48 +254,61 @@ export default function Home() {
   const roles = user?.roles ?? [];
   const isLecturerOrAdmin = roles.includes("lecturer") || roles.includes("admin");
   const isAdmin = roles.includes("admin");
-  const canUpload =
-    isLecturerOrAdmin || (user?.enrollments?.length ?? 0) > 0;
+  const isStudent = roles.includes("student") && !isLecturerOrAdmin;
+  const canUpload = isLecturerOrAdmin || (user?.enrollments?.length ?? 0) > 0;
 
-  const actions: QuickAction[] = [
-    { href: "/browse", icon: Search, label: "Browse", description: "Search every document with facets and snippets." },
-    ...(canUpload
-      ? [
-          {
-            href: "/upload",
-            icon: Upload,
-            label: "Upload",
-            description: isLecturerOrAdmin
-              ? "Publish or draft new course materials."
-              : "Submit materials for lecturer review.",
-          } as QuickAction,
-        ]
-      : []),
-    { href: "/requests", icon: MessageSquare, label: "Requests", description: "Ask for missing materials or fulfil others." },
-    ...(isLecturerOrAdmin
-      ? [
-          {
-            href: "/review-queue",
-            icon: ShieldCheck,
-            label: "Review queue",
-            description: "Approve or reject pending submissions.",
-          } as QuickAction,
-        ]
-      : []),
-    ...(isAdmin
-      ? [
-          {
-            href: "/admin/analytics",
-            icon: BarChart3,
-            label: "Analytics",
-            description: "Corpus, contributor, and engagement stats.",
-          } as QuickAction,
-        ]
-      : []),
-  ];
+  const actions: QuickAction[] = user
+    ? [
+        {
+          href: "/browse",
+          icon: Search,
+          label: "Browse",
+          description: "Search every document with facets and snippets.",
+        },
+        ...(canUpload
+          ? [
+              {
+                href: "/upload",
+                icon: Upload,
+                label: "Upload",
+                description: isLecturerOrAdmin
+                  ? "Publish or draft new course materials."
+                  : "Submit materials for lecturer review.",
+              } as QuickAction,
+            ]
+          : []),
+        {
+          href: "/requests",
+          icon: MessageSquare,
+          label: "Requests",
+          description: "Ask for missing materials or fulfil others.",
+        },
+        ...(isLecturerOrAdmin
+          ? [
+              {
+                href: "/review-queue",
+                icon: ShieldCheck,
+                label: "Review queue",
+                description: "Approve or reject pending submissions.",
+              } as QuickAction,
+            ]
+          : []),
+        ...(isAdmin
+          ? [
+              {
+                href: "/admin/analytics",
+                icon: BarChart3,
+                label: "Analytics",
+                description: "Corpus, contributor, and engagement stats.",
+              } as QuickAction,
+            ]
+          : []),
+      ]
+    : [];
 
   return (
-    <div className="space-y-10 pb-12">
+    <div className="space-y-8 pb-12">
+      {/* Hero */}
       <section className="bg-primary/5 -mx-4 px-4 py-10 sm:py-14 rounded-b-[2.5rem] border-b border-primary/10">
         <div className="max-w-3xl mx-auto text-center space-y-5">
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-foreground tracking-tight">
@@ -175,31 +320,32 @@ export default function Home() {
           <div className="pt-2 max-w-2xl mx-auto">
             <SearchBar autoFocus />
           </div>
-          {user && !canUpload && (
-            <p className="text-xs text-muted-foreground">
-              <Badge variant="outline" className="mr-2">Read-only</Badge>
-              You aren't enrolled in any course yet, so uploads are disabled until a lecturer or admin enrolls you.
-            </p>
-          )}
         </div>
       </section>
 
-      <div className="max-w-6xl mx-auto space-y-10">
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Quick actions */}
         {user && <QuickActions actions={actions} />}
 
+        {/* Student: pending/rejected submission alerts */}
+        {user && isStudent && <MySubmissions userId={user.id} />}
+
+        {/* Lecturer/admin: review queue summary */}
+        {user && isLecturerOrAdmin && <ReviewQueueSummary />}
+
+        {/* Continue reading */}
         <section>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-5">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <Clock className="h-6 w-6 text-primary" />
               Continue reading
             </h2>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {isLoadingRecent ? (
               Array(4)
                 .fill(0)
-                .map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)
+                .map((_, i) => <CardSkeleton key={i} />)
             ) : recentDocs && recentDocs.length > 0 ? (
               recentDocs.map(renderDocumentCard)
             ) : (
@@ -208,13 +354,17 @@ export default function Home() {
                 <p className="text-muted-foreground">
                   Nothing here yet — open a document and it'll show up next time.
                 </p>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href="/browse">Browse documents</Link>
+                </Button>
               </div>
             )}
           </div>
         </section>
 
+        {/* Latest additions */}
         <section>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-5">
             <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
               <Library className="h-6 w-6 text-primary" />
               Latest additions
@@ -226,12 +376,11 @@ export default function Home() {
               View all <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {isLoadingLatest ? (
               Array(4)
                 .fill(0)
-                .map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)
+                .map((_, i) => <CardSkeleton key={i} />)
             ) : latestDocsPage?.items && latestDocsPage.items.length > 0 ? (
               latestDocsPage.items.map(renderDocumentCard)
             ) : (

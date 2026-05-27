@@ -152,6 +152,24 @@ pnpm --filter @workspace/db run generate       # regenerate the Prisma client
 pnpm --filter @workspace/api-spec run codegen
 ```
 
+## Demo accounts
+
+All demo accounts use password **`Demo1234!`**. Run `pnpm --filter @workspace/api-server run seed:demo` to restore the documented state.
+
+| Role | Email | Highlights |
+|------|-------|-----------|
+| Admin | `admin@knowledgebank.demo` | Global analytics, user management, full-corpus visibility |
+| Lecturer | `maya.cohen@knowledgebank.demo` | CS101/CS220, review queue, course analytics |
+| Lecturer | `daniel.levi@knowledgebank.demo` | IS310/IS420, review queue |
+| Student | `noa.student@knowledgebank.demo` | Browse, upload → review, favorites, requests |
+| Student | `amir.student@knowledgebank.demo` | Approved + rejected submissions, IS310 |
+| Student | `yael.student@knowledgebank.demo` | IS310/IS420, near-quota upload experience |
+| Restricted student | `restricted.student@knowledgebank.demo` | CS101-only restricted-visibility docs |
+| Pending lecturer | `pending.lecturer@knowledgebank.demo` | Account awaiting admin approval |
+| Disabled | `disabled.user@knowledgebank.demo` | Login rejected — demonstrates disabled accounts |
+
+For a step-by-step walkthrough of all major flows see **[DEMO.md](DEMO.md)**.
+
 ## Test baseline
 
 Validated at Sprint-3 completion + polish:
