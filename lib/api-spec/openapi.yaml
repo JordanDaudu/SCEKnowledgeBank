@@ -293,6 +293,48 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SearchFacets" }
 
+  # ─── Sprint-3 M4: smart-metadata helpers ─────────────────────────
+  /v2/documents/duplicate-check:
+    get:
+      operationId: checkDuplicateDocument
+      tags: [documents]
+      summary: Look up an existing visible document with the same sha256 checksum.
+      parameters:
+        - in: query
+          name: checksum
+          required: true
+          schema: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+      responses:
+        "200":
+          description: Duplicate (or null when none visible to the caller).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DuplicateCheckResponse" }
+
+  /v2/documents/suggest-metadata:
+    post:
+      operationId: suggestDocumentMetadata
+      tags: [documents]
+      summary: >-
+        Run extractor + intelligence on a single file and return
+        suggested title, tags, category, language, keywords plus a
+        duplicate banner if applicable. Does NOT persist anything.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Suggestion bundle for the upload form.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuggestMetadataResponse" }
+
   /v2/documents/autocomplete:
     get:
       operationId: searchAutocomplete
@@ -1171,6 +1213,63 @@ components:
         hasExtractedText:
           type: boolean
           description: True when extracted text exists for full-text search (task #28).
+        language:
+          type: string
+          description: >-
+            ISO-639-1 short code (en/es/fr/de/it/pt) detected from the
+            extracted text. Omitted when the classifier could not reach
+            its confidence threshold (Sprint-3 M4).
+        keywords:
+          type: array
+          items: { type: string }
+          description: >-
+            Top content terms by frequency after stopword filtering,
+            most frequent first. Empty/omitted when extraction had no
+            usable text (Sprint-3 M4).
+
+    DuplicateCheckResponse:
+      type: object
+      required: [duplicate]
+      properties:
+        duplicate:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DuplicateDocument"
+
+    DuplicateDocument:
+      type: object
+      required: [documentId, title, uploaderDisplayName, uploadedAt]
+      properties:
+        documentId: { type: string, format: uuid }
+        title: { type: string }
+        uploaderDisplayName: { type: string }
+        uploadedAt: { type: string, format: date-time }
+
+    SuggestMetadataResponse:
+      type: object
+      required: [keywords, tags]
+      properties:
+        title: { type: string }
+        language: { type: string }
+        keywords:
+          type: array
+          items: { type: string }
+        tags:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        category:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        duplicate:
+          $ref: "#/components/schemas/DuplicateDocument"
 
     DocumentSuggestion:
       type: object

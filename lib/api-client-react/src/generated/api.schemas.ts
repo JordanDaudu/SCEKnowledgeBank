@@ -191,6 +191,10 @@ export interface ExtractedFileMetadata {
   imageHeight?: number;
   /** True when extracted text exists for full-text search (task */
   hasExtractedText: boolean;
+  /** ISO-639-1 short code (en/es/fr/de/it/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4). */
+  language?: string;
+  /** Top content terms by frequency after stopword filtering, most frequent first. Empty/omitted when extraction had no usable text (Sprint-3 M4). */
+  keywords?: string[];
 }
 
 export interface DocumentFileMeta {
@@ -255,6 +259,36 @@ export interface Document {
 }
 
 export type DocumentDetail = Document;
+
+export interface DuplicateDocument {
+  documentId: string;
+  title: string;
+  uploaderDisplayName: string;
+  uploadedAt: string;
+}
+
+export interface DuplicateCheckResponse {
+  duplicate: DuplicateDocument | null;
+}
+
+export type SuggestMetadataResponseTagsItem = {
+  id: string;
+  name: string;
+};
+
+export type SuggestMetadataResponseCategory = {
+  id: string;
+  name: string;
+};
+
+export interface SuggestMetadataResponse {
+  title?: string;
+  language?: string;
+  keywords: string[];
+  tags: SuggestMetadataResponseTagsItem[];
+  category?: SuggestMetadataResponseCategory;
+  duplicate?: DuplicateDocument;
+}
 
 export interface DocumentSuggestion {
   id: string;
@@ -692,6 +726,17 @@ export const SearchDocumentsFacetsSemester = {
   spring: "spring",
   summer: "summer",
 } as const;
+
+export type CheckDuplicateDocumentParams = {
+  /**
+   * @pattern ^[a-fA-F0-9]{64}$
+   */
+  checksum: string;
+};
+
+export type SuggestDocumentMetadataBody = {
+  file: Blob;
+};
 
 export type SearchAutocompleteParams = {
   /**

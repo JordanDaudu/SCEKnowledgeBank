@@ -19,6 +19,7 @@ import type {
 import type {
   ApiError,
   Category,
+  CheckDuplicateDocumentParams,
   Comment,
   Course,
   CreateCommentRequest,
@@ -31,6 +32,7 @@ import type {
   DocumentSuggestionsParams,
   DocumentVersion,
   DownloadDocumentParams,
+  DuplicateCheckResponse,
   GetDocumentThumbnailParams,
   HealthStatus,
   ListDocumentsParams,
@@ -56,6 +58,8 @@ import type {
   SearchUsersParams,
   SignedTokenResponse,
   StorageQuota,
+  SuggestDocumentMetadataBody,
+  SuggestMetadataResponse,
   Tag,
   UpdateCommentRequest,
   UpdateDocumentRequest,
@@ -1192,6 +1196,201 @@ export function useSearchDocumentsFacets<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Look up an existing visible document with the same sha256 checksum.
+ */
+export const getCheckDuplicateDocumentUrl = (
+  params: CheckDuplicateDocumentParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v2/documents/duplicate-check?${stringifiedParams}`
+    : `/api/v2/documents/duplicate-check`;
+};
+
+export const checkDuplicateDocument = async (
+  params: CheckDuplicateDocumentParams,
+  options?: RequestInit,
+): Promise<DuplicateCheckResponse> => {
+  return customFetch<DuplicateCheckResponse>(
+    getCheckDuplicateDocumentUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getCheckDuplicateDocumentQueryKey = (
+  params?: CheckDuplicateDocumentParams,
+) => {
+  return [
+    `/api/v2/documents/duplicate-check`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getCheckDuplicateDocumentQueryOptions = <
+  TData = Awaited<ReturnType<typeof checkDuplicateDocument>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckDuplicateDocumentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkDuplicateDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getCheckDuplicateDocumentQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof checkDuplicateDocument>>
+  > = ({ signal }) =>
+    checkDuplicateDocument(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof checkDuplicateDocument>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type CheckDuplicateDocumentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof checkDuplicateDocument>>
+>;
+export type CheckDuplicateDocumentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Look up an existing visible document with the same sha256 checksum.
+ */
+
+export function useCheckDuplicateDocument<
+  TData = Awaited<ReturnType<typeof checkDuplicateDocument>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckDuplicateDocumentParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkDuplicateDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCheckDuplicateDocumentQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Run extractor + intelligence on a single file and return suggested title, tags, category, language, keywords plus a duplicate banner if applicable. Does NOT persist anything.
+ */
+export const getSuggestDocumentMetadataUrl = () => {
+  return `/api/v2/documents/suggest-metadata`;
+};
+
+export const suggestDocumentMetadata = async (
+  suggestDocumentMetadataBody: SuggestDocumentMetadataBody,
+  options?: RequestInit,
+): Promise<SuggestMetadataResponse> => {
+  const formData = new FormData();
+  formData.append(`file`, suggestDocumentMetadataBody.file);
+
+  return customFetch<SuggestMetadataResponse>(getSuggestDocumentMetadataUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getSuggestDocumentMetadataMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestDocumentMetadata>>,
+    TError,
+    { data: BodyType<SuggestDocumentMetadataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof suggestDocumentMetadata>>,
+  TError,
+  { data: BodyType<SuggestDocumentMetadataBody> },
+  TContext
+> => {
+  const mutationKey = ["suggestDocumentMetadata"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof suggestDocumentMetadata>>,
+    { data: BodyType<SuggestDocumentMetadataBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return suggestDocumentMetadata(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SuggestDocumentMetadataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof suggestDocumentMetadata>>
+>;
+export type SuggestDocumentMetadataMutationBody =
+  BodyType<SuggestDocumentMetadataBody>;
+export type SuggestDocumentMetadataMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Run extractor + intelligence on a single file and return suggested title, tags, category, language, keywords plus a duplicate banner if applicable. Does NOT persist anything.
+ */
+export const useSuggestDocumentMetadata = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestDocumentMetadata>>,
+    TError,
+    { data: BodyType<SuggestDocumentMetadataBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof suggestDocumentMetadata>>,
+  TError,
+  { data: BodyType<SuggestDocumentMetadataBody> },
+  TContext
+> => {
+  return useMutation(getSuggestDocumentMetadataMutationOptions(options));
+};
 
 /**
  * @summary Tag / course / uploader autocomplete for the search bar

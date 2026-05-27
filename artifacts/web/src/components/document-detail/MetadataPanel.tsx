@@ -92,6 +92,31 @@ export default function MetadataPanel({
         {doc.semester && <Badge variant="outline" className="capitalize">{doc.semester} {doc.academicYear}</Badge>}
         {doc.tags?.map((t) => <Badge key={t.id} variant="secondary" className="opacity-70">{t.name}</Badge>)}
       </div>
+      {/* Sprint-3 M4: surface detected language + keywords from the
+          primary file's extracted metadata. We pick the first file
+          with intelligence data — most docs have only one file, and
+          when there are multiple the primary is the natural choice. */}
+      {(() => {
+        const meta = doc.file?.extractedMetadata;
+        if (!meta) return null;
+        const hasIntel =
+          !!meta.language || (meta.keywords && meta.keywords.length > 0);
+        if (!hasIntel) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-2 mb-4 text-xs text-muted-foreground" data-testid="document-intelligence">
+            {meta.language && (
+              <Badge variant="outline" className="uppercase" data-testid="document-language">
+                {meta.language}
+              </Badge>
+            )}
+            {meta.keywords?.slice(0, 8).map((kw) => (
+              <Badge key={kw} variant="outline" className="font-normal" data-testid="document-keyword">
+                {kw}
+              </Badge>
+            ))}
+          </div>
+        );
+      })()}
       {FEATURE_REVIEW && doc.status === "rejected" && doc.reviewReason && (
         <div
           className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm"

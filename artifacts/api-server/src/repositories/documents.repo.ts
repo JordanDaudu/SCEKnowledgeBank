@@ -54,6 +54,12 @@ export interface DocumentFileRow {
   imageHeight: number | null;
   thumbnailPath: string | null;
   thumbnailMimeType: string | null;
+  // Smart-metadata (Sprint-3 M4) — best-effort post-processors over
+  // extractedText. `language` is an ISO-639-1 code; `keywords` is a
+  // ranked list (most frequent first). Empty when extraction had
+  // nothing to chew on.
+  language: string | null;
+  keywords: string[];
 }
 
 export interface DocumentFileInsert {
@@ -78,6 +84,9 @@ export interface DocumentFileInsert {
   imageHeight?: number | null;
   thumbnailPath?: string | null;
   thumbnailMimeType?: string | null;
+  // Smart-metadata (Sprint-3 M4).
+  language?: string | null;
+  keywords?: string[];
 }
 
 export type DocumentSort = "newest" | "oldest" | "title" | "popularity";
@@ -129,6 +138,8 @@ function fromFileRow(r: {
   imageHeight: number | null;
   thumbnailPath: string | null;
   thumbnailMimeType: string | null;
+  language: string | null;
+  keywords: string[];
 }): DocumentFileRow {
   return { ...r, sizeBytes: Number(r.sizeBytes) };
 }
@@ -953,6 +964,74 @@ export async function findAliveFileByUploaderAndChecksum(
   });
   if (!row) return null;
   return { documentId: row.document.id, documentTitle: row.document.title };
+}
+
+/**
+ * Sprint-3 M4: dedup lookup that is *not* scoped to the uploader.
+ * Returns every alive document that has at least one file with the
+ * given checksum, with the metadata the suggest-metadata service
+ * needs to render a banner. Visibility filtering is the caller's
+ * responsibility (the service layer applies `permissions.canView`).
+ *
+ * Deduplicated by `documentId` — a document with multiple version
+ * rows all matching the checksum still surfaces once.
+ */
+export interface DuplicateCandidateRow {
+  documentId: string;
+  documentTitle: string;
+  uploaderId: string;
+  ownerId: string;
+  uploaderDisplayName: string;
+  uploadedAt: Date;
+  // Real visibility/status/courseId from the document row so the
+  // caller's `permissions.canView` decision sees true values — not
+  // a hardcoded public/published default that would leak the
+  // existence of a private or in-review duplicate to other users.
+  visibility: string;
+  status: string;
+  courseId: string | null;
+}
+
+export async function findAliveDocumentsByChecksum(
+  checksum: string,
+): Promise<DuplicateCandidateRow[]> {
+  const rows = await db.documentFile.findMany({
+    where: { checksum, document: { deletedAt: null } },
+    select: {
+      uploadedAt: true,
+      document: {
+        select: {
+          id: true,
+          title: true,
+          uploaderId: true,
+          ownerId: true,
+          visibility: true,
+          status: true,
+          courseId: true,
+          uploader: { select: { displayName: true } },
+        },
+      },
+    },
+    orderBy: { uploadedAt: "asc" },
+  });
+  const seen = new Set<string>();
+  const out: DuplicateCandidateRow[] = [];
+  for (const r of rows) {
+    if (seen.has(r.document.id)) continue;
+    seen.add(r.document.id);
+    out.push({
+      documentId: r.document.id,
+      documentTitle: r.document.title,
+      uploaderId: r.document.uploaderId,
+      ownerId: r.document.ownerId,
+      uploaderDisplayName: r.document.uploader.displayName,
+      uploadedAt: r.uploadedAt,
+      visibility: r.document.visibility,
+      status: r.document.status,
+      courseId: r.document.courseId,
+    });
+  }
+  return out;
 }
 
 /**

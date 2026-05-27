@@ -2,6 +2,17 @@
 
 A scholarly document repository for university communities — upload, browse, search, preview, download, discuss, and request academic materials with role-based access (student / lecturer / admin).
 
+## Sprint-3 M4 — Smart metadata & document intelligence
+
+Every uploaded `DocumentFile` is now passed through a pluggable extractor chain: the per-MIME byte extractor produces `extractedText`, then post-processors fill in `language` (en/es/fr/de/it/pt via stopword classifier) and `keywords` (top frequency terms, stopword + length filtered). Both fields are persisted on `document_files` and surfaced in the document detail metadata strip.
+
+The upload form pre-flights each first-queued file against two helper endpoints:
+
+- `GET /api/v2/documents/duplicate-check?checksum=…` — visibility-scoped sha256 lookup; renders an amber "Possible duplicate" banner linking to the original.
+- `POST /api/v2/documents/suggest-metadata` (multipart) — runs the real extractor chain plus dedup, then matches keywords against existing `Tag` / `Category` rows (existing-only — no auto-create). Suggestions appear as clickable chips in the Metadata card.
+
+Suggestion fetches are best-effort: a failed extract clears the panel without blocking the upload.
+
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server

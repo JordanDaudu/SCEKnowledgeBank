@@ -59,6 +59,12 @@ export interface DocumentDTO {
       imageWidth?: number;
       imageHeight?: number;
       hasExtractedText: boolean;
+      // Sprint-3 M4 smart-metadata. `language` is an ISO-639-1
+      // short code; `keywords` is a ranked list of the most
+      // frequent content terms. Both fall back to undefined when
+      // extraction had nothing usable to chew on.
+      language?: string;
+      keywords?: string[];
     };
   };
   /**
@@ -222,6 +228,8 @@ export async function assembleDocuments(
       if (file.author) extracted.author = file.author;
       if (file.imageWidth != null) extracted.imageWidth = file.imageWidth;
       if (file.imageHeight != null) extracted.imageHeight = file.imageHeight;
+      if (file.language) extracted.language = file.language;
+      if (file.keywords && file.keywords.length > 0) extracted.keywords = file.keywords;
       fileDto.extractedMetadata = extracted;
       dto.file = fileDto;
       dto.fallbackIconType = fallbackIconFor(file.mimeType);
@@ -984,6 +992,8 @@ export async function uploadDocuments(
         imageHeight: extracted.imageHeight ?? null,
         thumbnailPath,
         thumbnailMimeType,
+        language: extracted.language ?? null,
+        keywords: extracted.keywords ?? [],
       };
 
       // Insert document, file, tag links, and increment usedBytes all in
@@ -1181,6 +1191,8 @@ export async function uploadNewVersion(
       imageHeight: extracted.imageHeight ?? null,
       thumbnailPath,
       thumbnailMimeType,
+      language: extracted.language ?? null,
+      keywords: extracted.keywords ?? [],
       changeNote: input.changeNote?.trim() || null,
     },
   });

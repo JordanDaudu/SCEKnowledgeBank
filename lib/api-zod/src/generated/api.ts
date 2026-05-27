@@ -218,6 +218,18 @@ export const ListDocumentsResponse = zod.object({
                 .describe(
                   "True when extracted text exists for full-text search (task",
                 ),
+              language: zod
+                .string()
+                .optional()
+                .describe(
+                  "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+                ),
+              keywords: zod
+                .array(zod.string())
+                .optional()
+                .describe(
+                  "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
+                ),
             })
             .optional()
             .describe(
@@ -442,6 +454,18 @@ export const ListRecentDocumentsResponseItem = zod.object({
             .boolean()
             .describe(
               "True when extracted text exists for full-text search (task",
+            ),
+          language: zod
+            .string()
+            .optional()
+            .describe(
+              "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+            ),
+          keywords: zod
+            .array(zod.string())
+            .optional()
+            .describe(
+              "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
             ),
         })
         .optional()
@@ -688,6 +712,18 @@ export const SearchDocumentsV2Response = zod.object({
                   .describe(
                     "True when extracted text exists for full-text search (task",
                   ),
+                language: zod
+                  .string()
+                  .optional()
+                  .describe(
+                    "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+                  ),
+                keywords: zod
+                  .array(zod.string())
+                  .optional()
+                  .describe(
+                    "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
+                  ),
               })
               .optional()
               .describe(
@@ -835,6 +871,63 @@ export const SearchDocumentsFacetsResponse = zod.object({
 });
 
 /**
+ * @summary Look up an existing visible document with the same sha256 checksum.
+ */
+export const checkDuplicateDocumentQueryChecksumRegExp = new RegExp(
+  "^[a-fA-F0-9]{64}$",
+);
+
+export const CheckDuplicateDocumentQueryParams = zod.object({
+  checksum: zod.coerce
+    .string()
+    .regex(checkDuplicateDocumentQueryChecksumRegExp),
+});
+
+export const CheckDuplicateDocumentResponse = zod.object({
+  duplicate: zod
+    .object({
+      documentId: zod.string().uuid(),
+      title: zod.string(),
+      uploaderDisplayName: zod.string(),
+      uploadedAt: zod.coerce.date(),
+    })
+    .nullable(),
+});
+
+/**
+ * @summary Run extractor + intelligence on a single file and return suggested title, tags, category, language, keywords plus a duplicate banner if applicable. Does NOT persist anything.
+ */
+export const SuggestDocumentMetadataBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+export const SuggestDocumentMetadataResponse = zod.object({
+  title: zod.string().optional(),
+  language: zod.string().optional(),
+  keywords: zod.array(zod.string()),
+  tags: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+    }),
+  ),
+  category: zod
+    .object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+    })
+    .optional(),
+  duplicate: zod
+    .object({
+      documentId: zod.string().uuid(),
+      title: zod.string(),
+      uploaderDisplayName: zod.string(),
+      uploadedAt: zod.coerce.date(),
+    })
+    .optional(),
+});
+
+/**
  * @summary Tag / course / uploader autocomplete for the search bar
  */
 
@@ -975,6 +1068,18 @@ export const GetDocumentResponse = zod.object({
             .boolean()
             .describe(
               "True when extracted text exists for full-text search (task",
+            ),
+          language: zod
+            .string()
+            .optional()
+            .describe(
+              "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+            ),
+          keywords: zod
+            .array(zod.string())
+            .optional()
+            .describe(
+              "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
             ),
         })
         .optional()
@@ -1165,6 +1270,18 @@ export const UpdateDocumentResponse = zod.object({
             .boolean()
             .describe(
               "True when extracted text exists for full-text search (task",
+            ),
+          language: zod
+            .string()
+            .optional()
+            .describe(
+              "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+            ),
+          keywords: zod
+            .array(zod.string())
+            .optional()
+            .describe(
+              "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
             ),
         })
         .optional()
@@ -1882,6 +1999,18 @@ export const ListPendingReviewDocumentsResponse = zod.object({
                 .describe(
                   "True when extracted text exists for full-text search (task",
                 ),
+              language: zod
+                .string()
+                .optional()
+                .describe(
+                  "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+                ),
+              keywords: zod
+                .array(zod.string())
+                .optional()
+                .describe(
+                  "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
+                ),
             })
             .optional()
             .describe(
@@ -2073,6 +2202,18 @@ export const SubmitDocumentForReviewResponse = zod.object({
             .describe(
               "True when extracted text exists for full-text search (task",
             ),
+          language: zod
+            .string()
+            .optional()
+            .describe(
+              "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+            ),
+          keywords: zod
+            .array(zod.string())
+            .optional()
+            .describe(
+              "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
+            ),
         })
         .optional()
         .describe(
@@ -2252,6 +2393,18 @@ export const ApproveDocumentResponse = zod.object({
             .boolean()
             .describe(
               "True when extracted text exists for full-text search (task",
+            ),
+          language: zod
+            .string()
+            .optional()
+            .describe(
+              "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+            ),
+          keywords: zod
+            .array(zod.string())
+            .optional()
+            .describe(
+              "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
             ),
         })
         .optional()
@@ -2444,6 +2597,18 @@ export const RejectDocumentResponse = zod.object({
             .boolean()
             .describe(
               "True when extracted text exists for full-text search (task",
+            ),
+          language: zod
+            .string()
+            .optional()
+            .describe(
+              "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+            ),
+          keywords: zod
+            .array(zod.string())
+            .optional()
+            .describe(
+              "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
             ),
         })
         .optional()

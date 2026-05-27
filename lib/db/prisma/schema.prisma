@@ -290,6 +290,16 @@ model DocumentFile {
   thumbnailPath     String? @map("thumbnail_path")
   thumbnailMimeType String? @map("thumbnail_mime_type")
 
+  // ─── Smart metadata (Sprint-3 M4) ─────────────────────────────
+  // Best-effort post-processors derived from `extractedText`:
+  //   • language — ISO-639-1 short code (en/es/fr/de/...). NULL when
+  //     the classifier could not reach the confidence threshold.
+  //   • keywords — top tokens by frequency after stopword/length
+  //     filtering. Empty array means no extracted text or every
+  //     candidate was filtered out.
+  language String?
+  keywords String[] @default([])
+
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   uploadedBy User?  @relation("DocumentFileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
 

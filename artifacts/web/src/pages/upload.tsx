@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
   useListCourses,
   useListCategories,
@@ -7,8 +7,10 @@ import {
   getGetMyStorageQuotaQueryKey,
   getListDocumentsQueryKey,
   getListRecentDocumentsQueryKey,
+  suggestDocumentMetadata,
   type Document as ApiDocument,
   type UploadResult,
+  type SuggestMetadataResponse,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -17,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock, RotateCcw } from "lucide-react";
+import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock, RotateCcw, Sparkles, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { apiEndpoints } from "@/lib/api-url";
@@ -151,6 +153,53 @@ export default function Upload() {
   const { data: categories } = useListCategories();
   const { data: availableTags } = useListTags();
   const { data: quota } = useGetMyStorageQuota();
+
+  // Sprint-3 M4: smart-metadata suggestion. We fetch suggestions for
+  // the *first* still-queued file in the batch — the only file whose
+  // title/duplicate result is meaningful when the user is uploading
+  // many at once. The fetch is keyed by the file identity (name+size
+  // proxy) so re-renders don't refetch, and we abort an in-flight
+  // request when the primary file changes underfoot.
+  const [suggestion, setSuggestion] = useState<SuggestMetadataResponse | null>(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const primaryItem = useMemo(
+    () => items.find((i) => i.status === "queued" && !i.error),
+    [items],
+  );
+  const primaryKey = primaryItem
+    ? `${primaryItem.file.name}|${primaryItem.file.size}|${primaryItem.id}`
+    : "";
+
+  useEffect(() => {
+    if (!primaryItem) {
+      setSuggestion(null);
+      return;
+    }
+    const controller = new AbortController();
+    setSuggestLoading(true);
+    suggestDocumentMetadata(
+      { file: primaryItem.file },
+      { signal: controller.signal, credentials: "include" },
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSuggestion(res);
+      })
+      .catch(() => {
+        // Suggestions are best-effort — a failed extract shouldn't
+        // block the upload UI. Just clear the panel.
+        if (!controller.signal.aborted) setSuggestion(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSuggestLoading(false);
+      });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryKey]);
+
+  // Whether the batch is small enough for a single-doc title suggestion
+  // to make sense — we never apply a "title" across multiple files.
+  const isSingleFileBatch = items.filter((i) => i.status !== "failed").length === 1;
 
   const addFiles = (files: File[]) => {
     const next: QueueItem[] = files.map((file) => {
@@ -462,6 +511,29 @@ export default function Upload() {
               />
             </div>
 
+            {suggestion?.duplicate && (
+              <div
+                className="mt-6 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm"
+                data-testid="upload-duplicate-banner"
+              >
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <span className="font-medium">Possible duplicate.</span>{" "}
+                  An identical file is already in the bank:{" "}
+                  <a
+                    href={`/documents/${suggestion.duplicate.documentId}`}
+                    className="underline font-medium"
+                    data-testid="upload-duplicate-link"
+                  >
+                    {suggestion.duplicate.title}
+                  </a>{" "}
+                  <span className="text-muted-foreground">
+                    by {suggestion.duplicate.uploaderDisplayName}.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {failedCount > 0 && (
               <div className="mt-6 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
                 <span className="text-destructive">
@@ -676,6 +748,86 @@ export default function Upload() {
                 />
               </div>
             </div>
+
+            {suggestion &&
+              ((suggestion.tags && suggestion.tags.length > 0) ||
+                suggestion.category ||
+                (isSingleFileBatch && suggestion.title) ||
+                (suggestion.keywords && suggestion.keywords.length > 0)) && (
+                <div
+                  className="space-y-3 rounded-md border border-primary/20 bg-primary/5 p-3"
+                  data-testid="upload-suggestions"
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Suggestions
+                    {suggestLoading && (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  {isSingleFileBatch && suggestion.title && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Title: </span>
+                      <button
+                        type="button"
+                        className="underline font-medium"
+                        onClick={() => {
+                          /* Title is derived from filename at upload;
+                             we surface the suggestion but the v1 upload
+                             form has no per-file title field yet. */
+                        }}
+                        data-testid="suggestion-title"
+                      >
+                        {suggestion.title}
+                      </button>
+                    </div>
+                  )}
+                  {suggestion.category && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Category: </span>
+                      <Badge
+                        variant={
+                          categoryId === suggestion.category.id
+                            ? "default"
+                            : "outline"
+                        }
+                        className="cursor-pointer"
+                        onClick={() =>
+                          setCategoryId(suggestion.category!.id)
+                        }
+                        data-testid="suggestion-category"
+                      >
+                        {suggestion.category.name}
+                      </Badge>
+                    </div>
+                  )}
+                  {suggestion.tags && suggestion.tags.length > 0 && (
+                    <div className="text-sm space-y-1">
+                      <span className="text-muted-foreground">Tags:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestion.tags.map((t) => (
+                          <Badge
+                            key={t.id}
+                            variant={
+                              selectedTags.includes(t.id) ? "default" : "outline"
+                            }
+                            className="cursor-pointer"
+                            onClick={() => toggleTag(t.id)}
+                            data-testid="suggestion-tag"
+                          >
+                            + {t.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {suggestion.keywords && suggestion.keywords.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Keywords: {suggestion.keywords.slice(0, 8).join(", ")}
+                    </div>
+                  )}
+                </div>
+              )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Tags</label>

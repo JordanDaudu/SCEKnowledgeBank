@@ -20,4 +20,8 @@ export interface ExtractedFileMetadata {
   imageHeight?: number;
   /** True when extracted text exists for full-text search (task */
   hasExtractedText: boolean;
+  /** ISO-639-1 short code (en/es/fr/de/it/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4). */
+  language?: string;
+  /** Top content terms by frequency after stopword filtering, most frequent first. Empty/omitted when extraction had no usable text (Sprint-3 M4). */
+  keywords?: string[];
 }

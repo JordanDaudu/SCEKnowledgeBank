@@ -33,6 +33,8 @@ import { MATERIAL_TYPE_VALUES } from "../lib/material-types";
 import * as documentsService from "../services/documents.service";
 import * as searchService from "../services/search.service";
 import * as permissions from "../services/permissions.service";
+import * as dedupService from "../services/documents/dedup.service";
+import * as suggestMetadataService from "../services/documents/suggest-metadata.service";
 
 // Sprint-2 audit: validate every field of the multipart upload body
 // before the request reaches the service. Without this, a malformed
@@ -192,6 +194,71 @@ router.get(
       );
       const result = await searchService.searchFacets(
         { ...parsed, sort: "newest", page: 1, pageSize: 1 },
+        req.authUser!,
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ─── Sprint-3 M4: smart-metadata helpers ──────────────────────────
+// `duplicate-check` is a cheap probe the upload form fires before
+// shipping bytes; `suggest-metadata` runs the real extractor chain
+// against a single multipart file and returns title/tags/keywords/
+// language plus a duplicate banner when applicable.
+
+const DuplicateCheckQueryParams = z.object({
+  // sha256 hex digest = 64 lowercase hex chars. We validate the shape
+  // so a typo can't accidentally hit the slow filemany scan with a
+  // random string.
+  checksum: z
+    .string()
+    .trim()
+    .regex(/^[a-f0-9]{64}$/i, "checksum must be a 64-char hex sha256"),
+});
+
+router.get(
+  "/v2/documents/duplicate-check",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { checksum } = DuplicateCheckQueryParams.parse(req.query);
+      const duplicate = await dedupService.findVisibleDuplicateByChecksum(
+        checksum.toLowerCase(),
+        req.authUser!,
+      );
+      res.json({ duplicate: duplicate ?? null });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/v2/documents/suggest-metadata",
+  requireAuth,
+  (req, res, next) => {
+    if (!req.authUser || !permissions.canUpload(req.authUser)) {
+      return next(forbidden("Only lecturers and admins can upload"));
+    }
+    next();
+  },
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({ error: "file is required" });
+        return;
+      }
+      const result = await suggestMetadataService.suggestForUpload(
+        {
+          buffer: file.buffer,
+          mimeType: file.mimetype,
+          filename: file.originalname,
+        },
         req.authUser!,
       );
       res.json(result);
