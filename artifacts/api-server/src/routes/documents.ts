@@ -240,7 +240,11 @@ router.post(
   requireAuth,
   (req, res, next) => {
     if (!req.authUser || !permissions.canUpload(req.authUser)) {
-      return next(forbidden("Only lecturers and admins can upload"));
+      return next(
+        forbidden(
+          "You do not have permission to upload. Students must be enrolled in at least one course.",
+        ),
+      );
     }
     next();
   },

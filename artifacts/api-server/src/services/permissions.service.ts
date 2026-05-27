@@ -385,6 +385,15 @@ export function visibleDocumentFilterSql(user: AuthenticatedUser): Prisma.Sql {
         lecturerCourses.map((id) => PrismaNs.sql`${id}::uuid`),
       )})`
     : PrismaNs.sql`FALSE`;
+  // Status clause MUST stay in lockstep with `visibleDocumentFilter`
+  // (the Prisma twin). Both branches feed v2 search / facets /
+  // autocomplete + the documents list; if one hides `draft` and the
+  // other doesn't, the raw-SQL surface leaks unreviewed material to
+  // non-owners. Use the shared `REVIEW_HIDDEN_STATUSES` constant to
+  // keep that invariant durable.
+  const hiddenStatuses = PrismaNs.join(
+    REVIEW_HIDDEN_STATUSES.map((s) => PrismaNs.sql`${s}`),
+  );
   return PrismaNs.sql`(
     (
       d.visibility = 'public'
@@ -392,7 +401,7 @@ export function visibleDocumentFilterSql(user: AuthenticatedUser): Prisma.Sql {
       OR (d.visibility = 'private' AND (d.uploader_id = ${user.id}::uuid OR d.owner_id = ${user.id}::uuid))
     )
     AND (
-      d.status NOT IN ('pending_review', 'rejected')
+      d.status NOT IN (${hiddenStatuses})
       OR d.uploader_id = ${user.id}::uuid
       OR d.owner_id = ${user.id}::uuid
       OR ${lecturerCourseClause}

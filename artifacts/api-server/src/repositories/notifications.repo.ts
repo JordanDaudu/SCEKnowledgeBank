@@ -32,7 +32,11 @@ export interface NotificationInsert {
  *
  * Implemented with `createMany({ skipDuplicates: true })` so the
  * unique-violation never raises — matches the dedup semantics
- * documented in the migration.
+ * documented in the migration. `type` is part of the key so distinct
+ * review outcomes on the same document (e.g. `document.rejected` then
+ * `document.approved` after a resubmit) both reach the uploader.
+ * Cross-type collisions on the same subject (e.g. comment mention vs
+ * reply on the same comment) stay the producer's responsibility.
  */
 export async function insertIfNew(
   values: NotificationInsert,

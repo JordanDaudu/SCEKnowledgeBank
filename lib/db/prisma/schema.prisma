@@ -504,12 +504,17 @@ model Notification {
   recipient User  @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
   actor     User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
 
-  // Per-(recipient, subject) dedup: a single comment cannot produce
-  // more than one row for the same recipient, even if the recipient
-  // qualifies for multiple notification types (e.g. they're @mentioned
-  // in a reply to their own comment). Type precedence is enforced in
-  // the producer (reply > mention).
-  @@unique([recipientId, subjectType, subjectId], map: "notifications_recipient_subject_unique")
+  // Per-(recipient, type, subject) dedup: the same producer event
+  // cannot create two rows for the same recipient on the same
+  // subject. `type` is part of the key so that distinct review
+  // outcomes on a single document (e.g. `document.rejected` then,
+  // after a resubmit, `document.approved`) both reach the uploader —
+  // a type-less key would silently suppress the second.
+  // Cross-type collisions on the same subject (e.g. mention vs reply
+  // on the same comment) stay the producer's responsibility: the
+  // comment producer enforces type precedence (reply > mention)
+  // before calling `notify(...)`.
+  @@unique([recipientId, type, subjectType, subjectId], map: "notifications_recipient_type_subject_unique")
   // Two complementary indexes:
   //   • `_unread_idx` keeps `read_at` in the middle so the
   //     unread-count + unread-only feed (`WHERE recipient_id = ?

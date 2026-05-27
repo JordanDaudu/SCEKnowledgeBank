@@ -97,8 +97,8 @@ Run on a freshly-seeded demo DB, both workflows up.
 
 | Driver                              | Wall   | Unit tests        | Playwright smoke |
 | ----------------------------------- | ------ | ----------------- | ---------------- |
-| `local` (`STORAGE_DRIVER=local`)    | ~57 s  | 267 / 267 pass    | 2/2 pass         |
-| `gcs` (auto-pick, default in Replit)| ~50 s  | 267 / 267 pass    | 2/2 pass (last verified at M7 — re-run after schema changes) |
+| `local` (`STORAGE_DRIVER=local`)    | ~60 s  | 277 / 277 pass    | 2/2 pass         |
+| `gcs` (auto-pick, default in Replit)| ~55 s  | 277 / 277 pass    | 2/2 pass         |
 
 To switch drivers for a regression sweep, the wrapper scripts (`pnpm regression:local`, `pnpm regression:gcs`) export `STORAGE_DRIVER` into the vitest run. The Playwright leg drives the *running* `artifacts/api-server: API Server` workflow, so to make the end-to-end leg actually exercise the other driver you must additionally:
 
