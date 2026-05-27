@@ -408,6 +408,29 @@ describe("createForDocument notification producer hooks", () => {
     expect(replyCalls).toHaveLength(0);
   });
 
+  it("emits exactly one notification (reply, not mention) when the parent author is also @mentioned in the reply", async () => {
+    findAliveById.mockResolvedValueOnce(
+      makeComment({ id: "parent", authorId: "u-parent" }),
+    );
+    insertComment.mockResolvedValueOnce(
+      makeComment({ id: "child", parentId: "parent" }),
+    );
+    findByNames.mockResolvedValueOnce([
+      { id: "u-parent", displayName: "ParentUser" },
+    ]);
+    await createForDocument(
+      "doc-1",
+      { body: "hey @ParentUser thanks", parentId: "parent" },
+      user,
+    );
+    await new Promise((r) => setImmediate(r));
+    const callsForParent = notify.mock.calls.filter(
+      (c) => c[0].recipientId === "u-parent",
+    );
+    expect(callsForParent).toHaveLength(1);
+    expect(callsForParent[0]![0].type).toBe("comment.reply");
+  });
+
   it("does not fail the comment write if notify throws synchronously", async () => {
     insertComment.mockResolvedValueOnce(makeComment({ id: "new-c" }));
     findByNames.mockResolvedValueOnce([

@@ -218,7 +218,18 @@ export async function createForDocument(
       .then(() => notificationsService.notify(args))
       .catch((err) => logger.warn({ err }, `${label} notify threw`));
   };
+  // Dedup precedence: when the parent author also appears in the
+  // mention list, the reply notification supersedes the mention so
+  // the recipient sees exactly one row for this comment (matches the
+  // per-(recipient, subject) unique key in the DB). Reply wins
+  // because it's the stronger signal — a direct response to the
+  // recipient's own content.
+  const replyRecipient =
+    parentComment && parentComment.authorId !== user.id
+      ? parentComment.authorId
+      : null;
   const notified = new Set<string>();
+  if (replyRecipient) notified.add(replyRecipient);
   for (const mentionedId of mentionUserIds) {
     if (notified.has(mentionedId)) continue;
     notified.add(mentionedId);
@@ -235,14 +246,10 @@ export async function createForDocument(
       "comment.mention",
     );
   }
-  if (parentComment && parentComment.authorId !== user.id) {
-    // The unique index on (recipient, type, subjectType, subjectId)
-    // ensures one reply notification per child comment; if the parent
-    // author was also @mentioned, both rows coexist because `type`
-    // differs.
+  if (replyRecipient) {
     fireAndForget(
       {
-        recipientId: parentComment.authorId,
+        recipientId: replyRecipient,
         actorId: user.id,
         type: "comment.reply",
         subjectType: "comment",
