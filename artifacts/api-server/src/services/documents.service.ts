@@ -10,6 +10,7 @@ import * as quotaService from "./quota.service";
 import * as taxonomyService from "./taxonomy.service";
 import * as auditService from "./audit.service";
 import * as permissions from "./permissions.service";
+import * as notificationsService from "./notifications.service";
 import { badRequest, forbidden, notFound, unauthorized } from "../lib/errors";
 import { signToken, verifyToken } from "../lib/sign-url";
 import { getStorage } from "../lib/storage";
@@ -83,7 +84,16 @@ export interface DocumentDTO {
     canDelete: boolean;
     canDownload: boolean;
     canComment: boolean;
+    /** Sprint-3 M2: review workflow transition affordances. */
+    canSubmitForReview: boolean;
+    canReview: boolean;
   };
+  // ─── Review workflow (Sprint-3 M2) ───────────────────────────────
+  // All four are NULL/absent until the doc enters the workflow.
+  submittedForReviewAt?: string;
+  reviewedAt?: string;
+  reviewer?: usersService.UserSummaryDTO;
+  reviewReason?: string;
 }
 
 // All visibility / role checks are delegated to permissions.service.
@@ -94,11 +104,19 @@ export async function assembleDocuments(
 ): Promise<DocumentDTO[]> {
   if (docs.length === 0) return [];
   const ids = docs.map((d) => d.id);
+  // Reviewer ids are loaded alongside uploader ids so the DTO can
+  // surface the reviewer's display name without an extra round-trip.
+  const reviewerIds = docs
+    .map((d) => d.reviewedBy)
+    .filter((i): i is string => !!i);
+  const userIds = Array.from(
+    new Set([...docs.map((d) => d.uploaderId), ...reviewerIds]),
+  );
   const [coursesMap, categoriesMap, uploadersMap, fileRows, tagLinks] =
     await Promise.all([
       taxonomyService.loadCourses(docs.map((d) => d.courseId)),
       taxonomyService.loadCategories(docs.map((d) => d.categoryId)),
-      usersService.loadUserSummaries(docs.map((d) => d.uploaderId)),
+      usersService.loadUserSummaries(userIds),
       docsRepo.findFilesByDocumentIds(ids),
       docsRepo.findTagLinksForDocuments(ids),
     ]);
@@ -141,6 +159,7 @@ export async function assembleDocuments(
       ownerId: d.ownerId,
       visibility: d.visibility,
       courseId: d.courseId,
+      status: d.status,
     };
     const canView = permissions.canView(permObj, user);
     const dto: DocumentDTO = {
@@ -163,8 +182,22 @@ export async function assembleDocuments(
         canDelete: permissions.canDelete(permObj, user),
         canDownload: canView,
         canComment: permissions.canComment(permObj, user),
+        canSubmitForReview:
+          permissions.canSubmitForReview(permObj, user) &&
+          (d.status === "draft" || d.status === "rejected"),
+        canReview:
+          permissions.canReview(permObj, user) &&
+          d.status === "pending_review",
       },
     };
+    if (d.submittedForReviewAt)
+      dto.submittedForReviewAt = d.submittedForReviewAt.toISOString();
+    if (d.reviewedAt) dto.reviewedAt = d.reviewedAt.toISOString();
+    if (d.reviewedBy) {
+      const r = uploadersMap.get(d.reviewedBy);
+      if (r) dto.reviewer = r;
+    }
+    if (d.reviewReason) dto.reviewReason = d.reviewReason;
     const c = d.courseId ? coursesMap.get(d.courseId) : undefined;
     if (c) dto.course = c;
     const cat = d.categoryId ? categoriesMap.get(d.categoryId) : undefined;
@@ -425,7 +458,30 @@ export async function updateDocument(
   if (body.semester !== undefined) patch.semester = body.semester;
   if (body.academicYear !== undefined) patch.academicYear = body.academicYear;
   if (body.visibility !== undefined) patch.visibility = body.visibility;
-  if (body.status !== undefined) patch.status = body.status;
+  if (body.status !== undefined) {
+    // Sprint-3 M2: the review state machine (`pending_review`,
+    // `approved`, `rejected`) is owned exclusively by the
+    // submit-for-review / approve / reject endpoints. Allowing a
+    // status patch in or out of any of those states from the generic
+    // editor would bypass reviewer permissions, the
+    // canSubmitForReview/canReview gates, the required rejection
+    // reason, the audit log entries, and the notify side effects.
+    // Legacy `draft|published|archived` toggles still go through PATCH.
+    const REVIEW_STATES = new Set([
+      "pending_review",
+      "approved",
+      "rejected",
+    ]);
+    if (
+      REVIEW_STATES.has(body.status) ||
+      REVIEW_STATES.has(doc.status)
+    ) {
+      throw badRequest(
+        "Use the review workflow endpoints to change review-state documents",
+      );
+    }
+    patch.status = body.status;
+  }
 
   await docsRepo.updateDocumentById(id, patch);
 
@@ -455,6 +511,221 @@ export async function deleteDocument(
   // grace period and reconciles the quota counter.
   await docsRepo.softDeleteDocumentAndReleaseQuota(id, user.id);
   await auditService.record(user.id, "document.delete", "document", id);
+}
+
+// ─── Review & approval workflow (Sprint-3 M2) ───────────────────────
+//
+// State machine (additive — existing `draft|published|archived` is left
+// untouched):
+//   draft|rejected → pending_review     (submitForReview)
+//   pending_review → approved           (approve)
+//   pending_review → rejected           (reject, requires reason)
+//
+// Permission rules live in `permissions.service`:
+//   - canSubmitForReview = uploader/owner OR canEdit
+//   - canReview          = admin OR lecturer-for-course
+//
+// Notifications go through the M1 bus with subjectType='document'
+// so the (recipient, subject) dedup index absorbs spam from rapid
+// approve/reject toggles. The bus is non-throwing (notify swallows
+// errors), so transitions never fail because of a notify hiccup.
+//
+// Audit log records every transition. The actor never notifies
+// themselves (notifications.service short-circuits on actor=recipient).
+
+const REVIEW_REASON_MAX = 500;
+
+function reviewFeatureGate(): void {
+  if (!env.featureReview) throw notFound("Document not found");
+}
+
+export async function submitForReview(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+  reviewFeatureGate();
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canSubmitForReview(doc, user)) {
+    throw forbidden("Cannot submit this document for review");
+  }
+  if (doc.status !== "draft" && doc.status !== "rejected") {
+    throw badRequest(
+      `Document cannot be submitted for review from status '${doc.status}'`,
+    );
+  }
+  // Compare-and-swap on the previously-read status so two concurrent
+  // submits can't both fire the audit/notify pipeline (M2 transitions
+  // are read-then-write; without the precondition the second writer
+  // would silently overwrite and double the side effects).
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    doc.status,
+    {
+      status: "pending_review",
+      submittedForReviewAt: new Date(),
+      // Clear any prior rejection reason so the reviewer sees a clean
+      // slate on the next pass. Reviewer stays stamped (historical).
+      reviewReason: null,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) {
+    throw badRequest("Document status changed before submit could apply");
+  }
+  await auditService.record(
+    user.id,
+    "document.submit_for_review",
+    "document",
+    id,
+  );
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export async function approveDocument(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+  reviewFeatureGate();
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canReview(doc, user)) {
+    throw forbidden("Cannot review this document");
+  }
+  if (doc.status !== "pending_review") {
+    throw badRequest(
+      `Only documents in 'pending_review' can be approved (was '${doc.status}')`,
+    );
+  }
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    "pending_review",
+    {
+      status: "approved",
+      reviewedBy: user.id,
+      reviewedAt: new Date(),
+      reviewReason: null,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) {
+    // Lost the race to another reviewer (or the uploader resubmitted).
+    // Surface as 400 rather than silently double-notify the uploader.
+    throw badRequest("Document is no longer pending review");
+  }
+  await auditService.record(user.id, "document.approve", "document", id);
+  // Fire-and-forget: notify swallows its own failures, but wrap in a
+  // .catch anyway so an awaitless rejection can't crash the process.
+  void Promise.resolve()
+    .then(() =>
+      notificationsService.notify({
+        recipientId: doc.uploaderId,
+        actorId: user.id,
+        type: "document.approved",
+        subjectType: "document",
+        subjectId: id,
+        body: `Your document "${doc.title}" was approved.`,
+        url: `/documents/${id}`,
+      }),
+    )
+    .catch(() => {});
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export async function rejectDocument(
+  id: string,
+  reason: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+  reviewFeatureGate();
+  const trimmed = reason.trim();
+  if (!trimmed) throw badRequest("A rejection reason is required");
+  if (trimmed.length > REVIEW_REASON_MAX) {
+    throw badRequest(
+      `Rejection reason must be ${REVIEW_REASON_MAX} characters or less`,
+    );
+  }
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canReview(doc, user)) {
+    throw forbidden("Cannot review this document");
+  }
+  if (doc.status !== "pending_review") {
+    throw badRequest(
+      `Only documents in 'pending_review' can be rejected (was '${doc.status}')`,
+    );
+  }
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    "pending_review",
+    {
+      status: "rejected",
+      reviewedBy: user.id,
+      reviewedAt: new Date(),
+      reviewReason: trimmed,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) {
+    throw badRequest("Document is no longer pending review");
+  }
+  await auditService.record(user.id, "document.reject", "document", id);
+  void Promise.resolve()
+    .then(() =>
+      notificationsService.notify({
+        recipientId: doc.uploaderId,
+        actorId: user.id,
+        type: "document.rejected",
+        subjectType: "document",
+        subjectId: id,
+        body: trimmed,
+        url: `/documents/${id}`,
+      }),
+    )
+    .catch(() => {});
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export interface ListPendingReviewResult {
+  items: DocumentDTO[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function listPendingReview(
+  user: AuthenticatedUser,
+  opts: { page: number; pageSize: number },
+): Promise<ListPendingReviewResult> {
+  reviewFeatureGate();
+  const summary = permissions.userEnrollmentSummary(user);
+  // Anyone who isn't an admin and doesn't teach a course is not a
+  // reviewer — 403 instead of returning an empty list so the UI can
+  // tell apart "no items" from "you shouldn't be here".
+  if (!summary.isAdmin && summary.lecturerCourseIds.length === 0) {
+    throw forbidden("Only reviewers can access the review queue");
+  }
+  const filter: docsRepo.PendingReviewFilter = summary.isAdmin
+    ? {}
+    : { courseIds: summary.lecturerCourseIds };
+  const [total, rows] = await Promise.all([
+    docsRepo.countPendingReview(filter),
+    docsRepo.listPendingReview(filter, opts),
+  ]);
+  const items = await assembleDocuments(rows, user);
+  return { items, total, page: opts.page, pageSize: opts.pageSize };
 }
 
 // ─── Upload ─────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ import type {
   HealthStatus,
   ListDocumentsParams,
   ListNotificationsParams,
+  ListPendingReviewDocumentsParams,
   ListRecentDocumentsParams,
   ListRequestsParams,
   LoginRequest,
@@ -45,6 +46,7 @@ import type {
   PreviewDocumentParams,
   RegisterRequest,
   RegisterResponse,
+  RejectDocumentRequest,
   SearchUsersParams,
   SignedTokenResponse,
   StorageQuota,
@@ -3446,6 +3448,368 @@ export function useSearchUsers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Admins see every doc in `pending_review`. Lecturers see only pending docs in courses they teach. Anyone else gets 403. Ordered oldest-submission first (FIFO drain).
+ * @summary Review queue — pending documents the caller can act on
+ */
+export const getListPendingReviewDocumentsUrl = (
+  params?: ListPendingReviewDocumentsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/documents/pending-review?${stringifiedParams}`
+    : `/api/documents/pending-review`;
+};
+
+export const listPendingReviewDocuments = async (
+  params?: ListPendingReviewDocumentsParams,
+  options?: RequestInit,
+): Promise<DocumentPage> => {
+  return customFetch<DocumentPage>(getListPendingReviewDocumentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPendingReviewDocumentsQueryKey = (
+  params?: ListPendingReviewDocumentsParams,
+) => {
+  return [
+    `/api/documents/pending-review`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListPendingReviewDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPendingReviewDocuments>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListPendingReviewDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPendingReviewDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPendingReviewDocumentsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPendingReviewDocuments>>
+  > = ({ signal }) =>
+    listPendingReviewDocuments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingReviewDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPendingReviewDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPendingReviewDocuments>>
+>;
+export type ListPendingReviewDocumentsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Review queue — pending documents the caller can act on
+ */
+
+export function useListPendingReviewDocuments<
+  TData = Awaited<ReturnType<typeof listPendingReviewDocuments>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListPendingReviewDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPendingReviewDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPendingReviewDocumentsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Move a draft/rejected document into `pending_review`
+ */
+export const getSubmitDocumentForReviewUrl = (id: string) => {
+  return `/api/documents/${id}/submit-for-review`;
+};
+
+export const submitDocumentForReview = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Document> => {
+  return customFetch<Document>(getSubmitDocumentForReviewUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSubmitDocumentForReviewMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDocumentForReview>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitDocumentForReview>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["submitDocumentForReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitDocumentForReview>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return submitDocumentForReview(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitDocumentForReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitDocumentForReview>>
+>;
+
+export type SubmitDocumentForReviewMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Move a draft/rejected document into `pending_review`
+ */
+export const useSubmitDocumentForReview = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitDocumentForReview>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitDocumentForReview>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getSubmitDocumentForReviewMutationOptions(options));
+};
+
+/**
+ * @summary Approve a document currently in `pending_review`
+ */
+export const getApproveDocumentUrl = (id: string) => {
+  return `/api/documents/${id}/approve`;
+};
+
+export const approveDocument = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Document> => {
+  return customFetch<Document>(getApproveDocumentUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getApproveDocumentMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["approveDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveDocument>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return approveDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveDocument>>
+>;
+
+export type ApproveDocumentMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Approve a document currently in `pending_review`
+ */
+export const useApproveDocument = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getApproveDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Reject a document currently in `pending_review`
+ */
+export const getRejectDocumentUrl = (id: string) => {
+  return `/api/documents/${id}/reject`;
+};
+
+export const rejectDocument = async (
+  id: string,
+  rejectDocumentRequest: RejectDocumentRequest,
+  options?: RequestInit,
+): Promise<Document> => {
+  return customFetch<Document>(getRejectDocumentUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rejectDocumentRequest),
+  });
+};
+
+export const getRejectDocumentMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectDocument>>,
+    TError,
+    { id: string; data: BodyType<RejectDocumentRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectDocument>>,
+  TError,
+  { id: string; data: BodyType<RejectDocumentRequest> },
+  TContext
+> => {
+  const mutationKey = ["rejectDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectDocument>>,
+    { id: string; data: BodyType<RejectDocumentRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rejectDocument(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectDocument>>
+>;
+export type RejectDocumentMutationBody = BodyType<RejectDocumentRequest>;
+export type RejectDocumentMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Reject a document currently in `pending_review`
+ */
+export const useRejectDocument = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectDocument>>,
+    TError,
+    { id: string; data: BodyType<RejectDocumentRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectDocument>>,
+  TError,
+  { id: string; data: BodyType<RejectDocumentRequest> },
+  TContext
+> => {
+  return useMutation(getRejectDocumentMutationOptions(options));
+};
 
 /**
  * @summary List the current user's notifications (newest first)

@@ -7,10 +7,15 @@ import {
   GetDocumentParams,
   GetDocumentPreviewTokenParams,
   ListDocumentsQueryParams,
+  ListPendingReviewDocumentsQueryParams,
   ListRecentDocumentsQueryParams,
   UpdateDocumentBody,
   UpdateDocumentParams,
   DeleteDocumentParams,
+  SubmitDocumentForReviewParams,
+  ApproveDocumentParams,
+  RejectDocumentParams,
+  RejectDocumentBody,
   DownloadDocumentParams,
   DownloadDocumentQueryParams,
   PreviewDocumentParams,
@@ -153,6 +158,75 @@ router.post(
         req.authUser!,
       );
       res.status(201).json({ results });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ─── Review workflow (Sprint-3 M2) ───────────────────────────────
+// IMPORTANT: `/documents/pending-review` MUST come before
+// `/documents/:id` — Express matches in order, and otherwise the :id
+// route would swallow `pending-review` as an id and 400 on UUID parse.
+
+router.get(
+  "/documents/pending-review",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const q = ListPendingReviewDocumentsQueryParams.parse(req.query);
+      const result = await documentsService.listPendingReview(req.authUser!, {
+        page: q.page,
+        pageSize: q.pageSize,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/documents/:id/submit-for-review",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { id } = SubmitDocumentForReviewParams.parse(req.params);
+      const dto = await documentsService.submitForReview(id, req.authUser!);
+      res.json(dto);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/documents/:id/approve",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { id } = ApproveDocumentParams.parse(req.params);
+      const dto = await documentsService.approveDocument(id, req.authUser!);
+      res.json(dto);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/documents/:id/reject",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { id } = RejectDocumentParams.parse(req.params);
+      const body = RejectDocumentBody.parse(req.body);
+      const dto = await documentsService.rejectDocument(
+        id,
+        body.reason,
+        req.authUser!,
+      );
+      res.json(dto);
     } catch (err) {
       next(err);
     }

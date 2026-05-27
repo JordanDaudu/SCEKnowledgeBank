@@ -21,6 +21,12 @@ export interface DocumentRow {
   deletedAt: Date | null;
   createdBy: string | null;
   updatedBy: string | null;
+  // Sprint-3 M2 reviewer columns. NULL on every existing row; only
+  // populated once a doc enters the review workflow.
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  reviewReason: string | null;
+  submittedForReviewAt: Date | null;
 }
 
 export type DocumentInsert = Prisma.DocumentUncheckedCreateInput;
@@ -454,6 +460,28 @@ export async function updateDocumentById(
   await db.document.update({ where: { id }, data: patch });
 }
 
+/**
+ * Compare-and-swap update used by the review workflow (Sprint-3 M2).
+ * Returns the number of rows affected — `0` means the precondition
+ * (`expectedStatus`) did not match, i.e. another reviewer beat us to
+ * the transition. Callers turn `0` into a 409/400 instead of silently
+ * applying duplicate side effects (audit/notify).
+ *
+ * We use `updateMany` rather than `update` because `update` throws on
+ * zero matches; `updateMany` returns a count we can branch on.
+ */
+export async function updateDocumentByIdIfStatus(
+  id: string,
+  expectedStatus: string,
+  patch: Prisma.DocumentUncheckedUpdateInput,
+): Promise<number> {
+  const res = await db.document.updateMany({
+    where: { id, status: expectedStatus, deletedAt: null },
+    data: patch,
+  });
+  return res.count;
+}
+
 export async function softDeleteDocument(
   id: string,
   updatedBy: string,
@@ -748,6 +776,59 @@ export async function insertDocumentWithFileAndQuota(args: {
       data: { usedBytes: { increment: BigInt(sizeBytes) } },
     });
     return doc;
+  });
+}
+
+// ─── Review queue (Sprint-3 M2) ───────────────────────────────────
+// Listing pending docs is its own helper because the queue's filter
+// is a different shape from `DocumentListFilters` — it never honours
+// the visibility predicate (reviewers must see their queue) and it
+// always restricts to status='pending_review'. Course scoping is
+// applied at the caller (admin: all; lecturer: only taught courses).
+
+export interface PendingReviewFilter {
+  /** When set, restrict to docs in these courseIds; ignored for admin. */
+  courseIds?: string[];
+}
+
+function buildPendingReviewWhere(
+  f: PendingReviewFilter,
+): Prisma.DocumentWhereInput {
+  const and: Prisma.DocumentWhereInput[] = [
+    { deletedAt: null },
+    { status: "pending_review" },
+  ];
+  if (f.courseIds !== undefined) {
+    and.push(
+      f.courseIds.length > 0
+        ? { courseId: { in: f.courseIds } }
+        : { id: { in: [] } },
+    );
+  }
+  return { AND: and };
+}
+
+export async function countPendingReview(
+  f: PendingReviewFilter,
+): Promise<number> {
+  return db.document.count({ where: buildPendingReviewWhere(f) });
+}
+
+export async function listPendingReview(
+  f: PendingReviewFilter,
+  options: { page: number; pageSize: number },
+): Promise<DocumentRow[]> {
+  return db.document.findMany({
+    where: buildPendingReviewWhere(f),
+    // Oldest submitted first so reviewers drain FIFO. Fall back to
+    // createdAt for docs that pre-date the column (NULL sorts last
+    // with `nulls: "last"`, which Postgres + Prisma support).
+    orderBy: [
+      { submittedForReviewAt: { sort: "asc", nulls: "last" } },
+      { createdAt: "asc" },
+    ],
+    take: options.pageSize,
+    skip: (options.page - 1) * options.pageSize,
   });
 }
 

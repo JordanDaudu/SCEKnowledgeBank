@@ -145,6 +145,9 @@ export const DocumentVisibility = {
   private: "private",
 } as const;
 
+/**
+ * Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.
+ */
 export type DocumentStatus =
   (typeof DocumentStatus)[keyof typeof DocumentStatus];
 
@@ -152,6 +155,9 @@ export const DocumentStatus = {
   draft: "draft",
   published: "published",
   archived: "archived",
+  pending_review: "pending_review",
+  approved: "approved",
+  rejected: "rejected",
 } as const;
 
 /**
@@ -209,6 +215,10 @@ export interface DocumentPermissions {
   canDelete: boolean;
   canDownload: boolean;
   canComment: boolean;
+  /** True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader/owner or can edit). */
+  canSubmitForReview: boolean;
+  /** True when the user can approve/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course). */
+  canReview: boolean;
 }
 
 export interface Document {
@@ -221,6 +231,7 @@ export interface Document {
   semester?: DocumentSemester;
   academicYear?: number;
   visibility: DocumentVisibility;
+  /** Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow. */
   status: DocumentStatus;
   uploader: UserSummary;
   createdAt: string;
@@ -234,6 +245,13 @@ export interface Document {
   /** Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type. */
   fallbackIconType?: DocumentFallbackIconType;
   permissions: DocumentPermissions;
+  /** When the doc was most recently submitted for review. */
+  submittedForReviewAt?: string;
+  /** When the doc was last approved or rejected. */
+  reviewedAt?: string;
+  reviewer?: UserSummary;
+  /** Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review. */
+  reviewReason?: string;
 }
 
 export type DocumentDetail = Document;
@@ -290,6 +308,15 @@ export interface UpdateDocumentRequest {
   visibility?: UpdateDocumentRequestVisibility;
   status?: UpdateDocumentRequestStatus;
   tagIds?: string[];
+}
+
+export interface RejectDocumentRequest {
+  /**
+   * Rejection rationale. Trimmed; must be non-empty and ≤500 chars. Stored on the doc and pushed to the uploader as the notification body.
+   * @minLength 1
+   * @maxLength 500
+   */
+  reason: string;
 }
 
 export interface UploadFileResult {
@@ -577,6 +604,18 @@ export type SearchUsersParams = {
    * @maximum 20
    */
   limit?: number;
+};
+
+export type ListPendingReviewDocumentsParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
 };
 
 export type ListNotificationsParams = {

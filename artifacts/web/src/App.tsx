@@ -13,6 +13,8 @@ import Upload from "@/pages/upload";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
 import AdminUsers from "@/pages/admin-users";
+import ReviewQueue from "@/pages/review-queue";
+import { FEATURE_REVIEW } from "@/lib/feature-flags";
 
 import { Layout } from "@/components/layout";
 import { AuthGuard } from "@/components/auth-guard";
@@ -89,6 +91,16 @@ function Router() {
           </Layout>
         </AuthGuard>
       </Route>
+
+      {FEATURE_REVIEW && (
+        <Route path="/review-queue">
+          <AuthGuard requireRole="lecturer">
+            <Layout>
+              <ReviewQueue />
+            </Layout>
+          </AuthGuard>
+        </Route>
+      )}
 
       <Route path="/admin/users">
         <AuthGuard requireRole="admin">

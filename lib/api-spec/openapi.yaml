@@ -691,6 +691,87 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/UserSummary" }
 
+  /documents/pending-review:
+    get:
+      operationId: listPendingReviewDocuments
+      tags: [documents]
+      summary: Review queue — pending documents the caller can act on
+      description: >-
+        Admins see every doc in `pending_review`. Lecturers see only
+        pending docs in courses they teach. Anyone else gets 403.
+        Ordered oldest-submission first (FIFO drain).
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Pending review page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentPage" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Review workflow disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/submit-for-review:
+    post:
+      operationId: submitDocumentForReview
+      tags: [documents]
+      summary: Move a draft/rejected document into `pending_review`
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { description: Invalid transition, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not allowed, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/approve:
+    post:
+      operationId: approveDocument
+      tags: [documents]
+      summary: Approve a document currently in `pending_review`
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { description: Invalid transition, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/reject:
+    post:
+      operationId: rejectDocument
+      tags: [documents]
+      summary: Reject a document currently in `pending_review`
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RejectDocumentRequest" }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { description: Invalid transition or missing reason, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
   /notifications:
     get:
       operationId: listNotifications
@@ -889,7 +970,13 @@ components:
         semester: { type: string, enum: [fall, spring, summer] }
         academicYear: { type: integer }
         visibility: { type: string, enum: [public, restricted, private] }
-        status: { type: string, enum: [draft, published, archived] }
+        status:
+          type: string
+          enum: [draft, published, archived, pending_review, approved, rejected]
+          description: >-
+            Lifecycle status. `draft|published|archived` are the
+            legacy values; `pending_review|approved|rejected` come
+            from the Sprint-3 review workflow.
         uploader: { $ref: "#/components/schemas/UserSummary" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -913,6 +1000,21 @@ components:
             available. Derived from the latest file's MIME type.
         permissions:
           $ref: "#/components/schemas/DocumentPermissions"
+        submittedForReviewAt:
+          type: string
+          format: date-time
+          description: When the doc was most recently submitted for review.
+        reviewedAt:
+          type: string
+          format: date-time
+          description: When the doc was last approved or rejected.
+        reviewer:
+          $ref: "#/components/schemas/UserSummary"
+        reviewReason:
+          type: string
+          description: >-
+            Rejection rationale. Present only when status='rejected'.
+            Cleared on the next submit-for-review.
 
     DocumentPermissions:
       type: object
@@ -922,13 +1024,32 @@ components:
         (rather than role/uploader heuristics) to gate UI affordances
         — they encode the same course-aware logic the API enforces on
         write paths.
-      required: [canView, canEdit, canDelete, canDownload, canComment]
+      required:
+        - canView
+        - canEdit
+        - canDelete
+        - canDownload
+        - canComment
+        - canSubmitForReview
+        - canReview
       properties:
         canView: { type: boolean }
         canEdit: { type: boolean }
         canDelete: { type: boolean }
         canDownload: { type: boolean }
         canComment: { type: boolean }
+        canSubmitForReview:
+          type: boolean
+          description: >-
+            True when the user can move this doc into `pending_review`
+            (status is currently `draft` or `rejected`, and they are
+            the uploader/owner or can edit).
+        canReview:
+          type: boolean
+          description: >-
+            True when the user can approve/reject this doc (status is
+            currently `pending_review`, and they are an admin or a
+            lecturer for the doc's course).
 
     DocumentDetail:
       allOf:
@@ -1004,6 +1125,19 @@ components:
         tagIds:
           type: array
           items: { type: string, format: uuid }
+
+    RejectDocumentRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: >-
+            Rejection rationale. Trimmed; must be non-empty and ≤500
+            chars. Stored on the doc and pushed to the uploader as the
+            notification body.
 
     UploadResult:
       type: object

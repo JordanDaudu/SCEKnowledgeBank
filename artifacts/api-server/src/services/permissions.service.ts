@@ -23,6 +23,24 @@ export interface DocumentForPermission {
   ownerId: string;
   visibility: string;
   courseId: string | null;
+  /**
+   * Sprint-3 M2: optional so existing callers that build the shape
+   * without a status (tests, ad-hoc inputs) keep compiling. When
+   * absent, status-aware checks (visibility of `pending_review` /
+   * `rejected` docs) treat the doc as visible-by-status — i.e. they
+   * preserve pre-M2 behaviour.
+   */
+  status?: string;
+}
+
+/**
+ * Statuses produced by the review workflow that are NOT publicly
+ * visible. Uploaders and reviewers (admin / course lecturer) can
+ * still see them; everyone else gets a 404-equivalent.
+ */
+const REVIEW_HIDDEN_STATUSES = ["pending_review", "rejected"] as const;
+function isReviewHidden(status: string | undefined): boolean {
+  return !!status && (REVIEW_HIDDEN_STATUSES as readonly string[]).includes(status);
 }
 
 export function isAdmin(u: AuthenticatedUser | undefined | null): boolean {
@@ -67,6 +85,19 @@ export function canView(
   user: AuthenticatedUser,
 ): boolean {
   if (isAdmin(user)) return true;
+  // Sprint-3 M2: documents in the review workflow that haven't been
+  // approved are visible only to the uploader/owner and reviewers
+  // (lecturer-for-course). Everyone else gets blocked here before the
+  // visibility predicate runs.
+  if (isReviewHidden(doc.status)) {
+    if (doc.uploaderId === user.id || doc.ownerId === user.id) {
+      // fall through to the visibility check below
+    } else if (canReview(doc, user)) {
+      return true;
+    } else {
+      return false;
+    }
+  }
   if (doc.visibility === "public") return true;
   if (doc.visibility === "restricted") {
     if (!doc.courseId) return false;
@@ -76,6 +107,37 @@ export function canView(
     return doc.uploaderId === user.id || doc.ownerId === user.id;
   }
   return false;
+}
+
+/**
+ * Sprint-3 M2: who can approve/reject a doc in `pending_review`?
+ *
+ * - admin: yes.
+ * - course-scoped doc: lecturer teaching that course.
+ * - course-less doc: only an admin (no obvious lecturer scope).
+ */
+export function canReview(
+  doc: DocumentForPermission,
+  user: AuthenticatedUser,
+): boolean {
+  if (isAdmin(user)) return true;
+  if (!hasRole(user, "lecturer")) return false;
+  if (!doc.courseId) return false;
+  return isLecturerForCourse(user, doc.courseId);
+}
+
+/**
+ * Sprint-3 M2: who can submit-for-review on this doc?
+ * Uploaders/owners (their own work) and anyone who can edit the
+ * metadata (admin / course lecturer).
+ */
+export function canSubmitForReview(
+  doc: DocumentForPermission,
+  user: AuthenticatedUser,
+): boolean {
+  if (doc.uploaderId === user.id) return true;
+  if (doc.ownerId === user.id) return true;
+  return canEdit(doc, user);
 }
 
 /**
@@ -244,7 +306,7 @@ export function visibleDocumentFilter(
       ? { visibility: "restricted", courseId: { in: enrolled } }
       : // No enrollments → no restricted docs are visible.
         { id: { in: [] } };
-  return {
+  const visibility: Prisma.DocumentWhereInput = {
     OR: [
       { visibility: "public" },
       restrictedClause,
@@ -254,6 +316,22 @@ export function visibleDocumentFilter(
       },
     ],
   };
+  // Sprint-3 M2: hide `pending_review` / `rejected` from non-reviewers
+  // who aren't the uploader/owner. Lecturers who teach the doc's
+  // course (i.e. potential reviewers) continue to see them so they
+  // can find work in the queue and on the doc's own page.
+  const lecturerCourses = lecturerCourseIds(user);
+  const statusOK: Prisma.DocumentWhereInput = {
+    OR: [
+      { status: { notIn: [...REVIEW_HIDDEN_STATUSES] } },
+      { uploaderId: user.id },
+      { ownerId: user.id },
+      ...(lecturerCourses.length > 0
+        ? [{ courseId: { in: lecturerCourses } } as Prisma.DocumentWhereInput]
+        : []),
+    ],
+  };
+  return { AND: [visibility, statusOK] };
 }
 
 /**
@@ -272,10 +350,24 @@ export function visibleDocumentFilterSql(user: AuthenticatedUser): Prisma.Sql {
         enrolled.map((id) => PrismaNs.sql`${id}::uuid`),
       )})`
     : PrismaNs.sql`FALSE`;
+  const lecturerCourses = lecturerCourseIds(user);
+  const lecturerCourseClause = lecturerCourses.length
+    ? PrismaNs.sql`d.course_id IN (${PrismaNs.join(
+        lecturerCourses.map((id) => PrismaNs.sql`${id}::uuid`),
+      )})`
+    : PrismaNs.sql`FALSE`;
   return PrismaNs.sql`(
-    d.visibility = 'public'
-    OR (d.visibility = 'restricted' AND d.course_id IS NOT NULL AND ${restrictedClause})
-    OR (d.visibility = 'private' AND (d.uploader_id = ${user.id}::uuid OR d.owner_id = ${user.id}::uuid))
+    (
+      d.visibility = 'public'
+      OR (d.visibility = 'restricted' AND d.course_id IS NOT NULL AND ${restrictedClause})
+      OR (d.visibility = 'private' AND (d.uploader_id = ${user.id}::uuid OR d.owner_id = ${user.id}::uuid))
+    )
+    AND (
+      d.status NOT IN ('pending_review', 'rejected')
+      OR d.uploader_id = ${user.id}::uuid
+      OR d.owner_id = ${user.id}::uuid
+      OR ${lecturerCourseClause}
+    )
   )`;
 }
 

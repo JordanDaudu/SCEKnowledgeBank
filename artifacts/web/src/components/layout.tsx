@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useLogout, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
-import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2, type LucideIcon } from "lucide-react";
+import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Logo } from "./logo";
 import { Button } from "./ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
 import { NotificationBell } from "./notification-bell";
+import { FEATURE_REVIEW } from "@/lib/feature-flags";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -51,6 +52,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <NavLink href="/browse" icon={Search}>Browse</NavLink>
                 <NavLink href="/requests" icon={MessageSquare}>Requests</NavLink>
                 {isLecturerOrAdmin && <NavLink href="/upload" icon={Upload}>Upload</NavLink>}
+                {FEATURE_REVIEW && isLecturerOrAdmin && (
+                  <NavLink href="/review-queue" icon={ShieldCheck}>Review</NavLink>
+                )}
                 {isAdmin && <NavLink href="/admin/users" icon={Users}>Admin</NavLink>}
               </nav>
             )}

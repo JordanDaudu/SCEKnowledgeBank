@@ -145,7 +145,18 @@ export const ListDocumentsResponse = zod.object({
       semester: zod.enum(["fall", "spring", "summer"]).optional(),
       academicYear: zod.number().optional(),
       visibility: zod.enum(["public", "restricted", "private"]),
-      status: zod.enum(["draft", "published", "archived"]),
+      status: zod
+        .enum([
+          "draft",
+          "published",
+          "archived",
+          "pending_review",
+          "approved",
+          "rejected",
+        ])
+        .describe(
+          "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+        ),
       uploader: zod.object({
         id: zod.string().uuid(),
         email: zod.string(),
@@ -242,9 +253,44 @@ export const ListDocumentsResponse = zod.object({
           canDelete: zod.boolean(),
           canDownload: zod.boolean(),
           canComment: zod.boolean(),
+          canSubmitForReview: zod
+            .boolean()
+            .describe(
+              "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+            ),
+          canReview: zod
+            .boolean()
+            .describe(
+              "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+            ),
         })
         .describe(
           "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+        ),
+      submittedForReviewAt: zod.coerce
+        .date()
+        .optional()
+        .describe("When the doc was most recently submitted for review."),
+      reviewedAt: zod.coerce
+        .date()
+        .optional()
+        .describe("When the doc was last approved or rejected."),
+      reviewer: zod
+        .object({
+          id: zod.string().uuid(),
+          email: zod.string(),
+          displayName: zod.string(),
+          roles: zod.array(zod.string()),
+          isActive: zod.boolean(),
+          status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      reviewReason: zod
+        .string()
+        .optional()
+        .describe(
+          "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
         ),
     }),
   ),
@@ -330,7 +376,18 @@ export const ListRecentDocumentsResponseItem = zod.object({
   semester: zod.enum(["fall", "spring", "summer"]).optional(),
   academicYear: zod.number().optional(),
   visibility: zod.enum(["public", "restricted", "private"]),
-  status: zod.enum(["draft", "published", "archived"]),
+  status: zod
+    .enum([
+      "draft",
+      "published",
+      "archived",
+      "pending_review",
+      "approved",
+      "rejected",
+    ])
+    .describe(
+      "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+    ),
   uploader: zod.object({
     id: zod.string().uuid(),
     email: zod.string(),
@@ -421,9 +478,44 @@ export const ListRecentDocumentsResponseItem = zod.object({
       canDelete: zod.boolean(),
       canDownload: zod.boolean(),
       canComment: zod.boolean(),
+      canSubmitForReview: zod
+        .boolean()
+        .describe(
+          "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+        ),
+      canReview: zod
+        .boolean()
+        .describe(
+          "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
+  submittedForReviewAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was most recently submitted for review."),
+  reviewedAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was last approved or rejected."),
+  reviewer: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  reviewReason: zod
+    .string()
+    .optional()
+    .describe(
+      "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
     ),
 });
 export const ListRecentDocumentsResponse = zod.array(
@@ -490,7 +582,18 @@ export const GetDocumentResponse = zod.object({
   semester: zod.enum(["fall", "spring", "summer"]).optional(),
   academicYear: zod.number().optional(),
   visibility: zod.enum(["public", "restricted", "private"]),
-  status: zod.enum(["draft", "published", "archived"]),
+  status: zod
+    .enum([
+      "draft",
+      "published",
+      "archived",
+      "pending_review",
+      "approved",
+      "rejected",
+    ])
+    .describe(
+      "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+    ),
   uploader: zod.object({
     id: zod.string().uuid(),
     email: zod.string(),
@@ -581,9 +684,44 @@ export const GetDocumentResponse = zod.object({
       canDelete: zod.boolean(),
       canDownload: zod.boolean(),
       canComment: zod.boolean(),
+      canSubmitForReview: zod
+        .boolean()
+        .describe(
+          "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+        ),
+      canReview: zod
+        .boolean()
+        .describe(
+          "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
+  submittedForReviewAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was most recently submitted for review."),
+  reviewedAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was last approved or rejected."),
+  reviewer: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  reviewReason: zod
+    .string()
+    .optional()
+    .describe(
+      "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
     ),
 });
 
@@ -634,7 +772,18 @@ export const UpdateDocumentResponse = zod.object({
   semester: zod.enum(["fall", "spring", "summer"]).optional(),
   academicYear: zod.number().optional(),
   visibility: zod.enum(["public", "restricted", "private"]),
-  status: zod.enum(["draft", "published", "archived"]),
+  status: zod
+    .enum([
+      "draft",
+      "published",
+      "archived",
+      "pending_review",
+      "approved",
+      "rejected",
+    ])
+    .describe(
+      "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+    ),
   uploader: zod.object({
     id: zod.string().uuid(),
     email: zod.string(),
@@ -725,9 +874,44 @@ export const UpdateDocumentResponse = zod.object({
       canDelete: zod.boolean(),
       canDownload: zod.boolean(),
       canComment: zod.boolean(),
+      canSubmitForReview: zod
+        .boolean()
+        .describe(
+          "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+        ),
+      canReview: zod
+        .boolean()
+        .describe(
+          "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
+  submittedForReviewAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was most recently submitted for review."),
+  reviewedAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was last approved or rejected."),
+  reviewer: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  reviewReason: zod
+    .string()
+    .optional()
+    .describe(
+      "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
     ),
 });
 
@@ -1244,6 +1428,771 @@ export const SearchUsersResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const SearchUsersResponse = zod.array(SearchUsersResponseItem);
+
+/**
+ * Admins see every doc in `pending_review`. Lecturers see only pending docs in courses they teach. Anyone else gets 403. Ordered oldest-submission first (FIFO drain).
+ * @summary Review queue — pending documents the caller can act on
+ */
+export const listPendingReviewDocumentsQueryPageDefault = 1;
+
+export const listPendingReviewDocumentsQueryPageSizeDefault = 20;
+export const listPendingReviewDocumentsQueryPageSizeMax = 100;
+
+export const ListPendingReviewDocumentsQueryParams = zod.object({
+  page: zod.coerce
+    .number()
+    .min(1)
+    .default(listPendingReviewDocumentsQueryPageDefault),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listPendingReviewDocumentsQueryPageSizeMax)
+    .default(listPendingReviewDocumentsQueryPageSizeDefault),
+});
+
+export const listPendingReviewDocumentsResponseItemsItemFileExtractedMetadataPageCountMin = 0;
+
+export const listPendingReviewDocumentsResponseItemsItemFileExtractedMetadataImageWidthMin = 0;
+
+export const listPendingReviewDocumentsResponseItemsItemFileExtractedMetadataImageHeightMin = 0;
+
+export const ListPendingReviewDocumentsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      title: zod.string(),
+      description: zod.string(),
+      course: zod
+        .object({
+          id: zod.string().uuid(),
+          code: zod.string(),
+          title: zod.string(),
+          lecturerName: zod.string(),
+        })
+        .optional(),
+      category: zod
+        .object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+          slug: zod.string(),
+          description: zod.string().optional(),
+        })
+        .optional(),
+      materialType: zod.string(),
+      semester: zod.enum(["fall", "spring", "summer"]).optional(),
+      academicYear: zod.number().optional(),
+      visibility: zod.enum(["public", "restricted", "private"]),
+      status: zod
+        .enum([
+          "draft",
+          "published",
+          "archived",
+          "pending_review",
+          "approved",
+          "rejected",
+        ])
+        .describe(
+          "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+        ),
+      uploader: zod.object({
+        id: zod.string().uuid(),
+        email: zod.string(),
+        displayName: zod.string(),
+        roles: zod.array(zod.string()),
+        isActive: zod.boolean(),
+        status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+        createdAt: zod.coerce.date(),
+      }),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      viewCount: zod.number(),
+      commentCount: zod.number(),
+      tags: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+        }),
+      ),
+      file: zod
+        .object({
+          id: zod.string().uuid(),
+          originalFilename: zod
+            .string()
+            .describe("The exact filename as the user uploaded it."),
+          displayFilename: zod
+            .string()
+            .describe(
+              'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+            ),
+          mimeType: zod.string(),
+          sizeBytes: zod.number(),
+          uploadedAt: zod.coerce.date(),
+          checksum: zod.string().optional(),
+          extractedMetadata: zod
+            .object({
+              pageCount: zod
+                .number()
+                .min(
+                  listPendingReviewDocumentsResponseItemsItemFileExtractedMetadataPageCountMin,
+                )
+                .optional(),
+              detectedTitle: zod.string().optional(),
+              author: zod.string().optional(),
+              imageWidth: zod
+                .number()
+                .min(
+                  listPendingReviewDocumentsResponseItemsItemFileExtractedMetadataImageWidthMin,
+                )
+                .optional(),
+              imageHeight: zod
+                .number()
+                .min(
+                  listPendingReviewDocumentsResponseItemsItemFileExtractedMetadataImageHeightMin,
+                )
+                .optional(),
+              hasExtractedText: zod
+                .boolean()
+                .describe(
+                  "True when extracted text exists for full-text search (task",
+                ),
+            })
+            .optional()
+            .describe(
+              "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+            ),
+        })
+        .optional(),
+      thumbnailUrl: zod
+        .string()
+        .optional()
+        .describe(
+          "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+        ),
+      fallbackIconType: zod
+        .enum([
+          "pdf",
+          "image",
+          "doc",
+          "slides",
+          "sheet",
+          "text",
+          "archive",
+          "unknown",
+        ])
+        .optional()
+        .describe(
+          "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+        ),
+      permissions: zod
+        .object({
+          canView: zod.boolean(),
+          canEdit: zod.boolean(),
+          canDelete: zod.boolean(),
+          canDownload: zod.boolean(),
+          canComment: zod.boolean(),
+          canSubmitForReview: zod
+            .boolean()
+            .describe(
+              "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+            ),
+          canReview: zod
+            .boolean()
+            .describe(
+              "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+            ),
+        })
+        .describe(
+          "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+        ),
+      submittedForReviewAt: zod.coerce
+        .date()
+        .optional()
+        .describe("When the doc was most recently submitted for review."),
+      reviewedAt: zod.coerce
+        .date()
+        .optional()
+        .describe("When the doc was last approved or rejected."),
+      reviewer: zod
+        .object({
+          id: zod.string().uuid(),
+          email: zod.string(),
+          displayName: zod.string(),
+          roles: zod.array(zod.string()),
+          isActive: zod.boolean(),
+          status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+          createdAt: zod.coerce.date(),
+        })
+        .optional(),
+      reviewReason: zod
+        .string()
+        .optional()
+        .describe(
+          "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
+        ),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Move a draft/rejected document into `pending_review`
+ */
+export const SubmitDocumentForReviewParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const submitDocumentForReviewResponseFileExtractedMetadataPageCountMin = 0;
+
+export const submitDocumentForReviewResponseFileExtractedMetadataImageWidthMin = 0;
+
+export const submitDocumentForReviewResponseFileExtractedMetadataImageHeightMin = 0;
+
+export const SubmitDocumentForReviewResponse = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  description: zod.string(),
+  course: zod
+    .object({
+      id: zod.string().uuid(),
+      code: zod.string(),
+      title: zod.string(),
+      lecturerName: zod.string(),
+    })
+    .optional(),
+  category: zod
+    .object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      slug: zod.string(),
+      description: zod.string().optional(),
+    })
+    .optional(),
+  materialType: zod.string(),
+  semester: zod.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: zod.number().optional(),
+  visibility: zod.enum(["public", "restricted", "private"]),
+  status: zod
+    .enum([
+      "draft",
+      "published",
+      "archived",
+      "pending_review",
+      "approved",
+      "rejected",
+    ])
+    .describe(
+      "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+    ),
+  uploader: zod.object({
+    id: zod.string().uuid(),
+    email: zod.string(),
+    displayName: zod.string(),
+    roles: zod.array(zod.string()),
+    isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+    createdAt: zod.coerce.date(),
+  }),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  viewCount: zod.number(),
+  commentCount: zod.number(),
+  tags: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+    }),
+  ),
+  file: zod
+    .object({
+      id: zod.string().uuid(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
+      mimeType: zod.string(),
+      sizeBytes: zod.number(),
+      uploadedAt: zod.coerce.date(),
+      checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(
+              submitDocumentForReviewResponseFileExtractedMetadataPageCountMin,
+            )
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(
+              submitDocumentForReviewResponseFileExtractedMetadataImageWidthMin,
+            )
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(
+              submitDocumentForReviewResponseFileExtractedMetadataImageHeightMin,
+            )
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
+    })
+    .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+      canSubmitForReview: zod
+        .boolean()
+        .describe(
+          "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+        ),
+      canReview: zod
+        .boolean()
+        .describe(
+          "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
+  submittedForReviewAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was most recently submitted for review."),
+  reviewedAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was last approved or rejected."),
+  reviewer: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  reviewReason: zod
+    .string()
+    .optional()
+    .describe(
+      "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
+    ),
+});
+
+/**
+ * @summary Approve a document currently in `pending_review`
+ */
+export const ApproveDocumentParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const approveDocumentResponseFileExtractedMetadataPageCountMin = 0;
+
+export const approveDocumentResponseFileExtractedMetadataImageWidthMin = 0;
+
+export const approveDocumentResponseFileExtractedMetadataImageHeightMin = 0;
+
+export const ApproveDocumentResponse = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  description: zod.string(),
+  course: zod
+    .object({
+      id: zod.string().uuid(),
+      code: zod.string(),
+      title: zod.string(),
+      lecturerName: zod.string(),
+    })
+    .optional(),
+  category: zod
+    .object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      slug: zod.string(),
+      description: zod.string().optional(),
+    })
+    .optional(),
+  materialType: zod.string(),
+  semester: zod.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: zod.number().optional(),
+  visibility: zod.enum(["public", "restricted", "private"]),
+  status: zod
+    .enum([
+      "draft",
+      "published",
+      "archived",
+      "pending_review",
+      "approved",
+      "rejected",
+    ])
+    .describe(
+      "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+    ),
+  uploader: zod.object({
+    id: zod.string().uuid(),
+    email: zod.string(),
+    displayName: zod.string(),
+    roles: zod.array(zod.string()),
+    isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+    createdAt: zod.coerce.date(),
+  }),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  viewCount: zod.number(),
+  commentCount: zod.number(),
+  tags: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+    }),
+  ),
+  file: zod
+    .object({
+      id: zod.string().uuid(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
+      mimeType: zod.string(),
+      sizeBytes: zod.number(),
+      uploadedAt: zod.coerce.date(),
+      checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(approveDocumentResponseFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(approveDocumentResponseFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(approveDocumentResponseFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
+    })
+    .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+      canSubmitForReview: zod
+        .boolean()
+        .describe(
+          "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+        ),
+      canReview: zod
+        .boolean()
+        .describe(
+          "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
+  submittedForReviewAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was most recently submitted for review."),
+  reviewedAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was last approved or rejected."),
+  reviewer: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  reviewReason: zod
+    .string()
+    .optional()
+    .describe(
+      "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
+    ),
+});
+
+/**
+ * @summary Reject a document currently in `pending_review`
+ */
+export const RejectDocumentParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const rejectDocumentBodyReasonMax = 500;
+
+export const RejectDocumentBody = zod.object({
+  reason: zod
+    .string()
+    .min(1)
+    .max(rejectDocumentBodyReasonMax)
+    .describe(
+      "Rejection rationale. Trimmed; must be non-empty and ≤500 chars. Stored on the doc and pushed to the uploader as the notification body.",
+    ),
+});
+
+export const rejectDocumentResponseFileExtractedMetadataPageCountMin = 0;
+
+export const rejectDocumentResponseFileExtractedMetadataImageWidthMin = 0;
+
+export const rejectDocumentResponseFileExtractedMetadataImageHeightMin = 0;
+
+export const RejectDocumentResponse = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  description: zod.string(),
+  course: zod
+    .object({
+      id: zod.string().uuid(),
+      code: zod.string(),
+      title: zod.string(),
+      lecturerName: zod.string(),
+    })
+    .optional(),
+  category: zod
+    .object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      slug: zod.string(),
+      description: zod.string().optional(),
+    })
+    .optional(),
+  materialType: zod.string(),
+  semester: zod.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: zod.number().optional(),
+  visibility: zod.enum(["public", "restricted", "private"]),
+  status: zod
+    .enum([
+      "draft",
+      "published",
+      "archived",
+      "pending_review",
+      "approved",
+      "rejected",
+    ])
+    .describe(
+      "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+    ),
+  uploader: zod.object({
+    id: zod.string().uuid(),
+    email: zod.string(),
+    displayName: zod.string(),
+    roles: zod.array(zod.string()),
+    isActive: zod.boolean(),
+    status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+    createdAt: zod.coerce.date(),
+  }),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  viewCount: zod.number(),
+  commentCount: zod.number(),
+  tags: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+    }),
+  ),
+  file: zod
+    .object({
+      id: zod.string().uuid(),
+      originalFilename: zod
+        .string()
+        .describe("The exact filename as the user uploaded it."),
+      displayFilename: zod
+        .string()
+        .describe(
+          'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+        ),
+      mimeType: zod.string(),
+      sizeBytes: zod.number(),
+      uploadedAt: zod.coerce.date(),
+      checksum: zod.string().optional(),
+      extractedMetadata: zod
+        .object({
+          pageCount: zod
+            .number()
+            .min(rejectDocumentResponseFileExtractedMetadataPageCountMin)
+            .optional(),
+          detectedTitle: zod.string().optional(),
+          author: zod.string().optional(),
+          imageWidth: zod
+            .number()
+            .min(rejectDocumentResponseFileExtractedMetadataImageWidthMin)
+            .optional(),
+          imageHeight: zod
+            .number()
+            .min(rejectDocumentResponseFileExtractedMetadataImageHeightMin)
+            .optional(),
+          hasExtractedText: zod
+            .boolean()
+            .describe(
+              "True when extracted text exists for full-text search (task",
+            ),
+        })
+        .optional()
+        .describe(
+          "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+        ),
+    })
+    .optional(),
+  thumbnailUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+    ),
+  fallbackIconType: zod
+    .enum([
+      "pdf",
+      "image",
+      "doc",
+      "slides",
+      "sheet",
+      "text",
+      "archive",
+      "unknown",
+    ])
+    .optional()
+    .describe(
+      "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+    ),
+  permissions: zod
+    .object({
+      canView: zod.boolean(),
+      canEdit: zod.boolean(),
+      canDelete: zod.boolean(),
+      canDownload: zod.boolean(),
+      canComment: zod.boolean(),
+      canSubmitForReview: zod
+        .boolean()
+        .describe(
+          "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+        ),
+      canReview: zod
+        .boolean()
+        .describe(
+          "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
+    })
+    .describe(
+      "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+    ),
+  submittedForReviewAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was most recently submitted for review."),
+  reviewedAt: zod.coerce
+    .date()
+    .optional()
+    .describe("When the doc was last approved or rejected."),
+  reviewer: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .optional(),
+  reviewReason: zod
+    .string()
+    .optional()
+    .describe(
+      "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
+    ),
+});
 
 /**
  * @summary List the current user's notifications (newest first)

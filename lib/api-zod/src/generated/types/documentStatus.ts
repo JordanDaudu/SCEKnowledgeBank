@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.2.0
  */
 
+/**
+ * Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.
+ */
 export type DocumentStatus =
   (typeof DocumentStatus)[keyof typeof DocumentStatus];
 
@@ -13,4 +16,7 @@ export const DocumentStatus = {
   draft: "draft",
   published: "published",
   archived: "archived",
+  pending_review: "pending_review",
+  approved: "approved",
+  rejected: "rejected",
 } as const;

@@ -387,19 +387,36 @@ describe("permissions.visibleDocumentFilter", () => {
     expect(permissions.visibleDocumentFilter(admin)).toBeUndefined();
   });
 
+  // Sprint-3 M2: the visibility filter is now AND-composed with a
+  // status clause that hides `pending_review`/`rejected` from anyone
+  // who isn't the uploader/owner. Both old assertions keep their
+  // existing OR shape and gain the status clause on the right.
+  const statusClauseFor = (uid: string) => ({
+    OR: [
+      { status: { notIn: ["pending_review", "rejected"] } },
+      { uploaderId: uid },
+      { ownerId: uid },
+    ],
+  });
+
   it("for an enrolled student: public + restricted-in-enrolled + own private", () => {
     const f = permissions.visibleDocumentFilter(studentEnrolledA);
     expect(f).toEqual({
-      OR: [
-        { visibility: "public" },
-        { visibility: "restricted", courseId: { in: ["c-A"] } },
+      AND: [
         {
-          visibility: "private",
           OR: [
-            { uploaderId: studentEnrolledA.id },
-            { ownerId: studentEnrolledA.id },
+            { visibility: "public" },
+            { visibility: "restricted", courseId: { in: ["c-A"] } },
+            {
+              visibility: "private",
+              OR: [
+                { uploaderId: studentEnrolledA.id },
+                { ownerId: studentEnrolledA.id },
+              ],
+            },
           ],
         },
+        statusClauseFor(studentEnrolledA.id),
       ],
     });
   });
@@ -407,16 +424,21 @@ describe("permissions.visibleDocumentFilter", () => {
   it("for a user with no enrollments, restricted clause is empty", () => {
     const f = permissions.visibleDocumentFilter(studentEnrolledNone);
     expect(f).toEqual({
-      OR: [
-        { visibility: "public" },
-        { id: { in: [] } },
+      AND: [
         {
-          visibility: "private",
           OR: [
-            { uploaderId: studentEnrolledNone.id },
-            { ownerId: studentEnrolledNone.id },
+            { visibility: "public" },
+            { id: { in: [] } },
+            {
+              visibility: "private",
+              OR: [
+                { uploaderId: studentEnrolledNone.id },
+                { ownerId: studentEnrolledNone.id },
+              ],
+            },
           ],
         },
+        statusClauseFor(studentEnrolledNone.id),
       ],
     });
   });

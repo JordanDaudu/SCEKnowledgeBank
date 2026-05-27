@@ -68,6 +68,7 @@ model User {
   documentsOwned    Document[]            @relation("DocumentOwner")
   documentsCreated  Document[]            @relation("DocumentCreator")
   documentsUpdated  Document[]            @relation("DocumentUpdater")
+  documentsReviewed Document[]            @relation("DocumentReviewer")
   documentFilesUploaded DocumentFile[]    @relation("DocumentFileUploadedBy")
   coursesLectured   Course[]
   comments          Comment[]
@@ -205,12 +206,28 @@ model Document {
   createdBy        String?   @map("created_by") @db.Uuid
   updatedBy        String?   @map("updated_by") @db.Uuid
 
+  // ─── Review / approval workflow (Sprint-3 M2) ─────────────────
+  // Status values used by the workflow (additive to the existing
+  // `draft|published|archived` set): `pending_review`, `approved`,
+  // `rejected`. Transitions:
+  //   draft|rejected → pending_review  (submitForReview)
+  //   pending_review → approved|rejected  (approve / reject)
+  // `reviewedBy` / `reviewedAt` are stamped by approve+reject.
+  // `reviewReason` is the rejection rationale (cleared on approve).
+  // `submittedForReviewAt` records the most recent submission, so
+  // reviewer queues can order by oldest-first.
+  reviewedBy            String?   @map("reviewed_by") @db.Uuid
+  reviewedAt            DateTime? @map("reviewed_at") @db.Timestamptz()
+  reviewReason          String?   @map("review_reason")
+  submittedForReviewAt  DateTime? @map("submitted_for_review_at") @db.Timestamptz()
+
   course            Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
   category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   uploader          User                  @relation("DocumentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
   owner             User                  @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   creator           User?                 @relation("DocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   updater           User?                 @relation("DocumentUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+  reviewer          User?                 @relation("DocumentReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
   files             DocumentFile[]
   tags              DocumentTag[]
   comments          Comment[]
@@ -223,6 +240,9 @@ model Document {
   @@index([semester, academicYear], map: "documents_semester_year_idx")
   @@index([uploaderId], map: "documents_uploader_idx")
   @@index([createdAt], map: "documents_created_at_idx")
+  // Review queue: list pending_review docs (optionally scoped by
+  // course for lecturers) ordered oldest-first.
+  @@index([status, courseId, submittedForReviewAt], map: "documents_status_course_submitted_idx")
   @@map("documents")
 }
 

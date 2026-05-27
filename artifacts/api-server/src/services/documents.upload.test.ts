@@ -46,6 +46,8 @@ vi.mock("./permissions.service", () => ({
   canEdit: vi.fn().mockReturnValue(true),
   canDelete: vi.fn().mockReturnValue(true),
   canComment: vi.fn().mockReturnValue(true),
+  canSubmitForReview: vi.fn().mockReturnValue(false),
+  canReview: vi.fn().mockReturnValue(false),
   isAdmin: vi.fn().mockReturnValue(false),
 }));
 vi.mock("../repositories/viewHistory.repo", () => ({

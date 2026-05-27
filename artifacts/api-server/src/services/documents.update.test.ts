@@ -57,7 +57,7 @@ const lecturerOfA = mkUser({
 });
 const admin = mkUser({ id: "adm", roles: ["admin"], primaryRole: "admin" });
 
-function makeDoc(over: Partial<{ courseId: string | null; visibility: string }> = {}) {
+function makeDoc(over: Partial<{ courseId: string | null; visibility: string; status: string }> = {}) {
   return {
     id: "d1",
     title: "t",
@@ -75,7 +75,7 @@ function makeDoc(over: Partial<{ courseId: string | null; visibility: string }> 
     fileSize: 1,
     filename: "f.pdf",
     checksum: "c",
-    status: "published",
+    status: over.status ?? "published",
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -120,6 +120,24 @@ describe("updateDocument course-aware permissions", () => {
     );
     await expect(
       updateDocument("d1", { courseId: null }, admin),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  // Sprint-3 M2: the generic PATCH must not be a back door into or out
+  // of the review state machine — otherwise a `canEdit` user could
+  // skip submit-for-review/approve/reject (and the audit + notify
+  // side effects, and the canReview reviewer-permissions gate).
+  it("rejects PATCH that would set status to a review-machine state", async () => {
+    findByIdAlive.mockResolvedValueOnce(makeDoc({ status: "draft" }));
+    await expect(
+      updateDocument("d1", { status: "pending_review" as never }, admin),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("rejects PATCH on a doc currently in a review-machine state", async () => {
+    findByIdAlive.mockResolvedValueOnce(makeDoc({ status: "pending_review" }));
+    await expect(
+      updateDocument("d1", { status: "published" }, admin),
     ).rejects.toMatchObject({ status: 400 });
   });
 });
