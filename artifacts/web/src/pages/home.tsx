@@ -101,6 +101,7 @@ interface QuickAction {
   icon: LucideIcon;
   label: string;
   description: string;
+  iconClass?: string;
 }
 
 function QuickActions({ actions }: { actions: QuickAction[] }) {
@@ -116,11 +117,11 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
             : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
         }`}
       >
-        {actions.map(({ href, icon: Icon, label, description }) => (
+        {actions.map(({ href, icon: Icon, label, description, iconClass }) => (
           <Link key={href} href={href}>
-            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate focus-within:ring-2 focus-within:ring-primary/40">
+            <Card className="hover:border-primary/40 transition-all cursor-pointer h-full hover-elevate focus-within:ring-2 focus-within:ring-primary/40">
               <CardContent className="p-4 flex items-start gap-3">
-                <div className="bg-primary/10 text-primary p-2 rounded-md shrink-0">
+                <div className={`p-2 rounded-md shrink-0 ${iconClass ?? "bg-primary/10 text-primary"}`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -264,6 +265,7 @@ export default function Home() {
           icon: Search,
           label: "Browse",
           description: "Search every document with facets and snippets.",
+          iconClass: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
         },
         ...(canUpload
           ? [
@@ -274,6 +276,7 @@ export default function Home() {
                 description: isLecturerOrAdmin
                   ? "Publish or draft new course materials."
                   : "Submit materials for lecturer review.",
+                iconClass: "bg-primary/10 text-primary",
               } as QuickAction,
             ]
           : []),
@@ -282,6 +285,7 @@ export default function Home() {
           icon: MessageSquare,
           label: "Requests",
           description: "Ask for missing materials or fulfil others.",
+          iconClass: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
         },
         ...(isLecturerOrAdmin
           ? [
@@ -290,6 +294,7 @@ export default function Home() {
                 icon: ShieldCheck,
                 label: "Review queue",
                 description: "Approve or reject pending submissions.",
+                iconClass: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
               } as QuickAction,
             ]
           : []),
@@ -300,6 +305,7 @@ export default function Home() {
                 icon: BarChart3,
                 label: "Analytics",
                 description: "Corpus, contributor, and engagement stats.",
+                iconClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400",
               } as QuickAction,
             ]
           : []),
@@ -309,7 +315,7 @@ export default function Home() {
   return (
     <div className="space-y-8 pb-12">
       {/* Hero */}
-      <section className="bg-primary/5 -mx-4 px-4 py-10 sm:py-14 rounded-b-[2.5rem] border-b border-primary/10">
+      <section className="bg-gradient-to-b from-primary/8 via-primary/4 to-transparent -mx-4 px-4 py-10 sm:py-14 rounded-b-[2.5rem] border-b border-primary/10">
         <div className="max-w-3xl mx-auto text-center space-y-5">
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-foreground tracking-tight">
             The Knowledge Bank

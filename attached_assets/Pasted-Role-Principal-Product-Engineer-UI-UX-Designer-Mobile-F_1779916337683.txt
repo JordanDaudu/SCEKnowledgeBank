@@ -1,0 +1,361 @@
+Role: Principal Product Engineer, UI/UX Designer, Mobile Frontend Engineer, and Demo Readiness Lead
+
+Context:
+The Knowledge Bank / רותם ניהול פרויקטים project is functionally complete. There is no Sprint 4. We are now in final demo/productization mode.
+
+The current UI is clean and organized, but it feels too pale, flat, monochrome, and repetitive. I want a restrained professional academic polish pass, not a full redesign.
+
+Important design direction:
+
+* Do NOT completely redesign the app.
+* Do NOT make it childish, cyber, flashy, overly colorful, or too modern.
+* Keep the current academic/professional identity.
+* Keep the existing dark green brand color as the main color.
+* Add a restrained semantic color palette to improve scanability.
+* Make small safe UI changes only.
+* Do NOT change app architecture.
+* Do NOT add backend feature scope.
+* Do NOT break existing functionality, tests, routes, OpenAPI, or Sprint 3 behavior.
+
+Current visible issues from screenshots:
+
+* The UI is readable but too pale and flat.
+* Cards often look identical.
+* Request board is visually repetitive.
+* Many smoke-test requests appear in the Requests page and hurt demo quality.
+* Some analytics document titles appear garbled/corrupted.
+* Statuses are present but not visually strong enough.
+* Course/category tags are too subtle.
+* Primary actions could be more noticeable.
+* Mobile compatibility must be preserved and improved.
+
+Relevant frontend files to inspect:
+
+* `artifacts/web/src/index.css`
+* `artifacts/web/src/components/layout.tsx`
+* `artifacts/web/src/pages/home.tsx`
+* `artifacts/web/src/pages/requests.tsx`
+* `artifacts/web/src/pages/admin-analytics.tsx`
+* `artifacts/web/src/pages/course-analytics.tsx`
+* `artifacts/web/src/pages/browse.tsx`
+* `artifacts/web/src/pages/upload.tsx`
+* `artifacts/web/src/pages/review-queue.tsx`
+* `artifacts/web/src/pages/document-detail.tsx`
+* `artifacts/web/src/components/browse/DocumentCards.tsx`
+* `artifacts/web/src/components/document-detail/StatusBadge.tsx`
+* `artifacts/web/src/components/notification-bell.tsx`
+* `artifacts/web/src/components/ui/badge.tsx`
+* `artifacts/api-server/src/scripts/seed-demo.ts`
+* `artifacts/api-server/src/scripts/seed-demo.verify.ts`
+* `README.md`
+* `DEMO.md`
+* `replit.md`
+
+Part A — Add restrained semantic visual system
+
+1. Add or improve CSS/theme tokens in `index.css`
+   Keep the existing green/cream academic style, but add restrained semantic helpers for:
+
+* status open
+* status in progress
+* status fulfilled
+* status closed
+* status draft
+* status pending review
+* status approved/published
+* status rejected
+* course tag
+* material type tag
+* soft card hover
+* subtle section accents
+
+Preferred semantic color direction:
+
+* primary/brand: forest green
+* background: warm cream
+* neutral text: deep green-gray
+* open/info: muted blue or blue-gray
+* in-progress/pending: amber
+* fulfilled/approved: emerald
+* closed/archived: slate
+* rejected/destructive: muted red
+* draft: soft blue-gray
+* course tags: sage/green-tinted
+* material tags: warm neutral
+
+Do not over-color the UI. Use color mainly in badges, icon tiles, accent borders, alerts, and hover states.
+
+2. Prefer reusable helpers
+   If practical, create small shared helpers/components instead of repeating class names everywhere:
+
+* `StatusBadge` should support document statuses with clear semantic colors.
+* Add request status styling helper inside `requests.tsx` or a small reusable component if clean.
+* Keep implementation simple.
+
+Part B — Request board polish
+
+The Requests page currently looks too repetitive and is hurt by many smoke-test requests.
+
+Required UI improvements:
+
+* Add visually distinct status styling:
+
+  * Open = muted blue/neutral
+  * In Progress = amber
+  * Fulfilled = emerald
+  * Closed = slate
+* Add a subtle left border/accent stripe on each request card based on status.
+* Improve vote column styling:
+
+  * clearer upvote button,
+  * better spacing,
+  * clear selected/disabled state.
+* Improve request card hierarchy:
+
+  * title stronger,
+  * description readable,
+  * metadata row cleaner,
+  * course tag more recognizable,
+  * status pill more visible.
+* Improve tab styling and add status counts if already available from existing data without new backend work.
+* Make status select visually smaller and aligned.
+* Ensure mobile layout stacks cleanly and does not overflow.
+* Keep all existing request create/upvote/update/fulfill functionality intact.
+
+Demo data cleanup:
+
+* The current request board contains many repeated `smoke request ...` records.
+* Do NOT remove smoke testing.
+* Instead, ensure demo presentation data is clean:
+
+  * either make smoke test records cleaned up after Playwright smoke tests,
+  * or isolate smoke test records from demo seed data,
+  * or update demo seed reset so the request board starts clean before demos.
+* The Requests page demo should show realistic academic requests, not many repeated smoke entries.
+
+Part C — Document card polish
+
+Improve document cards in:
+
+* Home
+* Browse/Search
+* Continue Reading
+* Latest Additions
+
+Required improvements:
+
+* Add subtle hover shadow/elevation and border transition.
+* Add a small colored top/left accent or icon background.
+* Make title hierarchy stronger.
+* Make course tag more visible using a consistent course-tag style.
+* Make material type tag clearer.
+* Show status badge consistently when status is not normal/published.
+* Make date/uploader metadata cleaner.
+* Avoid making cards too colorful.
+* Keep card layout responsive.
+
+Part D — Home dashboard polish
+
+The home page is improved but still slightly flat.
+
+Required improvements:
+
+* Make hero slightly more polished with subtle gradient, border, or background texture using existing palette.
+* Keep hero compact; do not make it taller.
+* Improve quick action cards:
+
+  * colored icon tiles,
+  * stronger hover,
+  * better spacing,
+  * clear role-based actions.
+* Improve section headers:
+
+  * subtle accent icon color,
+  * optional subtitle where useful,
+  * consistent spacing.
+* Student home:
+
+  * clearly show My Submissions / Pending Review / Rejected uploads when relevant.
+  * Upload action should be visible for enrolled students.
+* Lecturer/admin home:
+
+  * Review queue alert should be visually clear but not alarming.
+* Keep existing data fetching and routes.
+
+Part E — Analytics polish
+
+Required improvements:
+
+* Improve analytics stat tiles:
+
+  * subtle colored icon tile per metric,
+  * stronger number typography,
+  * better spacing.
+* Pending Review tile should use amber styling.
+* Positive week-over-week should use emerald; negative should use muted red.
+* Improve leaderboard rows:
+
+  * cleaner alignment,
+  * course badges more consistent,
+  * long titles truncate gracefully.
+* Fix or clean garbled demo document titles in seed data so analytics does not show corrupted text during demo.
+* Do not change analytics backend logic unless needed only to clean demo seed data.
+
+Part F — Status and badge consistency
+
+Make statuses visually clear across the app.
+
+Document statuses:
+
+* Draft = soft blue-gray / neutral info
+* Pending Review = amber
+* Rejected = muted red
+* Approved/Published = emerald or quiet green
+* Archived = slate
+
+Request statuses:
+
+* Open = blue-gray or neutral info
+* In Progress = amber
+* Fulfilled = emerald
+* Closed = slate
+
+Course tags:
+
+* Use a recognizable consistent style.
+* Prefer small monospace or semi-bold text with sage/green-tinted background.
+* Course tags should be easier to scan than they are now.
+
+Material type tags:
+
+* Use warm neutral styling.
+* Keep them secondary to course/status.
+
+Part G — Button, hover, and navigation polish
+
+Required improvements:
+
+* Primary actions should be more noticeable:
+
+  * New Request
+  * Upload
+  * Submit for Review
+  * Approve
+  * Download Material
+  * Post Comment
+* Secondary actions should remain quiet.
+* Destructive actions should remain clear but not loud.
+* Active nav state is already good; refine hover/focus states if needed.
+* Notification bell must remain visible for all authenticated users.
+* Mobile hamburger must remain functional.
+* Add or preserve accessible focus states.
+
+Part H — Mobile compatibility
+
+Improve responsiveness without redesigning.
+
+Manual target widths:
+
+* 375px
+* 390px
+* 430px
+* 768px
+* desktop
+
+Required mobile behavior:
+
+* Header does not overflow.
+* Mobile nav drawer works.
+* Notification bell remains accessible.
+* Cards stack cleanly.
+* Request cards do not require horizontal scrolling.
+* Status select and action buttons fit.
+* Analytics stat tiles stack cleanly.
+* Document detail preview/details stack cleanly.
+* Upload form inputs are full width.
+* Modals/dropdowns fit viewport.
+* Touch targets are comfortable.
+* Icon-only buttons have `aria-label`.
+
+Part I — Demo readiness documentation
+
+Update documentation after UI/demo polish.
+
+Update `README.md`:
+
+* Include final feature overview.
+* Include demo accounts.
+* Include demo walkthrough.
+* Include local setup.
+* Include test/regression commands.
+* Include storage driver notes.
+* Include current validation baseline.
+
+Update `DEMO.md`:
+
+* Add a short script for:
+
+  * Student flow
+  * Lecturer flow
+  * Admin flow
+* Include what to click and what the audience should notice.
+* Mention upload/review/search/requests/analytics/notifications.
+
+Update `replit.md`:
+
+* Add final UI/mobile/demo polish summary.
+* Record exact validation commands and results.
+* Update test count if changed.
+* Note any remaining known limitations.
+
+Part J — Validation
+
+Run full validation:
+
+* `pnpm install --frozen-lockfile`
+* `pnpm run typecheck`
+* `pnpm -r --if-present run test`
+* `pnpm --filter @workspace/api-server run seed:demo`
+* `pnpm --filter @workspace/api-server run seed:demo:verify`
+* `pnpm regression`
+* `pnpm regression:local`
+* `pnpm regression:gcs`
+
+Also manually verify:
+
+Desktop:
+
+* Student home
+* Student upload
+* Student document detail
+* Browse/Search
+* Requests
+* Notifications
+* Lecturer review queue
+* Admin analytics
+
+Mobile:
+
+* 375px Home
+* 390px Requests
+* 430px Browse/Search
+* 768px Analytics
+* Document detail stacked layout
+* Upload form
+* Notification dropdown/page
+* Mobile navigation drawer
+
+Acceptance criteria:
+
+* UI still looks academic/professional.
+* App feels less pale and less flat.
+* Statuses are easier to scan.
+* Request board is visually improved and demo data is not polluted by repeated smoke records.
+* Document cards feel richer but not cluttered.
+* Analytics looks more polished and demo titles are clean.
+* Mobile layout works across the main flows.
+* README, DEMO.md, and replit.md are updated.
+* No backend feature scope added.
+* Existing functionality is not broken.
+* All tests pass.
+* regression:local and regression:gcs pass.

@@ -1126,6 +1126,28 @@ async function main() {
     voters: [noa.id],
   });
 
+  // ─── Demo hygiene: prune non-demo requests ────────────────────────
+  // Playwright smoke tests create material requests (title prefix
+  // "smoke request …"). Delete any request whose title is not in the
+  // known demo set so the request board starts clean for every demo run.
+  const demoRequestTitles = [
+    "Need CS101 final exam examples",
+    "Please upload more recursion exercises",
+    "Missing project charter template",
+    "Need IS420 metadata extraction example",
+    "Can we get Agile retrospective slides?",
+    "Need Data Structures previous exams",
+    "Please add risk register sample",
+    "Need summary for Knowledge Base Architecture",
+    "Old IS310 exam papers",
+  ];
+  const pruned = await db.materialRequest.deleteMany({
+    where: { title: { notIn: demoRequestTitles } },
+  });
+  if (pruned.count > 0) {
+    logger.info(`✓ Pruned ${pruned.count} non-demo request(s)`);
+  }
+
   // ─── Output ───────────────────────────────────────────────────────
   /* eslint-disable no-console */
   console.log("\nDemo data created successfully.\n");

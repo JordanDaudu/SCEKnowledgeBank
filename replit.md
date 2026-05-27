@@ -15,6 +15,7 @@ A scholarly document repository for university communities — upload, browse, s
 | M6 | Collaboration & UX polish — comment reactions, document favorites + "Following" feed, request status transitions, mention-picker keyboard nav. |
 | M7 | Hardening — graduated `FEATURE_NOTIFICATIONS` + `FEATURE_REVIEW` flags, retired legacy `GET /documents/suggestions` and the `q` parameter on `GET /documents`, quieted per-request 2xx access logs, refreshed docs. |
 | Completion | Student uploads through the M2 review workflow (gated to enrolled courses, forced `status=draft`, optional `autoSubmitForReview` on `POST /documents/upload`); student-facing upload UX (filtered course list, amber review notice, auto-submit checkbox, single-file title field + suggestion-apply); request-board status dropdown opened to the request author; regression gate now runs every package's tests via `pnpm -r --if-present run test` and ships `regression:local` / `regression:gcs` matrix scripts. |
+| Polish | Restrained semantic visual system: `StatusBadge` rewritten with amber/emerald/rose/slate per-status color tokens; `DocumentCards` uses sage course-tag + warm material-tag CSS utilities; request-board cards gain status-colored left border accent + redesigned vote column; analytics `StatTile` gets per-metric colored icon tiles (amber pending-review highlight); home hero gradient + per-action `iconClass`; `hover-elevate` CSS utility defined in `index.css`. `seed-demo` now prunes non-demo material requests (smoke-test artifacts) on every run. |
 
 ### Endpoint inventory (post-M7)
 
@@ -80,7 +81,7 @@ Suggestion fetches are best-effort: a failed extract clears the panel without bl
 - `pnpm --filter @workspace/web run dev` — run the web frontend
 - `pnpm --filter @workspace/db run generate` — generate a new SQL migration from the Prisma schema
 - `pnpm --filter @workspace/db run migrate` — apply pending SQL migrations (creates `pg_trgm` first)
-- `pnpm --filter @workspace/api-server run seed` — populate the rich demo dataset (aliased to `seed:demo`; idempotent — safe to re-run against a live DB)
+- `pnpm --filter @workspace/api-server run seed` — populate the rich demo dataset (aliased to `seed:demo`; idempotent — safe to re-run against a live DB; also prunes any non-demo material requests, e.g. smoke-test artifacts)
 - `pnpm --filter @workspace/api-server run seed:demo:verify` — assert the demo dataset is healthy (22 checks: user accounts, enrollments, courses, tags, document titles, file presence, comments, review-workflow statuses, favorites, reactions, material requests, analytics FTS)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
