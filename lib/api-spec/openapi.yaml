@@ -226,6 +226,88 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/DocumentSuggestion" }
 
+  # ─── Sprint-3 M3: v2 search surface ──────────────────────────────
+  # Legacy `/documents` (with `q`) and `/documents/suggestions` are
+  # untouched; these v2 paths add rank-aware results with snippet
+  # headlines, facet counts, and tag/course/uploader autocomplete.
+  /v2/documents/search:
+    get:
+      operationId: searchDocumentsV2
+      tags: [documents]
+      summary: Rank-aware document search with snippet highlighting
+      parameters:
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: courseId, schema: { type: string, format: uuid } }
+        - { in: query, name: courseCode, schema: { type: string } }
+        - { in: query, name: lecturerName, schema: { type: string } }
+        - { in: query, name: semester, schema: { type: string, enum: [fall, spring, summer] } }
+        - { in: query, name: academicYear, schema: { type: integer } }
+        - { in: query, name: materialType, schema: { type: string } }
+        - { in: query, name: categoryId, schema: { type: string, format: uuid } }
+        - in: query
+          name: tagIds
+          style: form
+          explode: true
+          schema: { type: array, items: { type: string, format: uuid } }
+        - { in: query, name: uploaderId, schema: { type: string, format: uuid } }
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: dateFrom, schema: { type: string, format: date } }
+        - { in: query, name: dateTo, schema: { type: string, format: date } }
+        - { in: query, name: sort, schema: { type: string, enum: [newest, oldest, title, popularity], default: newest } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Page of ranked search hits
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchPage" }
+
+  /v2/documents/search/facets:
+    get:
+      operationId: searchDocumentsFacets
+      tags: [documents]
+      summary: Facet counts for the current search filters
+      parameters:
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: courseId, schema: { type: string, format: uuid } }
+        - { in: query, name: courseCode, schema: { type: string } }
+        - { in: query, name: lecturerName, schema: { type: string } }
+        - { in: query, name: semester, schema: { type: string, enum: [fall, spring, summer] } }
+        - { in: query, name: academicYear, schema: { type: integer } }
+        - { in: query, name: materialType, schema: { type: string } }
+        - { in: query, name: categoryId, schema: { type: string, format: uuid } }
+        - in: query
+          name: tagIds
+          style: form
+          explode: true
+          schema: { type: array, items: { type: string, format: uuid } }
+        - { in: query, name: uploaderId, schema: { type: string, format: uuid } }
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: dateFrom, schema: { type: string, format: date } }
+        - { in: query, name: dateTo, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Per-dimension facet counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchFacets" }
+
+  /v2/documents/autocomplete:
+    get:
+      operationId: searchAutocomplete
+      tags: [documents]
+      summary: Tag / course / uploader autocomplete for the search bar
+      parameters:
+        - { in: query, name: q, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 5 } }
+      responses:
+        "200":
+          description: Grouped autocomplete hits
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchAutocomplete" }
+
   /documents/{id}:
     get:
       operationId: getDocument
@@ -1109,6 +1191,115 @@ components:
         total: { type: integer }
         page: { type: integer }
         pageSize: { type: integer }
+
+    SearchHit:
+      allOf:
+        - $ref: "#/components/schemas/Document"
+        - type: object
+          properties:
+            headline:
+              type: string
+              description: >-
+                Snippet from `ts_headline` with sentinel markers
+                `[[KBMARK]]…[[/KBMARK]]` around matches. Clients MUST
+                HTML-escape the string before swapping the sentinels
+                for `<mark>` tags — the underlying haystack may
+                contain user-supplied characters that are unsafe to
+                render as raw HTML.
+
+    SearchPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SearchHit" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    SearchFacetCourse:
+      type: object
+      required: [id, code, title, count]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        count: { type: integer }
+
+    SearchFacetValue:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer }
+
+    SearchFacetUploader:
+      type: object
+      required: [id, displayName, count]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        count: { type: integer }
+
+    SearchFacets:
+      type: object
+      required: [course, materialType, semester, status, uploader]
+      properties:
+        course:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetCourse" }
+        materialType:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetValue" }
+        semester:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetValue" }
+        status:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetValue" }
+        uploader:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetUploader" }
+
+    AutocompleteTagHit:
+      type: object
+      required: [id, name, count]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        count: { type: integer }
+
+    AutocompleteCourseHit:
+      type: object
+      required: [id, code, title, count]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        count: { type: integer }
+
+    AutocompleteUploaderHit:
+      type: object
+      required: [id, displayName, count]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        count: { type: integer }
+
+    SearchAutocomplete:
+      type: object
+      required: [tags, courses, uploaders]
+      properties:
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/AutocompleteTagHit" }
+        courses:
+          type: array
+          items: { $ref: "#/components/schemas/AutocompleteCourseHit" }
+        uploaders:
+          type: array
+          items: { $ref: "#/components/schemas/AutocompleteUploaderHit" }
 
     UpdateDocumentRequest:
       type: object

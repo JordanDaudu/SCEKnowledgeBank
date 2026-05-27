@@ -91,6 +91,10 @@ export interface DocumentListFilters {
   dateFrom?: Date;
   dateTo?: Date;
   q?: string;
+  /** Sprint-3 M3: scope by uploader. */
+  uploaderId?: string;
+  /** Sprint-3 M3: scope by workflow status (`published`/`pending`/...). */
+  status?: string;
   /** Pre-resolved course ids to restrict to (e.g. after courseCode/lecturerName lookup). */
   restrictCourseIds?: string[];
   /** Pre-resolved document ids to restrict to (e.g. after tag lookup). */
@@ -137,6 +141,8 @@ function buildBaseWhere(
   if (filters.categoryId) and.push({ categoryId: filters.categoryId });
   if (filters.materialType) and.push({ materialType: filters.materialType });
   if (filters.semester) and.push({ semester: filters.semester });
+  if (filters.uploaderId) and.push({ uploaderId: filters.uploaderId });
+  if (filters.status) and.push({ status: filters.status });
   if (filters.academicYear != null)
     and.push({ academicYear: filters.academicYear });
   if (filters.dateFrom || filters.dateTo) {
@@ -248,6 +254,10 @@ function buildFilterFragmentsSql(filters: DocumentListFilters): Prisma.Sql[] {
     parts.push(Prisma.sql`d.material_type = ${filters.materialType}`);
   if (filters.semester)
     parts.push(Prisma.sql`d.semester = ${filters.semester}`);
+  if (filters.uploaderId)
+    parts.push(Prisma.sql`d.uploader_id = ${filters.uploaderId}::uuid`);
+  if (filters.status)
+    parts.push(Prisma.sql`d.status = ${filters.status}`);
   if (filters.academicYear != null)
     parts.push(Prisma.sql`d.academic_year = ${filters.academicYear}`);
   if (filters.dateFrom)
@@ -344,6 +354,209 @@ export async function searchDocumentsRanked(
   const order = new Map(ids.map((id, i) => [id, i]));
   docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return docs;
+}
+
+// ─── M3: snippet-aware FTS + facets + autocomplete ───────────────
+//
+// `searchDocumentsRankedWithSnippets` mirrors `searchDocumentsRanked`
+// but additionally returns a per-document `headline` rendered by
+// Postgres `ts_headline()`. The fragment markers are sentinel strings
+// (not `<mark>`) so the frontend can html-escape the haystack first
+// and then swap the sentinels for real tags — avoids HTML injection
+// from arbitrary `search_text` content.
+
+export const SNIPPET_MARK_OPEN = "[[KBMARK]]";
+export const SNIPPET_MARK_CLOSE = "[[/KBMARK]]";
+const HEADLINE_OPTIONS =
+  "StartSel=[[KBMARK]],StopSel=[[/KBMARK]],MaxFragments=2,MaxWords=12,MinWords=4,ShortWord=2,HighlightAll=FALSE";
+
+export async function searchDocumentsRankedWithSnippets(
+  q: string,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+  options: { sort: DocumentSort; page: number; pageSize: number },
+): Promise<{ rows: DocumentRow[]; headlines: Map<string, string> }> {
+  const where = Prisma.join(
+    [
+      ...buildFilterFragmentsSql(filters),
+      visibilitySql,
+      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+    ],
+    " AND ",
+  );
+  const tieBreaker =
+    options.sort === "oldest"
+      ? Prisma.sql`d.created_at ASC`
+      : options.sort === "title"
+        ? Prisma.sql`d.title ASC`
+        : Prisma.sql`d.created_at DESC`;
+  const offset = (options.page - 1) * options.pageSize;
+  const idRows = await db.$queryRaw<
+    Array<{ id: string; headline: string | null }>
+  >`
+    SELECT d.id,
+           ts_headline('english',
+             coalesce(d.search_text, d.title || ' ' || coalesce(d.description, '')),
+             plainto_tsquery('english', ${q}),
+             ${HEADLINE_OPTIONS}
+           ) AS headline
+    FROM documents d
+    WHERE ${where}
+    ORDER BY ts_rank(d.search_vector, plainto_tsquery('english', ${q})) DESC,
+             ${tieBreaker}
+    LIMIT ${options.pageSize} OFFSET ${offset}
+  `;
+  if (idRows.length === 0) return { rows: [], headlines: new Map() };
+  const ids = idRows.map((r) => r.id);
+  const headlines = new Map<string, string>();
+  for (const r of idRows) {
+    if (r.headline) headlines.set(r.id, r.headline);
+  }
+  const docs = await db.document.findMany({ where: { id: { in: ids } } });
+  const order = new Map(ids.map((id, i) => [id, i]));
+  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return { rows: docs, headlines };
+}
+
+export interface FacetCount {
+  value: string;
+  count: number;
+}
+
+export interface FacetCounts {
+  courseId: FacetCount[];
+  materialType: FacetCount[];
+  semester: FacetCount[];
+  status: FacetCount[];
+  uploaderId: FacetCount[];
+}
+
+/**
+ * Compute per-dimension facet counts for the current filtered result
+ * set. Uses raw SQL because (a) when `q` is present we already need
+ * raw SQL for the tsquery match and (b) we want a single shared WHERE
+ * fragment across every dimension. Each dimension runs as its own
+ * GROUP BY query against the documents table.
+ *
+ * Counts INCLUDE the active filter for the dimension itself — this is
+ * the "current result set" definition called out in the task spec.
+ * Switching to "drill-down" facets (exclude active value from its own
+ * count) is a follow-up.
+ */
+export async function computeFacetCounts(
+  q: string | undefined,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+): Promise<FacetCounts> {
+  const whereParts = [...buildFilterFragmentsSql(filters), visibilitySql];
+  if (q) {
+    whereParts.push(
+      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+    );
+  }
+  const where = Prisma.join(whereParts, " AND ");
+
+  const groupBy = async (col: Prisma.Sql) => {
+    const rows = await db.$queryRaw<Array<{ value: string | null; count: bigint }>>`
+      SELECT ${col} AS value, count(*)::bigint AS count
+      FROM documents d
+      WHERE ${where}
+      GROUP BY ${col}
+      ORDER BY count(*) DESC
+      LIMIT 50
+    `;
+    return rows
+      .filter((r): r is { value: string; count: bigint } => r.value !== null)
+      .map((r) => ({ value: r.value, count: Number(r.count) }));
+  };
+
+  const [courseId, materialType, semester, status, uploaderId] =
+    await Promise.all([
+      groupBy(Prisma.sql`d.course_id::text`),
+      groupBy(Prisma.sql`d.material_type`),
+      groupBy(Prisma.sql`d.semester`),
+      groupBy(Prisma.sql`d.status`),
+      groupBy(Prisma.sql`d.uploader_id::text`),
+    ]);
+
+  return { courseId, materialType, semester, status, uploaderId };
+}
+
+export interface AutocompleteHits {
+  tags: Array<{ id: string; name: string; count: number }>;
+  courses: Array<{ id: string; code: string; title: string; count: number }>;
+  uploaders: Array<{ id: string; displayName: string; count: number }>;
+}
+
+/**
+ * Low-latency autocomplete over the three entities the search UI
+ * filters by. Each group is scoped to entities that appear on at
+ * least one document the caller is allowed to see (so we don't leak
+ * tag/course/uploader names that only attach to invisible docs).
+ *
+ * Uses ILIKE on prefix-padded patterns with the existing trigram
+ * indexes (`tags`, `courses`, `users`) where present, and falls back
+ * to a sequential scan otherwise — limits keep the cost bounded.
+ */
+export async function findAutocomplete(
+  prefix: string,
+  limit: number,
+  visibilitySql: Prisma.Sql,
+): Promise<AutocompleteHits> {
+  const pat = `%${prefix}%`;
+  const prefixPat = `${prefix}%`;
+  const [tags, courses, uploaders] = await Promise.all([
+    db.$queryRaw<Array<{ id: string; name: string; count: bigint }>>`
+      SELECT t.id, t.name, count(DISTINCT d.id)::bigint AS count
+      FROM tags t
+      JOIN document_tags dt ON dt.tag_id = t.id
+      JOIN documents d ON d.id = dt.document_id AND d.deleted_at IS NULL
+      WHERE t.name ILIKE ${pat}
+        AND ${visibilitySql}
+      GROUP BY t.id, t.name
+      ORDER BY (t.name ILIKE ${prefixPat}) DESC, count DESC, t.name ASC
+      LIMIT ${limit}
+    `,
+    db.$queryRaw<
+      Array<{ id: string; code: string; title: string; count: bigint }>
+    >`
+      SELECT c.id, c.code, c.title, count(d.id)::bigint AS count
+      FROM courses c
+      JOIN documents d ON d.course_id = c.id AND d.deleted_at IS NULL
+      WHERE (c.code ILIKE ${pat} OR c.title ILIKE ${pat} OR coalesce(c.lecturer_name, '') ILIKE ${pat})
+        AND ${visibilitySql}
+      GROUP BY c.id, c.code, c.title
+      ORDER BY (c.code ILIKE ${prefixPat} OR c.title ILIKE ${prefixPat}) DESC,
+               count DESC, c.code ASC
+      LIMIT ${limit}
+    `,
+    db.$queryRaw<
+      Array<{ id: string; display_name: string; count: bigint }>
+    >`
+      SELECT u.id, u.display_name, count(d.id)::bigint AS count
+      FROM users u
+      JOIN documents d ON d.uploader_id = u.id AND d.deleted_at IS NULL
+      WHERE u.display_name ILIKE ${pat}
+        AND ${visibilitySql}
+      GROUP BY u.id, u.display_name
+      ORDER BY (u.display_name ILIKE ${prefixPat}) DESC, count DESC, u.display_name ASC
+      LIMIT ${limit}
+    `,
+  ]);
+  return {
+    tags: tags.map((t) => ({ id: t.id, name: t.name, count: Number(t.count) })),
+    courses: courses.map((c) => ({
+      id: c.id,
+      code: c.code,
+      title: c.title,
+      count: Number(c.count),
+    })),
+    uploaders: uploaders.map((u) => ({
+      id: u.id,
+      displayName: u.display_name,
+      count: Number(u.count),
+    })),
+  };
 }
 
 export interface SuggestionRow {

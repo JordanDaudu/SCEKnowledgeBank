@@ -17,9 +17,10 @@ import {
   iconForFallbackType,
   type FallbackIconType,
 } from "@/lib/fallback-icon";
+import { renderSnippetHtml } from "@/lib/snippet";
 
 interface Props {
-  items: Document[];
+  items: (Document & { headline?: string })[];
 }
 
 export default function DocumentTable({ items }: Props) {
@@ -64,6 +65,13 @@ export default function DocumentTable({ items }: Props) {
                     {doc.title}
                   </span>
                 </Link>
+                {doc.headline && (
+                  <div
+                    className="text-xs text-muted-foreground mt-1 line-clamp-1 [&_mark]:bg-yellow-200/60 [&_mark]:text-foreground [&_mark]:rounded [&_mark]:px-0.5"
+                    data-testid="doc-snippet"
+                    dangerouslySetInnerHTML={{ __html: renderSnippetHtml(doc.headline) }}
+                  />
+                )}
               </TableCell>
               <TableCell>
                 {doc.course ? (

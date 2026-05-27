@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  useListDocuments,
+  useSearchDocumentsV2,
+  useSearchDocumentsFacets,
   useListCourses,
   useListCategories,
   useListTags,
-  getListDocumentsQueryKey,
-  type ListDocumentsParams,
+  getSearchDocumentsV2QueryKey,
+  getSearchDocumentsFacetsQueryKey,
+  type SearchDocumentsV2Params,
 } from "@workspace/api-client-react";
 import { useSearch } from "wouter";
+import FacetChips, { type FacetDim } from "@/components/browse/FacetChips";
 import { useQueryStateSync } from "@/hooks/use-query-state-sync";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDocumentSnapshot } from "@/hooks/use-document-snapshot";
@@ -58,6 +61,7 @@ export default function Browse() {
   const [categoryId, setCategoryId] = useState<string>(initialParams.get("categoryId") ?? "all");
   const [materialType, setMaterialType] = useState<string>(initialParams.get("materialType") ?? "all");
   const [tagIds, setTagIds] = useState<string[]>(initialParams.getAll("tagIds"));
+  const [uploaderId, setUploaderId] = useState<string>(initialParams.get("uploaderId") ?? "");
   const [dateFrom, setDateFrom] = useState<string>(initialParams.get("dateFrom") ?? "");
   const [dateTo, setDateTo] = useState<string>(initialParams.get("dateTo") ?? "");
   const [sort, setSort] = useState<Sort>(((initialParams.get("sort") as Sort) || "newest") as Sort);
@@ -80,6 +84,7 @@ export default function Browse() {
     setCategoryId(p.get("categoryId") ?? "all");
     setMaterialType(p.get("materialType") ?? "all");
     setTagIds(p.getAll("tagIds"));
+    setUploaderId(p.get("uploaderId") ?? "");
     setDateFrom(p.get("dateFrom") ?? "");
     setDateTo(p.get("dateTo") ?? "");
     setSort(((p.get("sort") as Sort) || "newest") as Sort);
@@ -110,7 +115,7 @@ export default function Browse() {
     setPage(1);
   }, [
     debouncedQuery, debouncedLecturer, courseId, semester, academicYear,
-    categoryId, materialType, tagIdsKey, dateFrom, dateTo, sort,
+    categoryId, materialType, tagIdsKey, uploaderId, dateFrom, dateTo, sort,
   ]);
 
   // Rebuild the tagIds array from the canonical primitive key so
@@ -133,6 +138,7 @@ export default function Browse() {
       categoryId: categoryId !== "all" ? categoryId : undefined,
       materialType: materialType !== "all" ? materialType : undefined,
       tagIds: tagIdsStable.length > 0 ? tagIdsStable : undefined,
+      uploaderId: uploaderId || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       sort: sort !== "newest" ? sort : undefined,
@@ -140,7 +146,7 @@ export default function Browse() {
     }),
     [
       debouncedQuery, courseId, debouncedLecturer, semester, academicYear,
-      categoryId, materialType, tagIdsStable, dateFrom, dateTo, sort, page,
+      categoryId, materialType, tagIdsStable, uploaderId, dateFrom, dateTo, sort, page,
     ],
   );
   useQueryStateSync(urlState);
@@ -151,16 +157,17 @@ export default function Browse() {
 
   // Memoize the request params on primitives so TanStack Query keys stay
   // referentially stable and we don't generate duplicate in-flight fetches.
-  const params = useMemo<ListDocumentsParams>(
+  const params = useMemo<SearchDocumentsV2Params>(
     () => ({
       q: debouncedQuery || undefined,
       courseId: courseId !== "all" ? courseId : undefined,
       lecturerName: debouncedLecturer || undefined,
-      semester: (semester || undefined) as ListDocumentsParams["semester"],
+      semester: (semester || undefined) as SearchDocumentsV2Params["semester"],
       academicYear: academicYear ? Number(academicYear) : undefined,
       categoryId: categoryId !== "all" ? categoryId : undefined,
       materialType: materialType !== "all" ? materialType : undefined,
       tagIds: tagIdsStable.length > 0 ? tagIdsStable : undefined,
+      uploaderId: uploaderId || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       sort,
@@ -169,13 +176,13 @@ export default function Browse() {
     }),
     [
       debouncedQuery, courseId, debouncedLecturer, semester, academicYear,
-      categoryId, materialType, tagIdsStable, dateFrom, dateTo, sort, page,
+      categoryId, materialType, tagIdsStable, uploaderId, dateFrom, dateTo, sort, page,
     ],
   );
 
-  const { data: pageData, isLoading, isFetching, isError, refetch } = useListDocuments(params, {
+  const { data: pageData, isLoading, isFetching, isError, refetch } = useSearchDocumentsV2(params, {
     query: {
-      queryKey: getListDocumentsQueryKey(params),
+      queryKey: getSearchDocumentsV2QueryKey(params),
       // Silently refetch every 30s while the tab is focused; React Query
       // pauses refetchInterval automatically when the window is blurred.
       refetchInterval: 30_000,
@@ -183,6 +190,26 @@ export default function Browse() {
       staleTime: 15_000,
     },
   });
+
+  // Facets come from a *separate*, lower-priority query so the results
+  // grid paints first. Same filter inputs minus paging/sort, with a
+  // longer staleTime — facet counts shift slowly relative to result
+  // listings and don't justify the same refetch cadence.
+  const facetParams = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { page: _p, pageSize: _ps, sort: _s, ...rest } = params;
+    return rest;
+  }, [params]);
+  const { data: facetData, isFetching: facetsFetching } = useSearchDocumentsFacets(
+    facetParams,
+    {
+      query: {
+        queryKey: getSearchDocumentsFacetsQueryKey(facetParams),
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
+      },
+    },
+  );
 
   const { displayedData, hasNewDocuments, showLatest } = useDocumentSnapshot(pageData, params);
 
@@ -194,6 +221,7 @@ export default function Browse() {
     (categoryId !== "all" ? 1 : 0) +
     (materialType !== "all" ? 1 : 0) +
     tagIds.length +
+    (uploaderId ? 1 : 0) +
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0);
 
@@ -206,6 +234,7 @@ export default function Browse() {
     setCategoryId("all");
     setMaterialType("all");
     setTagIds([]);
+    setUploaderId("");
     setDateFrom("");
     setDateTo("");
     setSort("newest");
@@ -248,6 +277,13 @@ export default function Browse() {
               <SearchSuggestions
                 query={query}
                 onSelect={(title) => { setQuery(title); setShowSuggestions(false); }}
+                onPickCourse={(id) => { setCourseId(id); setQuery(""); setShowSuggestions(false); }}
+                onPickUploader={(id) => { setUploaderId(id); setQuery(""); setShowSuggestions(false); }}
+                onPickTag={(id) => {
+                  setTagIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+                  setQuery("");
+                  setShowSuggestions(false);
+                }}
               />
             )}
           </div>
@@ -271,6 +307,40 @@ export default function Browse() {
 
           <BrowseViewToggle view={view} onChange={setView} />
         </div>
+
+        <FacetChips
+          facets={facetData}
+          loading={facetsFetching}
+          active={{
+            courseId: courseId !== "all" ? courseId : undefined,
+            materialType: materialType !== "all" ? materialType : undefined,
+            semester: semester || undefined,
+            uploaderId: uploaderId || undefined,
+          }}
+          onPick={(dim: FacetDim, value: string) => {
+            switch (dim) {
+              case "courseId":
+                setCourseId(courseId === value ? "all" : value);
+                break;
+              case "materialType":
+                setMaterialType(materialType === value ? "all" : value);
+                break;
+              case "semester":
+                setSemester(
+                  (semester === value ? "" : value) as typeof semester,
+                );
+                break;
+              case "uploaderId":
+                setUploaderId(uploaderId === value ? "" : value);
+                break;
+              case "status":
+                // Status chips are rendered non-interactive by FacetChips
+                // (informational only) — this branch is unreachable but
+                // kept for switch exhaustiveness.
+                break;
+            }
+          }}
+        />
       </div>
 
       <div data-testid="browse-results">

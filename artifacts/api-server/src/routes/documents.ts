@@ -31,6 +31,7 @@ import { forbidden } from "../lib/errors";
 import { env } from "../lib/env";
 import { MATERIAL_TYPE_VALUES } from "../lib/material-types";
 import * as documentsService from "../services/documents.service";
+import * as searchService from "../services/search.service";
 import * as permissions from "../services/permissions.service";
 
 // Sprint-2 audit: validate every field of the multipart upload body
@@ -121,6 +122,94 @@ router.get("/documents/suggestions", requireAuth, async (req, res, next) => {
     const q = DocumentSuggestionsQueryParams.parse(req.query);
     const items = await documentsService.suggest(q.q, q.limit, req.authUser!);
     res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── Sprint-3 M3: v2 search surface ───────────────────────────────
+// Legacy `GET /documents` (with `q`) and `/documents/suggestions`
+// remain unchanged until M7. The v2 endpoints layer on rank-aware
+// snippets, facet counts, and a typed autocomplete that returns
+// tag/course/uploader hits in addition to (and not just) documents.
+
+const SearchQueryParams = z.object({
+  q: z.string().trim().optional(),
+  courseId: z.string().uuid().optional(),
+  courseCode: z.string().optional(),
+  lecturerName: z.string().optional(),
+  categoryId: z.string().uuid().optional(),
+  materialType: z.string().optional(),
+  semester: z.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: z.coerce.number().int().min(1900).max(2200).optional(),
+  tagIds: z
+    .union([z.string().uuid(), z.array(z.string().uuid())])
+    .transform((v) => (Array.isArray(v) ? v : [v]))
+    .optional(),
+  uploaderId: z.string().uuid().optional(),
+  status: z.string().optional(),
+  dateFrom: z.coerce.date().optional(),
+  dateTo: z.coerce.date().optional(),
+  sort: z.enum(["newest", "oldest", "title", "popularity"]).default("newest"),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const FacetsQueryParams = SearchQueryParams.omit({
+  sort: true,
+  page: true,
+  pageSize: true,
+}).extend({
+  // Facets ignore sort/pagination — they count the whole filtered
+  // result set. We still default sort to "newest" before handing the
+  // filter object to the service so the type signature is satisfied.
+});
+
+const AutocompleteQueryParams = z.object({
+  q: z.string().trim().min(1),
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+});
+
+router.get("/v2/documents/search", requireAuth, async (req, res, next) => {
+  try {
+    const q = SearchQueryParams.parse(
+      normalizeArrayQuery(req.query as Record<string, unknown>, ["tagIds"]),
+    );
+    const result = await searchService.searchDocuments(q, req.authUser!);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get(
+  "/v2/documents/search/facets",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const parsed = FacetsQueryParams.parse(
+        normalizeArrayQuery(req.query as Record<string, unknown>, ["tagIds"]),
+      );
+      const result = await searchService.searchFacets(
+        { ...parsed, sort: "newest", page: 1, pageSize: 1 },
+        req.authUser!,
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.get("/v2/documents/autocomplete", requireAuth, async (req, res, next) => {
+  try {
+    const q = AutocompleteQueryParams.parse(req.query);
+    const result = await searchService.autocomplete(
+      q.q,
+      q.limit,
+      req.authUser!,
+    );
+    res.json(result);
   } catch (err) {
     next(err);
   }

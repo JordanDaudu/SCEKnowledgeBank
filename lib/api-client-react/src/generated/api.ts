@@ -47,6 +47,12 @@ import type {
   RegisterRequest,
   RegisterResponse,
   RejectDocumentRequest,
+  SearchAutocomplete,
+  SearchAutocompleteParams,
+  SearchDocumentsFacetsParams,
+  SearchDocumentsV2Params,
+  SearchFacets,
+  SearchPage,
   SearchUsersParams,
   SignedTokenResponse,
   StorageQuota,
@@ -961,6 +967,324 @@ export function useDocumentSuggestions<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getDocumentSuggestionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Rank-aware document search with snippet highlighting
+ */
+export const getSearchDocumentsV2Url = (params?: SearchDocumentsV2Params) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["tagIds"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? "null" : v.toString());
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v2/documents/search?${stringifiedParams}`
+    : `/api/v2/documents/search`;
+};
+
+export const searchDocumentsV2 = async (
+  params?: SearchDocumentsV2Params,
+  options?: RequestInit,
+): Promise<SearchPage> => {
+  return customFetch<SearchPage>(getSearchDocumentsV2Url(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchDocumentsV2QueryKey = (
+  params?: SearchDocumentsV2Params,
+) => {
+  return [`/api/v2/documents/search`, ...(params ? [params] : [])] as const;
+};
+
+export const getSearchDocumentsV2QueryOptions = <
+  TData = Awaited<ReturnType<typeof searchDocumentsV2>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: SearchDocumentsV2Params,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchDocumentsV2>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchDocumentsV2QueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchDocumentsV2>>
+  > = ({ signal }) => searchDocumentsV2(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchDocumentsV2>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchDocumentsV2QueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchDocumentsV2>>
+>;
+export type SearchDocumentsV2QueryError = ErrorType<unknown>;
+
+/**
+ * @summary Rank-aware document search with snippet highlighting
+ */
+
+export function useSearchDocumentsV2<
+  TData = Awaited<ReturnType<typeof searchDocumentsV2>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: SearchDocumentsV2Params,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchDocumentsV2>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchDocumentsV2QueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Facet counts for the current search filters
+ */
+export const getSearchDocumentsFacetsUrl = (
+  params?: SearchDocumentsFacetsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["tagIds"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? "null" : v.toString());
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v2/documents/search/facets?${stringifiedParams}`
+    : `/api/v2/documents/search/facets`;
+};
+
+export const searchDocumentsFacets = async (
+  params?: SearchDocumentsFacetsParams,
+  options?: RequestInit,
+): Promise<SearchFacets> => {
+  return customFetch<SearchFacets>(getSearchDocumentsFacetsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchDocumentsFacetsQueryKey = (
+  params?: SearchDocumentsFacetsParams,
+) => {
+  return [
+    `/api/v2/documents/search/facets`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getSearchDocumentsFacetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchDocumentsFacets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: SearchDocumentsFacetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchDocumentsFacets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchDocumentsFacetsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchDocumentsFacets>>
+  > = ({ signal }) =>
+    searchDocumentsFacets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchDocumentsFacets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchDocumentsFacetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchDocumentsFacets>>
+>;
+export type SearchDocumentsFacetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Facet counts for the current search filters
+ */
+
+export function useSearchDocumentsFacets<
+  TData = Awaited<ReturnType<typeof searchDocumentsFacets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: SearchDocumentsFacetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchDocumentsFacets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchDocumentsFacetsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Tag / course / uploader autocomplete for the search bar
+ */
+export const getSearchAutocompleteUrl = (params: SearchAutocompleteParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v2/documents/autocomplete?${stringifiedParams}`
+    : `/api/v2/documents/autocomplete`;
+};
+
+export const searchAutocomplete = async (
+  params: SearchAutocompleteParams,
+  options?: RequestInit,
+): Promise<SearchAutocomplete> => {
+  return customFetch<SearchAutocomplete>(getSearchAutocompleteUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSearchAutocompleteQueryKey = (
+  params?: SearchAutocompleteParams,
+) => {
+  return [
+    `/api/v2/documents/autocomplete`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getSearchAutocompleteQueryOptions = <
+  TData = Awaited<ReturnType<typeof searchAutocomplete>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchAutocompleteParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchAutocomplete>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSearchAutocompleteQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof searchAutocomplete>>
+  > = ({ signal }) => searchAutocomplete(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof searchAutocomplete>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SearchAutocompleteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchAutocomplete>>
+>;
+export type SearchAutocompleteQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Tag / course / uploader autocomplete for the search bar
+ */
+
+export function useSearchAutocomplete<
+  TData = Awaited<ReturnType<typeof searchAutocomplete>>,
+  TError = ErrorType<unknown>,
+>(
+  params: SearchAutocompleteParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof searchAutocomplete>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSearchAutocompleteQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

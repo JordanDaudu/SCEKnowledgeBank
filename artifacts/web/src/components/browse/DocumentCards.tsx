@@ -10,9 +10,10 @@ import {
   iconForFallbackType,
   type FallbackIconType,
 } from "@/lib/fallback-icon";
+import { renderSnippetHtml } from "@/lib/snippet";
 
 interface Props {
-  items: Document[];
+  items: (Document & { headline?: string })[];
 }
 
 export default function DocumentCards({ items }: Props) {
@@ -54,7 +55,15 @@ export default function DocumentCards({ items }: Props) {
                 )}
               </div>
               <h3 className="font-serif font-semibold text-lg line-clamp-2 mb-2">{doc.title}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{doc.description}</p>
+              {doc.headline ? (
+                <p
+                  className="text-sm text-muted-foreground line-clamp-2 mb-4 [&_mark]:bg-yellow-200/60 [&_mark]:text-foreground [&_mark]:rounded [&_mark]:px-0.5"
+                  data-testid="doc-snippet"
+                  dangerouslySetInnerHTML={{ __html: renderSnippetHtml(doc.headline) }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{doc.description}</p>
+              )}
 
               <div className="mt-auto flex justify-between items-center pt-2 gap-2">
                 <div className="flex items-center gap-1.5 min-w-0">

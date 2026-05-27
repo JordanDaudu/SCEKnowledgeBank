@@ -270,6 +270,69 @@ export interface DocumentPage {
   pageSize: number;
 }
 
+export type SearchHit = Document & {
+  /** Snippet from `ts_headline` with sentinel markers `[[KBMARK]]…[[/KBMARK]]` around matches. Clients MUST HTML-escape the string before swapping the sentinels for `<mark>` tags — the underlying haystack may contain user-supplied characters that are unsafe to render as raw HTML. */
+  headline?: string;
+};
+
+export interface SearchPage {
+  items: SearchHit[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SearchFacetCourse {
+  id: string;
+  code: string;
+  title: string;
+  count: number;
+}
+
+export interface SearchFacetValue {
+  value: string;
+  count: number;
+}
+
+export interface SearchFacetUploader {
+  id: string;
+  displayName: string;
+  count: number;
+}
+
+export interface SearchFacets {
+  course: SearchFacetCourse[];
+  materialType: SearchFacetValue[];
+  semester: SearchFacetValue[];
+  status: SearchFacetValue[];
+  uploader: SearchFacetUploader[];
+}
+
+export interface AutocompleteTagHit {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface AutocompleteCourseHit {
+  id: string;
+  code: string;
+  title: string;
+  count: number;
+}
+
+export interface AutocompleteUploaderHit {
+  id: string;
+  displayName: string;
+  count: number;
+}
+
+export interface SearchAutocomplete {
+  tags: AutocompleteTagHit[];
+  courses: AutocompleteCourseHit[];
+  uploaders: AutocompleteUploaderHit[];
+}
+
 export type UpdateDocumentRequestSemester =
   (typeof UpdateDocumentRequestSemester)[keyof typeof UpdateDocumentRequestSemester];
 
@@ -549,6 +612,88 @@ export type ListRecentDocumentsParams = {
 };
 
 export type DocumentSuggestionsParams = {
+  /**
+   * @minLength 1
+   */
+  q: string;
+  /**
+   * @minimum 1
+   * @maximum 20
+   */
+  limit?: number;
+};
+
+export type SearchDocumentsV2Params = {
+  q?: string;
+  courseId?: string;
+  courseCode?: string;
+  lecturerName?: string;
+  semester?: SearchDocumentsV2Semester;
+  academicYear?: number;
+  materialType?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  uploaderId?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sort?: SearchDocumentsV2Sort;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+};
+
+export type SearchDocumentsV2Semester =
+  (typeof SearchDocumentsV2Semester)[keyof typeof SearchDocumentsV2Semester];
+
+export const SearchDocumentsV2Semester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
+} as const;
+
+export type SearchDocumentsV2Sort =
+  (typeof SearchDocumentsV2Sort)[keyof typeof SearchDocumentsV2Sort];
+
+export const SearchDocumentsV2Sort = {
+  newest: "newest",
+  oldest: "oldest",
+  title: "title",
+  popularity: "popularity",
+} as const;
+
+export type SearchDocumentsFacetsParams = {
+  q?: string;
+  courseId?: string;
+  courseCode?: string;
+  lecturerName?: string;
+  semester?: SearchDocumentsFacetsSemester;
+  academicYear?: number;
+  materialType?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  uploaderId?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type SearchDocumentsFacetsSemester =
+  (typeof SearchDocumentsFacetsSemester)[keyof typeof SearchDocumentsFacetsSemester];
+
+export const SearchDocumentsFacetsSemester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
+} as const;
+
+export type SearchAutocompleteParams = {
   /**
    * @minLength 1
    */

@@ -548,6 +548,333 @@ export const DocumentSuggestionsResponse = zod.array(
   DocumentSuggestionsResponseItem,
 );
 
+/**
+ * @summary Rank-aware document search with snippet highlighting
+ */
+export const searchDocumentsV2QuerySortDefault = `newest`;
+export const searchDocumentsV2QueryPageDefault = 1;
+
+export const searchDocumentsV2QueryPageSizeDefault = 20;
+export const searchDocumentsV2QueryPageSizeMax = 100;
+
+export const SearchDocumentsV2QueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  courseId: zod.coerce.string().uuid().optional(),
+  courseCode: zod.coerce.string().optional(),
+  lecturerName: zod.coerce.string().optional(),
+  semester: zod.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: zod.coerce.number().optional(),
+  materialType: zod.coerce.string().optional(),
+  categoryId: zod.coerce.string().uuid().optional(),
+  tagIds: zod.array(zod.coerce.string().uuid()).optional(),
+  uploaderId: zod.coerce.string().uuid().optional(),
+  status: zod.coerce.string().optional(),
+  dateFrom: zod.coerce.date().optional(),
+  dateTo: zod.coerce.date().optional(),
+  sort: zod
+    .enum(["newest", "oldest", "title", "popularity"])
+    .default(searchDocumentsV2QuerySortDefault),
+  page: zod.coerce.number().min(1).default(searchDocumentsV2QueryPageDefault),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(searchDocumentsV2QueryPageSizeMax)
+    .default(searchDocumentsV2QueryPageSizeDefault),
+});
+
+export const searchDocumentsV2ResponseItemsItemOneFileExtractedMetadataPageCountMin = 0;
+
+export const searchDocumentsV2ResponseItemsItemOneFileExtractedMetadataImageWidthMin = 0;
+
+export const searchDocumentsV2ResponseItemsItemOneFileExtractedMetadataImageHeightMin = 0;
+
+export const SearchDocumentsV2Response = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.string().uuid(),
+        title: zod.string(),
+        description: zod.string(),
+        course: zod
+          .object({
+            id: zod.string().uuid(),
+            code: zod.string(),
+            title: zod.string(),
+            lecturerName: zod.string(),
+          })
+          .optional(),
+        category: zod
+          .object({
+            id: zod.string().uuid(),
+            name: zod.string(),
+            slug: zod.string(),
+            description: zod.string().optional(),
+          })
+          .optional(),
+        materialType: zod.string(),
+        semester: zod.enum(["fall", "spring", "summer"]).optional(),
+        academicYear: zod.number().optional(),
+        visibility: zod.enum(["public", "restricted", "private"]),
+        status: zod
+          .enum([
+            "draft",
+            "published",
+            "archived",
+            "pending_review",
+            "approved",
+            "rejected",
+          ])
+          .describe(
+            "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+          ),
+        uploader: zod.object({
+          id: zod.string().uuid(),
+          email: zod.string(),
+          displayName: zod.string(),
+          roles: zod.array(zod.string()),
+          isActive: zod.boolean(),
+          status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+          createdAt: zod.coerce.date(),
+        }),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+        viewCount: zod.number(),
+        commentCount: zod.number(),
+        tags: zod.array(
+          zod.object({
+            id: zod.string().uuid(),
+            name: zod.string(),
+          }),
+        ),
+        file: zod
+          .object({
+            id: zod.string().uuid(),
+            originalFilename: zod
+              .string()
+              .describe("The exact filename as the user uploaded it."),
+            displayFilename: zod
+              .string()
+              .describe(
+                'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+              ),
+            mimeType: zod.string(),
+            sizeBytes: zod.number(),
+            uploadedAt: zod.coerce.date(),
+            checksum: zod.string().optional(),
+            extractedMetadata: zod
+              .object({
+                pageCount: zod
+                  .number()
+                  .min(
+                    searchDocumentsV2ResponseItemsItemOneFileExtractedMetadataPageCountMin,
+                  )
+                  .optional(),
+                detectedTitle: zod.string().optional(),
+                author: zod.string().optional(),
+                imageWidth: zod
+                  .number()
+                  .min(
+                    searchDocumentsV2ResponseItemsItemOneFileExtractedMetadataImageWidthMin,
+                  )
+                  .optional(),
+                imageHeight: zod
+                  .number()
+                  .min(
+                    searchDocumentsV2ResponseItemsItemOneFileExtractedMetadataImageHeightMin,
+                  )
+                  .optional(),
+                hasExtractedText: zod
+                  .boolean()
+                  .describe(
+                    "True when extracted text exists for full-text search (task",
+                  ),
+              })
+              .optional()
+              .describe(
+                "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+              ),
+          })
+          .optional(),
+        thumbnailUrl: zod
+          .string()
+          .optional()
+          .describe(
+            "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+          ),
+        fallbackIconType: zod
+          .enum([
+            "pdf",
+            "image",
+            "doc",
+            "slides",
+            "sheet",
+            "text",
+            "archive",
+            "unknown",
+          ])
+          .optional()
+          .describe(
+            "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+          ),
+        permissions: zod
+          .object({
+            canView: zod.boolean(),
+            canEdit: zod.boolean(),
+            canDelete: zod.boolean(),
+            canDownload: zod.boolean(),
+            canComment: zod.boolean(),
+            canSubmitForReview: zod
+              .boolean()
+              .describe(
+                "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+              ),
+            canReview: zod
+              .boolean()
+              .describe(
+                "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+              ),
+          })
+          .describe(
+            "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+          ),
+        submittedForReviewAt: zod.coerce
+          .date()
+          .optional()
+          .describe("When the doc was most recently submitted for review."),
+        reviewedAt: zod.coerce
+          .date()
+          .optional()
+          .describe("When the doc was last approved or rejected."),
+        reviewer: zod
+          .object({
+            id: zod.string().uuid(),
+            email: zod.string(),
+            displayName: zod.string(),
+            roles: zod.array(zod.string()),
+            isActive: zod.boolean(),
+            status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+            createdAt: zod.coerce.date(),
+          })
+          .optional(),
+        reviewReason: zod
+          .string()
+          .optional()
+          .describe(
+            "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
+          ),
+      })
+      .and(
+        zod.object({
+          headline: zod
+            .string()
+            .optional()
+            .describe(
+              "Snippet from `ts_headline` with sentinel markers `[[KBMARK]]…[[\/KBMARK]]` around matches. Clients MUST HTML-escape the string before swapping the sentinels for `<mark>` tags — the underlying haystack may contain user-supplied characters that are unsafe to render as raw HTML.",
+            ),
+        }),
+      ),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Facet counts for the current search filters
+ */
+export const SearchDocumentsFacetsQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  courseId: zod.coerce.string().uuid().optional(),
+  courseCode: zod.coerce.string().optional(),
+  lecturerName: zod.coerce.string().optional(),
+  semester: zod.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: zod.coerce.number().optional(),
+  materialType: zod.coerce.string().optional(),
+  categoryId: zod.coerce.string().uuid().optional(),
+  tagIds: zod.array(zod.coerce.string().uuid()).optional(),
+  uploaderId: zod.coerce.string().uuid().optional(),
+  status: zod.coerce.string().optional(),
+  dateFrom: zod.coerce.date().optional(),
+  dateTo: zod.coerce.date().optional(),
+});
+
+export const SearchDocumentsFacetsResponse = zod.object({
+  course: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      code: zod.string(),
+      title: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  materialType: zod.array(
+    zod.object({
+      value: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  semester: zod.array(
+    zod.object({
+      value: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  status: zod.array(
+    zod.object({
+      value: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  uploader: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      displayName: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Tag / course / uploader autocomplete for the search bar
+ */
+
+export const searchAutocompleteQueryLimitDefault = 5;
+export const searchAutocompleteQueryLimitMax = 20;
+
+export const SearchAutocompleteQueryParams = zod.object({
+  q: zod.coerce.string().min(1),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(searchAutocompleteQueryLimitMax)
+    .default(searchAutocompleteQueryLimitDefault),
+});
+
+export const SearchAutocompleteResponse = zod.object({
+  tags: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  courses: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      code: zod.string(),
+      title: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  uploaders: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      displayName: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+});
+
 export const GetDocumentParams = zod.object({
   id: zod.coerce.string().uuid(),
 });
