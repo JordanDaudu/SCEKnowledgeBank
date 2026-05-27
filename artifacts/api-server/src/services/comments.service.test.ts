@@ -40,11 +40,18 @@ vi.mock("./audit.service", () => ({
 vi.mock("./notifications.service", () => ({
   notify: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("./favorites.service", () => ({
+  recipientsForDocumentActivity: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("../repositories/reactions.repo", () => ({
+  summariseByCommentIds: vi.fn().mockResolvedValue(new Map()),
+}));
 
 import * as commentsRepo from "../repositories/comments.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as usersRepo from "../repositories/users.repo";
 import * as notificationsService from "./notifications.service";
+import * as favoritesService from "./favorites.service";
 import type { AuthenticatedUser } from "../middlewares/auth";
 import {
   createForDocument,
@@ -429,6 +436,27 @@ describe("createForDocument notification producer hooks", () => {
     );
     expect(callsForParent).toHaveLength(1);
     expect(callsForParent[0]![0].type).toBe("comment.reply");
+  });
+
+  it("uses the new comment id (not document id) as the document.activity subject so successive comments produce distinct notifications", async () => {
+    const recipients = vi.mocked(favoritesService.recipientsForDocumentActivity);
+    recipients.mockResolvedValue(["follower"]);
+    insertComment.mockResolvedValueOnce(makeComment({ id: "c-first" }));
+    await createForDocument("doc-1", { body: "first" }, user);
+    insertComment.mockResolvedValueOnce(makeComment({ id: "c-second" }));
+    await createForDocument("doc-1", { body: "second" }, user);
+    await new Promise((r) => setImmediate(r));
+    const activityCalls = notify.mock.calls.filter(
+      (c) => c[0].type === "document.activity",
+    );
+    expect(activityCalls).toHaveLength(2);
+    expect(activityCalls.map((c) => c[0].subjectId)).toEqual([
+      "c-first",
+      "c-second",
+    ]);
+    for (const call of activityCalls) {
+      expect(call[0].subjectType).toBe("comment");
+    }
   });
 
   it("does not fail the comment write if notify throws synchronously", async () => {

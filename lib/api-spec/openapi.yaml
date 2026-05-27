@@ -601,12 +601,86 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /comments/{commentId}/reactions/{kind}:
+    post:
+      operationId: addCommentReaction
+      tags: [comments]
+      parameters:
+        - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: kind, required: true, schema: { type: string, enum: [like, love, insightful, celebrate, thanks, question] } }
+      responses:
+        "200":
+          description: Updated reaction summary for this comment
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CommentReaction" }
+        "400": { description: Bad request, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    delete:
+      operationId: removeCommentReaction
+      tags: [comments]
+      parameters:
+        - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: kind, required: true, schema: { type: string, enum: [like, love, insightful, celebrate, thanks, question] } }
+      responses:
+        "200":
+          description: Updated reaction summary for this comment
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CommentReaction" }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/favorite:
+    post:
+      operationId: favoriteDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Favorited
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FavoriteStatus" }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    delete:
+      operationId: unfavoriteDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Unfavorited
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FavoriteStatus" }
+
+  /me/favorites:
+    get:
+      operationId: listMyFavorites
+      tags: [documents]
+      responses:
+        "200":
+          description: Documents the current user is following
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Document" }
+
   /requests:
     get:
       operationId: listRequests
       tags: [requests]
       parameters:
-        - { in: query, name: status, schema: { type: string, enum: [open, fulfilled, closed] } }
+        - { in: query, name: status, schema: { type: string, enum: [open, in_progress, fulfilled, closed] } }
         - { in: query, name: courseId, schema: { type: string, format: uuid } }
       responses:
         "200":
@@ -1175,6 +1249,12 @@ components:
           description: >-
             Rejection rationale. Present only when status='rejected'.
             Cleared on the next submit-for-review.
+        isFavorited:
+          type: boolean
+          description: >-
+            True when the requesting user has favorited this document
+            (Sprint-3 M6). Populated on detail responses and the
+            `/me/favorites` list; may be absent on bulk list endpoints.
 
     DocumentPermissions:
       type: object
@@ -1557,7 +1637,7 @@ components:
 
     Comment:
       type: object
-      required: [id, documentId, body, author, createdAt, replies, mentions]
+      required: [id, documentId, body, author, createdAt, replies, mentions, reactions]
       properties:
         id: { type: string, format: uuid }
         documentId: { type: string, format: uuid }
@@ -1578,6 +1658,27 @@ components:
             write — they remain plain text in `body` but produce no
             entry here.
           items: { $ref: "#/components/schemas/UserSummary" }
+        reactions:
+          type: array
+          description: >-
+            Per-kind reaction summary. Empty list when no one has
+            reacted. `viewerReacted` is true when the requesting user
+            has the reaction of that kind on this comment.
+          items: { $ref: "#/components/schemas/CommentReaction" }
+
+    CommentReaction:
+      type: object
+      required: [kind, count, viewerReacted]
+      properties:
+        kind: { type: string, enum: [like, love, insightful, celebrate, thanks, question] }
+        count: { type: integer, minimum: 0 }
+        viewerReacted: { type: boolean }
+
+    FavoriteStatus:
+      type: object
+      required: [favorited]
+      properties:
+        favorited: { type: boolean }
 
     CreateCommentRequest:
       type: object
@@ -1600,7 +1701,7 @@ components:
         id: { type: string, format: uuid }
         title: { type: string }
         description: { type: string }
-        status: { type: string, enum: [open, fulfilled, closed] }
+        status: { type: string, enum: [open, in_progress, fulfilled, closed] }
         course: { $ref: "#/components/schemas/Course" }
         requestedBy: { $ref: "#/components/schemas/UserSummary" }
         voteCount: { type: integer }
@@ -1619,7 +1720,7 @@ components:
     UpdateRequestRequest:
       type: object
       properties:
-        status: { type: string, enum: [open, fulfilled, closed] }
+        status: { type: string, enum: [open, in_progress, fulfilled, closed] }
         fulfillingDocumentId: { type: string, format: uuid }
         title: { type: string }
         description: { type: string }

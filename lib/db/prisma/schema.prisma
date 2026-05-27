@@ -80,6 +80,8 @@ model User {
   courseEnrollments CourseEnrollment[]
   notificationsReceived Notification[]    @relation("NotificationRecipient")
   notificationsActed    Notification[]    @relation("NotificationActor")
+  commentReactions      CommentReaction[] @relation("CommentReactionUser")
+  documentFavorites     DocumentFavorite[]
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
   @@map("users")
@@ -233,6 +235,7 @@ model Document {
   comments          Comment[]
   views             MaterialViewHistory[]
   requestsFulfilled MaterialRequest[]     @relation("FulfillingDocument")
+  favorites         DocumentFavorite[]
 
   @@index([courseId], map: "documents_course_idx")
   @@index([categoryId], map: "documents_category_idx")
@@ -352,11 +355,53 @@ model Comment {
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
   mentions CommentMention[]
+  reactions CommentReaction[]
 
   @@index([documentId, createdAt], map: "comments_document_created_idx")
   @@index([parentId], map: "comments_parent_idx")
   @@index([authorId], map: "comments_author_idx")
   @@map("comments")
+}
+
+// ─── Reactions (Sprint-3 M6) ──────────────────────────────────────
+// One row per (comment, user, kind). The unique key keeps a user from
+// stacking the same kind on the same comment; different kinds are
+// allowed (a user can react ":like" and ":thanks" to the same comment).
+
+model CommentReaction {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  kind      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation("CommentReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, kind], map: "comment_reactions_comment_user_kind_unique")
+  @@index([commentId], map: "comment_reactions_comment_idx")
+  @@index([userId], map: "comment_reactions_user_idx")
+  @@map("comment_reactions")
+}
+
+// ─── Favorites (Sprint-3 M6) ──────────────────────────────────────
+// User-scoped per-document subscription. Doubles as the "Following"
+// list and as the notification subscription set for document activity
+// (new comments, etc.).
+
+model DocumentFavorite {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId], map: "document_favorites_user_document_unique")
+  @@index([documentId], map: "document_favorites_document_idx")
+  @@index([userId, createdAt(sort: Desc)], map: "document_favorites_user_created_idx")
+  @@map("document_favorites")
 }
 
 model CommentMention {

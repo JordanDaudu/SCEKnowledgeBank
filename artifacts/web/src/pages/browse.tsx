@@ -5,10 +5,13 @@ import {
   useListCourses,
   useListCategories,
   useListTags,
+  useListMyFavorites,
   getSearchDocumentsV2QueryKey,
   getSearchDocumentsFacetsQueryKey,
+  getListMyFavoritesQueryKey,
   type SearchDocumentsV2Params,
 } from "@workspace/api-client-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useSearch } from "wouter";
 import FacetChips, { type FacetDim } from "@/components/browse/FacetChips";
 import { useQueryStateSync } from "@/hooks/use-query-state-sync";
@@ -255,6 +258,20 @@ export default function Browse() {
   const totalPages = viewData ? Math.max(1, Math.ceil(viewData.total / viewData.pageSize)) : 1;
   const hasFiltersOrQuery = activeFilterCount > 0 || !!debouncedQuery;
 
+  // Sprint-3 M6 — "Following" tab is server-backed by the favorites
+  // service (`GET /me/favorites`). The list is intentionally
+  // unpaginated; the API today caps results and the typical favorite
+  // set is small. We invalidate via the favorites query key whenever
+  // the detail page toggles a star.
+  const [tab, setTab] = useState<"library" | "following">("library");
+  const { data: favorites, isLoading: favoritesLoading } = useListMyFavorites({
+    query: {
+      enabled: tab === "following",
+      queryKey: getListMyFavoritesQueryKey(),
+      staleTime: 30_000,
+    },
+  });
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -266,6 +283,35 @@ export default function Browse() {
 
       <RecentlyViewedStrip />
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <TabsList>
+          <TabsTrigger value="library" data-testid="browse-tab-library">
+            Library
+          </TabsTrigger>
+          <TabsTrigger value="following" data-testid="browse-tab-following">
+            Following
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="following" className="mt-6">
+          {favoritesLoading ? (
+            <BrowseLoading view={view} />
+          ) : favorites && favorites.length > 0 ? (
+            <DocumentCards items={favorites} />
+          ) : (
+            <div
+              className="text-center py-20 bg-card rounded-xl border border-dashed"
+              data-testid="following-empty"
+            >
+              <p className="text-muted-foreground">
+                You're not following any documents yet. Star a document to get
+                notified when new comments are posted.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="library" className="mt-6 space-y-8">
       <div className="bg-card border rounded-xl p-4 space-y-4 shadow-sm">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
@@ -377,6 +423,8 @@ export default function Browse() {
           <BrowseEmpty />
         )}
       </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -11,6 +11,9 @@ import {
   useSubmitDocumentForReview,
   useApproveDocument,
   useRejectDocument,
+  useFavoriteDocument,
+  useUnfavoriteDocument,
+  getListMyFavoritesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -106,6 +109,33 @@ export default function DocumentDetail() {
   const submitReviewMutation = useSubmitDocumentForReview();
   const approveMutation = useApproveDocument();
   const rejectMutation = useRejectDocument();
+
+  // Sprint-3 M6 — favorites also subscribe the viewer to new comments
+  // on this doc (notification type `document.activity`). Server is
+  // source of truth for `isFavorited`; we invalidate the doc query so
+  // the next render reflects the change.
+  const favoriteMutation = useFavoriteDocument();
+  const unfavoriteMutation = useUnfavoriteDocument();
+  const isFavoritePending =
+    favoriteMutation.isPending || unfavoriteMutation.isPending;
+  const handleToggleFavorite = () => {
+    if (!doc) return;
+    const action = doc.isFavorited ? unfavoriteMutation : favoriteMutation;
+    action.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListMyFavoritesQueryKey() });
+          toast({
+            title: doc.isFavorited ? "Removed from favorites" : "Added to favorites",
+          });
+        },
+        onError: () =>
+          toast({ variant: "destructive", title: "Could not update favorite" }),
+      },
+    );
+  };
   const isReviewMutating =
     submitReviewMutation.isPending ||
     approveMutation.isPending ||
@@ -230,6 +260,26 @@ export default function DocumentDetail() {
 
       {/* Right Column: Metadata & Comments */}
       <div className="space-y-6">
+        <button
+          type="button"
+          onClick={handleToggleFavorite}
+          disabled={isFavoritePending}
+          aria-pressed={!!doc.isFavorited}
+          data-testid="favorite-toggle"
+          className={
+            "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors " +
+            (doc.isFavorited
+              ? "bg-primary/10 border-primary/40 text-primary"
+              : "bg-background hover:bg-accent")
+          }
+        >
+          <span aria-hidden>{doc.isFavorited ? "★" : "☆"}</span>
+          <span>
+            {doc.isFavorited
+              ? "Following — you'll be notified of new comments"
+              : "Follow this document"}
+          </span>
+        </button>
         <MetadataPanel
           doc={doc}
           canEdit={canEdit}

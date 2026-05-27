@@ -4,6 +4,7 @@ import type { Response } from "express";
 import * as docsRepo from "../repositories/documents.repo";
 import * as taxonomyRepo from "../repositories/taxonomy.repo";
 import * as commentsRepo from "../repositories/comments.repo";
+import * as favoritesRepo from "../repositories/favorites.repo";
 import * as viewRepo from "../repositories/viewHistory.repo";
 import * as usersService from "./users.service";
 import * as quotaService from "./quota.service";
@@ -100,6 +101,10 @@ export interface DocumentDTO {
   reviewedAt?: string;
   reviewer?: usersService.UserSummaryDTO;
   reviewReason?: string;
+  // Sprint-3 M6 — viewer's favorite state. Populated on detail
+  // responses; absent on bulk list endpoints so the favorites lookup
+  // doesn't fan out N round-trips per list page.
+  isFavorited?: boolean;
 }
 
 // All visibility / role checks are delegated to permissions.service.
@@ -392,8 +397,13 @@ export async function getById(
   if (!permissions.canView(doc, user))
     throw forbidden("Cannot view this document");
   await viewRepo.recordView(doc.id, user.id);
-  const assembled = await assembleDocuments([doc], user);
-  return assembled[0];
+  const [assembled, favorited] = await Promise.all([
+    assembleDocuments([doc], user),
+    favoritesRepo.isFavorited(user.id, doc.id),
+  ]);
+  const dto = assembled[0];
+  dto.isFavorited = favorited;
+  return dto;
 }
 
 export interface UpdateDocumentInput {

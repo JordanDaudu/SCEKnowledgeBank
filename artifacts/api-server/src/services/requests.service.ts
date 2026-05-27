@@ -3,9 +3,22 @@ import * as docsRepo from "../repositories/documents.repo";
 import * as taxonomyService from "./taxonomy.service";
 import * as usersService from "./users.service";
 import * as auditService from "./audit.service";
+import * as notificationsService from "./notifications.service";
 import * as permissions from "./permissions.service";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors";
+import { logger } from "../lib/logger";
 import type { AuthenticatedUser } from "../middlewares/auth";
+
+// Sprint-3 M6: `in_progress` is the new intermediate state between
+// `open` and `fulfilled`. Kept as a const so route/zod validation and
+// service-side checks share one source of truth.
+export const REQUEST_STATUSES = [
+  "open",
+  "in_progress",
+  "fulfilled",
+  "closed",
+] as const;
+const REQUEST_STATUS_SET: ReadonlySet<string> = new Set(REQUEST_STATUSES);
 
 export interface RequestDTO {
   id: string;
@@ -184,6 +197,15 @@ export async function updateRequest(
     const doc = await docsRepo.findByIdAlive(body.fulfillingDocumentId);
     if (!doc) throw badRequest("Fulfilling document not found");
   }
+  // Validate the proposed status against the allow-list rather than
+  // letting arbitrary strings flow into the DB (Sprint-3 M6 added
+  // `in_progress`; zod at the edge enforces the same set, but the
+  // service-level guard is the canonical check).
+  if (body.status !== undefined && !REQUEST_STATUS_SET.has(body.status)) {
+    throw badRequest(`Unknown request status: ${body.status}`);
+  }
+  const statusChanged =
+    body.status !== undefined && body.status !== r.status;
   const patch: Partial<requestsRepo.RequestInsert> = {
     updatedAt: new Date(),
   };
@@ -201,6 +223,31 @@ export async function updateRequest(
     id,
     patch as Record<string, unknown>,
   );
+
+  // Sprint-3 M6: notify the request author when someone *else* moves
+  // their request through the workflow. Fire-and-forget; same
+  // sync-throw-safe pattern as comment.create.
+  if (statusChanged && r.requestedBy !== user.id) {
+    void Promise.resolve()
+      .then(() =>
+        notificationsService.notify({
+          recipientId: r.requestedBy,
+          actorId: user.id,
+          type: "request.status",
+          subjectType: "material_request",
+          // Encode the new status into the subject so each distinct
+          // transition is unique under the notification dedupe key
+          // (`recipient + type + subjectType + subjectId`). Otherwise
+          // the move open→in_progress→fulfilled would only ever notify
+          // the author once.
+          subjectId: `${id}:${body.status}`,
+          body: `Status changed to ${body.status}`,
+          url: `/requests#${id}`,
+        }),
+      )
+      .catch((err) => logger.warn({ err }, "request.status notify threw"));
+  }
+
   const dtos = await buildDTOs([id], user.id);
   return dtos[0];
 }

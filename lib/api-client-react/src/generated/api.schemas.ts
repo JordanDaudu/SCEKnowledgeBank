@@ -256,6 +256,8 @@ export interface Document {
   reviewer?: UserSummary;
   /** Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review. */
   reviewReason?: string;
+  /** True when the requesting user has favorited this document (Sprint-3 M6). Populated on detail responses and the `/me/favorites` list; may be absent on bulk list endpoints. */
+  isFavorited?: boolean;
 }
 
 export type DocumentDetail = Document;
@@ -466,6 +468,25 @@ export interface SignedTokenResponse {
   url: string;
 }
 
+export type CommentReactionKind =
+  (typeof CommentReactionKind)[keyof typeof CommentReactionKind];
+
+export const CommentReactionKind = {
+  like: "like",
+  love: "love",
+  insightful: "insightful",
+  celebrate: "celebrate",
+  thanks: "thanks",
+  question: "question",
+} as const;
+
+export interface CommentReaction {
+  kind: CommentReactionKind;
+  /** @minimum 0 */
+  count: number;
+  viewerReacted: boolean;
+}
+
 export interface Comment {
   id: string;
   documentId: string;
@@ -478,6 +499,12 @@ export interface Comment {
   replies: Comment[];
   /** Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here. */
   mentions: UserSummary[];
+  /** Per-kind reaction summary. Empty list when no one has reacted. `viewerReacted` is true when the requesting user has the reaction of that kind on this comment. */
+  reactions: CommentReaction[];
+}
+
+export interface FavoriteStatus {
+  favorited: boolean;
 }
 
 export interface CreateCommentRequest {
@@ -500,6 +527,7 @@ export type MaterialRequestStatus =
 
 export const MaterialRequestStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
@@ -529,6 +557,7 @@ export type UpdateRequestRequestStatus =
 
 export const UpdateRequestRequestStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
@@ -866,6 +895,7 @@ export type ListRequestsStatus =
 
 export const ListRequestsStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;

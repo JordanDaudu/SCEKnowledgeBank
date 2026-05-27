@@ -22,6 +22,7 @@ import type {
   Category,
   CheckDuplicateDocumentParams,
   Comment,
+  CommentReaction,
   Course,
   CourseAnalytics,
   CreateCommentRequest,
@@ -35,6 +36,7 @@ import type {
   DocumentVersion,
   DownloadDocumentParams,
   DuplicateCheckResponse,
+  FavoriteStatus,
   GetDocumentThumbnailParams,
   HealthStatus,
   ListDocumentsParams,
@@ -2807,6 +2809,466 @@ export const useDeleteComment = <
 > => {
   return useMutation(getDeleteCommentMutationOptions(options));
 };
+
+export const getAddCommentReactionUrl = (
+  commentId: string,
+  kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question",
+) => {
+  return `/api/comments/${commentId}/reactions/${kind}`;
+};
+
+export const addCommentReaction = async (
+  commentId: string,
+  kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question",
+  options?: RequestInit,
+): Promise<CommentReaction[]> => {
+  return customFetch<CommentReaction[]>(
+    getAddCommentReactionUrl(commentId, kind),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAddCommentReactionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addCommentReaction>>,
+    TError,
+    {
+      commentId: string;
+      kind:
+        | "like"
+        | "love"
+        | "insightful"
+        | "celebrate"
+        | "thanks"
+        | "question";
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addCommentReaction>>,
+  TError,
+  {
+    commentId: string;
+    kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question";
+  },
+  TContext
+> => {
+  const mutationKey = ["addCommentReaction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addCommentReaction>>,
+    {
+      commentId: string;
+      kind:
+        | "like"
+        | "love"
+        | "insightful"
+        | "celebrate"
+        | "thanks"
+        | "question";
+    }
+  > = (props) => {
+    const { commentId, kind } = props ?? {};
+
+    return addCommentReaction(commentId, kind, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddCommentReactionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addCommentReaction>>
+>;
+
+export type AddCommentReactionMutationError = ErrorType<ApiError>;
+
+export const useAddCommentReaction = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addCommentReaction>>,
+    TError,
+    {
+      commentId: string;
+      kind:
+        | "like"
+        | "love"
+        | "insightful"
+        | "celebrate"
+        | "thanks"
+        | "question";
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addCommentReaction>>,
+  TError,
+  {
+    commentId: string;
+    kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question";
+  },
+  TContext
+> => {
+  return useMutation(getAddCommentReactionMutationOptions(options));
+};
+
+export const getRemoveCommentReactionUrl = (
+  commentId: string,
+  kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question",
+) => {
+  return `/api/comments/${commentId}/reactions/${kind}`;
+};
+
+export const removeCommentReaction = async (
+  commentId: string,
+  kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question",
+  options?: RequestInit,
+): Promise<CommentReaction[]> => {
+  return customFetch<CommentReaction[]>(
+    getRemoveCommentReactionUrl(commentId, kind),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRemoveCommentReactionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeCommentReaction>>,
+    TError,
+    {
+      commentId: string;
+      kind:
+        | "like"
+        | "love"
+        | "insightful"
+        | "celebrate"
+        | "thanks"
+        | "question";
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeCommentReaction>>,
+  TError,
+  {
+    commentId: string;
+    kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question";
+  },
+  TContext
+> => {
+  const mutationKey = ["removeCommentReaction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeCommentReaction>>,
+    {
+      commentId: string;
+      kind:
+        | "like"
+        | "love"
+        | "insightful"
+        | "celebrate"
+        | "thanks"
+        | "question";
+    }
+  > = (props) => {
+    const { commentId, kind } = props ?? {};
+
+    return removeCommentReaction(commentId, kind, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveCommentReactionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeCommentReaction>>
+>;
+
+export type RemoveCommentReactionMutationError = ErrorType<ApiError>;
+
+export const useRemoveCommentReaction = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeCommentReaction>>,
+    TError,
+    {
+      commentId: string;
+      kind:
+        | "like"
+        | "love"
+        | "insightful"
+        | "celebrate"
+        | "thanks"
+        | "question";
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeCommentReaction>>,
+  TError,
+  {
+    commentId: string;
+    kind: "like" | "love" | "insightful" | "celebrate" | "thanks" | "question";
+  },
+  TContext
+> => {
+  return useMutation(getRemoveCommentReactionMutationOptions(options));
+};
+
+export const getFavoriteDocumentUrl = (id: string) => {
+  return `/api/documents/${id}/favorite`;
+};
+
+export const favoriteDocument = async (
+  id: string,
+  options?: RequestInit,
+): Promise<FavoriteStatus> => {
+  return customFetch<FavoriteStatus>(getFavoriteDocumentUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getFavoriteDocumentMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof favoriteDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof favoriteDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["favoriteDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof favoriteDocument>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return favoriteDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FavoriteDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof favoriteDocument>>
+>;
+
+export type FavoriteDocumentMutationError = ErrorType<ApiError>;
+
+export const useFavoriteDocument = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof favoriteDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof favoriteDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getFavoriteDocumentMutationOptions(options));
+};
+
+export const getUnfavoriteDocumentUrl = (id: string) => {
+  return `/api/documents/${id}/favorite`;
+};
+
+export const unfavoriteDocument = async (
+  id: string,
+  options?: RequestInit,
+): Promise<FavoriteStatus> => {
+  return customFetch<FavoriteStatus>(getUnfavoriteDocumentUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnfavoriteDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfavoriteDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unfavoriteDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["unfavoriteDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unfavoriteDocument>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unfavoriteDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnfavoriteDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unfavoriteDocument>>
+>;
+
+export type UnfavoriteDocumentMutationError = ErrorType<unknown>;
+
+export const useUnfavoriteDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfavoriteDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unfavoriteDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getUnfavoriteDocumentMutationOptions(options));
+};
+
+export const getListMyFavoritesUrl = () => {
+  return `/api/me/favorites`;
+};
+
+export const listMyFavorites = async (
+  options?: RequestInit,
+): Promise<Document[]> => {
+  return customFetch<Document[]>(getListMyFavoritesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyFavoritesQueryKey = () => {
+  return [`/api/me/favorites`] as const;
+};
+
+export const getListMyFavoritesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyFavorites>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyFavorites>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyFavoritesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyFavorites>>> = ({
+    signal,
+  }) => listMyFavorites({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyFavorites>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyFavoritesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyFavorites>>
+>;
+export type ListMyFavoritesQueryError = ErrorType<unknown>;
+
+export function useListMyFavorites<
+  TData = Awaited<ReturnType<typeof listMyFavorites>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyFavorites>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyFavoritesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export const getListRequestsUrl = (params?: ListRequestsParams) => {
   const normalizedParams = new URLSearchParams();

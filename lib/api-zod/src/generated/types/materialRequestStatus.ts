@@ -11,6 +11,7 @@ export type MaterialRequestStatus =
 
 export const MaterialRequestStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;

@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUp, Plus, Clock, CheckCircle2, Link as LinkIcon } from "lucide-react";
+import { ArrowUp, Plus, Clock, CheckCircle2, Link as LinkIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 import { Link } from "wouter";
@@ -24,7 +24,9 @@ import { Link } from "wouter";
 export default function Requests() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [statusTab, setStatusTab] = useState<"open" | "fulfilled" | "closed">("open");
+  const [statusTab, setStatusTab] = useState<
+    "open" | "in_progress" | "fulfilled" | "closed"
+  >("open");
   const [isCreating, setIsCreating] = useState(false);
   const [fulfillingId, setFulfillingId] = useState<string | null>(null);
   const [docUrl, setDocUrl] = useState("");
@@ -155,10 +157,15 @@ export default function Requests() {
       )}
 
       <Tabs value={statusTab} onValueChange={(val) => setStatusTab(val as typeof statusTab)} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
-          <TabsTrigger value="open">Open</TabsTrigger>
-          <TabsTrigger value="fulfilled">Fulfilled</TabsTrigger>
-          <TabsTrigger value="closed">Closed</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsTrigger value="open" data-testid="requests-tab-open">Open</TabsTrigger>
+          <TabsTrigger value="in_progress" data-testid="requests-tab-in-progress">
+            In Progress
+          </TabsTrigger>
+          <TabsTrigger value="fulfilled" data-testid="requests-tab-fulfilled">
+            Fulfilled
+          </TabsTrigger>
+          <TabsTrigger value="closed" data-testid="requests-tab-closed">Closed</TabsTrigger>
         </TabsList>
         
         <TabsContent value={statusTab} className="space-y-4 mt-0">
@@ -191,11 +198,76 @@ export default function Requests() {
                   <CardContent className="p-5 flex-1">
                     <div className="flex justify-between items-start mb-1">
                       <h3 className="font-serif font-semibold text-lg">{req.title}</h3>
-                      <div className="flex gap-2">
-                        {req.status === 'fulfilled' && <Badge className="bg-green-600"><CheckCircle2 className="mr-1 w-3 h-3"/> Fulfilled</Badge>}
-                        {req.status === 'closed' && <Badge variant="secondary">Closed</Badge>}
-                        {isLecturerOrAdmin && req.status === 'open' && fulfillingId !== req.id && (
-                          <Button variant="outline" size="sm" onClick={() => setFulfillingId(req.id)}>Fulfill</Button>
+                      <div className="flex gap-2 items-center">
+                        {req.status === 'open' && (
+                          <Badge variant="outline" data-testid={`status-pill-${req.id}`}>
+                            Open
+                          </Badge>
+                        )}
+                        {req.status === 'in_progress' && (
+                          <Badge
+                            className="bg-amber-500 hover:bg-amber-500"
+                            data-testid={`status-pill-${req.id}`}
+                          >
+                            <Loader2 className="mr-1 w-3 h-3" /> In Progress
+                          </Badge>
+                        )}
+                        {req.status === 'fulfilled' && (
+                          <Badge
+                            className="bg-green-600 hover:bg-green-600"
+                            data-testid={`status-pill-${req.id}`}
+                          >
+                            <CheckCircle2 className="mr-1 w-3 h-3" /> Fulfilled
+                          </Badge>
+                        )}
+                        {req.status === 'closed' && (
+                          <Badge variant="secondary" data-testid={`status-pill-${req.id}`}>
+                            Closed
+                          </Badge>
+                        )}
+                        {isLecturerOrAdmin && (req.status === 'open' || req.status === 'in_progress') && (
+                          <Select
+                            value={req.status}
+                            onValueChange={(next) => {
+                              if (next === req.status) return;
+                              if (next === 'fulfilled') {
+                                setFulfillingId(req.id);
+                                return;
+                              }
+                              updateMutation.mutate(
+                                { id: req.id, data: { status: next as 'open' | 'in_progress' | 'closed' } },
+                                {
+                                  onSuccess: () => {
+                                    toast({ title: `Marked as ${next.replace('_', ' ')}` });
+                                    queryClient.invalidateQueries({
+                                      queryKey: getListRequestsQueryKey({ status: statusTab }),
+                                    });
+                                  },
+                                  onError: (err) => {
+                                    const data = (err as { data?: { error?: { message?: string } } })?.data;
+                                    toast({
+                                      variant: 'destructive',
+                                      title: 'Could not update status',
+                                      description: data?.error?.message || (err as Error)?.message,
+                                    });
+                                  },
+                                },
+                              );
+                            }}
+                          >
+                            <SelectTrigger
+                              className="h-8 w-[140px] bg-background"
+                              data-testid={`status-select-${req.id}`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="open">Open</SelectItem>
+                              <SelectItem value="in_progress">In Progress</SelectItem>
+                              <SelectItem value="fulfilled">Fulfilled…</SelectItem>
+                              <SelectItem value="closed">Closed</SelectItem>
+                            </SelectContent>
+                          </Select>
                         )}
                       </div>
                     </div>

@@ -47,4 +47,6 @@ export interface Document {
   reviewer?: UserSummary;
   /** Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review. */
   reviewReason?: string;
+  /** True when the requesting user has favorited this document (Sprint-3 M6). Populated on detail responses and the `/me/favorites` list; may be absent on bulk list endpoints. */
+  isFavorited?: boolean;
 }
