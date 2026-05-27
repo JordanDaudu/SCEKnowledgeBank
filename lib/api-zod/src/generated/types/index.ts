@@ -36,8 +36,6 @@ export * from "./documentPage";
 export * from "./documentPermissions";
 export * from "./documentSemester";
 export * from "./documentStatus";
-export * from "./documentSuggestion";
-export * from "./documentSuggestionsParams";
 export * from "./documentVersion";
 export * from "./documentVisibility";
 export * from "./downloadDocumentParams";

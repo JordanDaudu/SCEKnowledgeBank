@@ -1,6 +1,5 @@
 import * as notificationsRepo from "../repositories/notifications.repo";
 import * as usersService from "./users.service";
-import { env } from "../lib/env";
 import { logger } from "../lib/logger";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -32,7 +31,6 @@ export interface NotifyArgs {
  * subjectId) — the unique index in the repo absorbs duplicates.
  *
  * Hard rules enforced here so callers don't have to:
- *   • feature flag — when `FEATURE_NOTIFICATIONS=false`, no-op.
  *   • no self-notify — a user never gets a notification for their
  *     own action.
  *   • non-throwing — any failure (DB down, validation, etc) is
@@ -41,7 +39,6 @@ export interface NotifyArgs {
  */
 export async function notify(args: NotifyArgs): Promise<void> {
   try {
-    if (!env.featureNotifications) return;
     if (args.actorId && args.actorId === args.recipientId) return;
     await notificationsRepo.insertIfNew({
       recipientId: args.recipientId,

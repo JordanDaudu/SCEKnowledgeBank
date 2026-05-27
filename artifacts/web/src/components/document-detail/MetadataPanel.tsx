@@ -5,7 +5,6 @@ import { Edit, Trash2, Download, User, Clock, Send, Check, X } from "lucide-reac
 import { formatDateTime } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
 import { StatusBadge } from "./StatusBadge";
-import { FEATURE_REVIEW } from "@/lib/feature-flags";
 
 interface Props {
   doc: DocumentDetailDto;
@@ -45,9 +44,8 @@ export default function MetadataPanel({
   onReject,
   isReviewMutating,
 }: Props) {
-  const canSubmitForReview =
-    FEATURE_REVIEW && doc.permissions.canSubmitForReview;
-  const canReview = FEATURE_REVIEW && doc.permissions.canReview;
+  const canSubmitForReview = doc.permissions.canSubmitForReview;
+  const canReview = doc.permissions.canReview;
   // Sprint-3 M2: hide the legacy publish/archive toggle while the doc
   // is in any review-machine state. Status transitions in that range
   // are owned exclusively by the review endpoints (the server PATCH
@@ -117,7 +115,7 @@ export default function MetadataPanel({
           </div>
         );
       })()}
-      {FEATURE_REVIEW && doc.status === "rejected" && doc.reviewReason && (
+      {doc.status === "rejected" && doc.reviewReason && (
         <div
           className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm"
           data-testid="reject-reason-display"

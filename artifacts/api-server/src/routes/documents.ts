@@ -2,7 +2,6 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { z } from "zod";
 import {
-  DocumentSuggestionsQueryParams,
   GetDocumentDownloadTokenParams,
   GetDocumentParams,
   GetDocumentPreviewTokenParams,
@@ -119,19 +118,10 @@ router.get("/documents/recent", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/documents/suggestions", requireAuth, async (req, res, next) => {
-  try {
-    const q = DocumentSuggestionsQueryParams.parse(req.query);
-    const items = await documentsService.suggest(q.q, q.limit, req.authUser!);
-    res.json(items);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ─── Sprint-3 M3: v2 search surface ───────────────────────────────
-// Legacy `GET /documents` (with `q`) and `/documents/suggestions`
-// remain unchanged until M7. The v2 endpoints layer on rank-aware
+// ─── v2 search surface (only search surface as of Sprint-3 M7) ────
+// The legacy `GET /documents/suggestions` and the `q` parameter on
+// `GET /documents` were retired in M7. The v2 endpoints below are
+// the only full-text / autocomplete entry points, layering rank-aware
 // snippets, facet counts, and a typed autocomplete that returns
 // tag/course/uploader hits in addition to (and not just) documents.
 

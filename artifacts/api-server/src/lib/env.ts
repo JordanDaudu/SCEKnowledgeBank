@@ -69,31 +69,6 @@ const envSchema = z.object({
 
   STORAGE_DRIVER: z.enum(["local", "s3", "gcs"]).optional(),
   STORAGE_LOCAL_ROOT: z.string().optional(),
-
-  // Sprint-3 M1 feature flag. When false, the comment-service producer
-  // hooks for mentions/replies short-circuit and no rows are written.
-  // List/count/mark-read endpoints stay live so the UI can still drain
-  // historical rows after a temporary disable.
-  FEATURE_NOTIFICATIONS: z
-    .union([z.string(), z.boolean()])
-    .optional()
-    .transform((v) => {
-      if (typeof v === "boolean") return v;
-      if (v === undefined || v === "") return true;
-      return !["0", "false", "no", "off"].includes(v.trim().toLowerCase());
-    }),
-  // Sprint-3 M2 feature flag. When false, the submit/approve/reject
-  // endpoints respond 404 and the reviewer queue is hidden from the
-  // UI. Listing/visibility predicates stay live so docs already in
-  // pending/rejected don't suddenly leak to the public.
-  FEATURE_REVIEW: z
-    .union([z.string(), z.boolean()])
-    .optional()
-    .transform((v) => {
-      if (typeof v === "boolean") return v;
-      if (v === undefined || v === "") return true;
-      return !["0", "false", "no", "off"].includes(v.trim().toLowerCase());
-    }),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -160,6 +135,4 @@ export const env = {
   storageLocalRoot: e.STORAGE_LOCAL_ROOT
     ? path.resolve(e.STORAGE_LOCAL_ROOT)
     : path.resolve(process.cwd(), ".data/storage"),
-  featureNotifications: e.FEATURE_NOTIFICATIONS ?? true,
-  featureReview: e.FEATURE_REVIEW ?? true,
 };

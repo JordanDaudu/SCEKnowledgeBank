@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// All transitions in this file rely on the FEATURE_REVIEW gate being
-// ON. If env.featureReview were false, every entrypoint would 404.
-// Service imports `../lib/env`. Default `featureReview` ON; the
-// flag-off test toggles this via importing the mocked module.
+// Sprint-3 M7 graduated `FEATURE_REVIEW` — the env mock is kept only
+// for the signing-related fields the service still reads at import.
 vi.mock("../lib/env", () => ({
-  env: { featureReview: true, signedUrlSecret: "x", jwtSecret: "x" },
+  env: { signedUrlSecret: "x", jwtSecret: "x" },
 }));
 
 vi.mock("../repositories/documents.repo", () => ({

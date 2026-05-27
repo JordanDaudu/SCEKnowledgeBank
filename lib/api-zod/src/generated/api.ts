@@ -82,7 +82,7 @@ export const GetCurrentUserResponse = zod.object({
 });
 
 /**
- * @summary List documents with search, filters, sort, pagination
+ * @summary List documents with filters, sort, pagination (use /v2/documents/search for full-text)
  */
 export const listDocumentsQuerySortDefault = `newest`;
 export const listDocumentsQueryPageDefault = 1;
@@ -91,7 +91,6 @@ export const listDocumentsQueryPageSizeDefault = 20;
 export const listDocumentsQueryPageSizeMax = 100;
 
 export const ListDocumentsQueryParams = zod.object({
-  q: zod.coerce.string().optional(),
   courseId: zod.coerce.string().uuid().optional(),
   courseCode: zod.coerce.string().optional(),
   lecturerName: zod.coerce.string().optional(),
@@ -556,32 +555,6 @@ export const ListRecentDocumentsResponseItem = zod.object({
 });
 export const ListRecentDocumentsResponse = zod.array(
   ListRecentDocumentsResponseItem,
-);
-
-/**
- * @summary Search suggestions for autocomplete
- */
-
-export const documentSuggestionsQueryLimitDefault = 8;
-export const documentSuggestionsQueryLimitMax = 20;
-
-export const DocumentSuggestionsQueryParams = zod.object({
-  q: zod.coerce.string().min(1),
-  limit: zod.coerce
-    .number()
-    .min(1)
-    .max(documentSuggestionsQueryLimitMax)
-    .default(documentSuggestionsQueryLimitDefault),
-});
-
-export const DocumentSuggestionsResponseItem = zod.object({
-  id: zod.string().uuid(),
-  title: zod.string(),
-  courseCode: zod.string().optional(),
-  materialType: zod.string().optional(),
-});
-export const DocumentSuggestionsResponse = zod.array(
-  DocumentSuggestionsResponseItem,
 );
 
 /**

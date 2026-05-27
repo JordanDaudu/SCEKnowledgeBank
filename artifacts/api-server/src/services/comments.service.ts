@@ -223,7 +223,7 @@ export async function createForDocument(
 
   // Producer hooks (Sprint-3 M1). Fire-and-forget: notifications must
   // never fail the comment write. The service-level helper already
-  // swallows errors and respects FEATURE_NOTIFICATIONS / no-self-notify,
+  // swallows errors and enforces the no-self-notify rule,
   // so the only thing we still defend against here is an unexpected
   // synchronous throw.
   const deepLink = `/documents/${documentId}#comment-${c.id}`;

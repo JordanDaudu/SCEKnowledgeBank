@@ -6,7 +6,6 @@ import { Button } from "./ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
 import { NotificationBell } from "./notification-bell";
-import { FEATURE_REVIEW } from "@/lib/feature-flags";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -52,7 +51,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <NavLink href="/browse" icon={Search}>Browse</NavLink>
                 <NavLink href="/requests" icon={MessageSquare}>Requests</NavLink>
                 {isLecturerOrAdmin && <NavLink href="/upload" icon={Upload}>Upload</NavLink>}
-                {FEATURE_REVIEW && isLecturerOrAdmin && (
+                {isLecturerOrAdmin && (
                   <NavLink href="/review-queue" icon={ShieldCheck}>Review</NavLink>
                 )}
                 {isAdmin && <NavLink href="/admin/users" icon={Users}>Admin</NavLink>}

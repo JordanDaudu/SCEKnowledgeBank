@@ -292,13 +292,6 @@ export interface SuggestMetadataResponse {
   duplicate?: DuplicateDocument;
 }
 
-export interface DocumentSuggestion {
-  id: string;
-  title: string;
-  courseCode?: string;
-  materialType?: string;
-}
-
 export interface DocumentPage {
   items: Document[];
   total: number;
@@ -680,7 +673,6 @@ export interface CourseAnalytics {
 }
 
 export type ListDocumentsParams = {
-  q?: string;
   courseId?: string;
   courseCode?: string;
   lecturerName?: string;
@@ -754,18 +746,6 @@ export type UploadDocumentsBody = {
 };
 
 export type ListRecentDocumentsParams = {
-  /**
-   * @minimum 1
-   * @maximum 20
-   */
-  limit?: number;
-};
-
-export type DocumentSuggestionsParams = {
-  /**
-   * @minLength 1
-   */
-  q: string;
   /**
    * @minimum 1
    * @maximum 20

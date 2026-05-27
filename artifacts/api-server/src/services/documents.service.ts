@@ -261,7 +261,6 @@ export interface ListDocumentsQuery {
   academicYear?: number;
   dateFrom?: Date;
   dateTo?: Date;
-  q?: string;
   courseCode?: string;
   lecturerName?: string;
   tagIds?: string[];
@@ -291,7 +290,6 @@ export async function listDocuments(
   if (q.academicYear != null) filters.academicYear = q.academicYear;
   if (q.dateFrom) filters.dateFrom = q.dateFrom;
   if (q.dateTo) filters.dateTo = q.dateTo;
-  if (q.q) filters.q = q.q;
 
   if (q.courseCode || q.lecturerName) {
     const ids = await taxonomyRepo.findCourseIdsByCodeOrLecturer(
@@ -312,25 +310,8 @@ export async function listDocuments(
     filters.restrictDocumentIds = docIds;
   }
 
-  // When `q` is present we route through the Postgres FTS path
-  // (task #28): same filters, but ranked by ts_rank against the GIN
-  // index on `documents.search_vector`. Without `q` we keep the
-  // existing prisma-based list path so sort/popularity semantics are
-  // unchanged.
-  if (q.q) {
-    const visibilitySql = permissions.visibleDocumentFilterSql(user);
-    const [total, rows] = await Promise.all([
-      docsRepo.countSearchDocuments(q.q, filters, visibilitySql),
-      docsRepo.searchDocumentsRanked(q.q, filters, visibilitySql, {
-        sort: q.sort,
-        page: q.page,
-        pageSize: q.pageSize,
-      }),
-    ]);
-    const items = await assembleDocuments(rows, user);
-    return { items, total, page: q.page, pageSize: q.pageSize };
-  }
-
+  // Sprint-3 M7 retired the in-list `q` FTS branch — full-text
+  // search now lives exclusively at `GET /v2/documents/search`.
   const total = await docsRepo.countDocuments(filters);
   const rows = await docsRepo.listDocuments(filters, {
     sort: q.sort,
@@ -356,36 +337,6 @@ export async function listRecentForUser(
   const order = new Map(ids.map((id, i) => [id, i]));
   visible.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return assembleDocuments(visible, user);
-}
-
-export interface SuggestionDTO {
-  id: string;
-  title: string;
-  materialType: string;
-  courseCode?: string;
-}
-
-export async function suggest(
-  term: string,
-  limit: number,
-  user: AuthenticatedUser,
-): Promise<SuggestionDTO[]> {
-  const rows = await docsRepo.findSuggestions(term, limit, {
-    unrestricted: permissions.isAdmin(user),
-    userId: user.id,
-  });
-  const courseIds = rows
-    .map((r) => r.courseId)
-    .filter((i): i is string => !!i);
-  const courseCodes = await taxonomyRepo.findCourseCodesByIds(courseIds);
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    materialType: r.materialType,
-    ...(r.courseId && courseCodes.has(r.courseId)
-      ? { courseCode: courseCodes.get(r.courseId)! }
-      : {}),
-  }));
 }
 
 export async function getById(
@@ -553,15 +504,11 @@ export async function deleteDocument(
 
 const REVIEW_REASON_MAX = 500;
 
-function reviewFeatureGate(): void {
-  if (!env.featureReview) throw notFound("Document not found");
-}
-
 export async function submitForReview(
   id: string,
   user: AuthenticatedUser,
 ): Promise<DocumentDTO> {
-  reviewFeatureGate();
+
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
   if (!permissions.canSubmitForReview(doc, user)) {
@@ -608,7 +555,7 @@ export async function approveDocument(
   id: string,
   user: AuthenticatedUser,
 ): Promise<DocumentDTO> {
-  reviewFeatureGate();
+
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
   if (!permissions.canReview(doc, user)) {
@@ -663,7 +610,7 @@ export async function rejectDocument(
   reason: string,
   user: AuthenticatedUser,
 ): Promise<DocumentDTO> {
-  reviewFeatureGate();
+
   const trimmed = reason.trim();
   if (!trimmed) throw badRequest("A rejection reason is required");
   if (trimmed.length > REVIEW_REASON_MAX) {
@@ -727,7 +674,7 @@ export async function listPendingReview(
   user: AuthenticatedUser,
   opts: { page: number; pageSize: number },
 ): Promise<ListPendingReviewResult> {
-  reviewFeatureGate();
+
   const summary = permissions.userEnrollmentSummary(user);
   // Anyone who isn't an admin and doesn't teach a course is not a
   // reviewer — 403 instead of returning an empty list so the UI can

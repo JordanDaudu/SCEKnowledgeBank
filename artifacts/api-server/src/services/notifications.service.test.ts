@@ -25,10 +25,11 @@ vi.mock("./users.service", () => ({
   }),
 }));
 
-// env is read at import time; reset modules between flag toggles.
-async function importWithFlag(featureNotifications: boolean) {
+// Sprint-3 M7: the `FEATURE_NOTIFICATIONS` flag was graduated. The
+// helper is retained as a thin wrapper so the existing call sites
+// don't have to change.
+async function importNotificationsService() {
   vi.resetModules();
-  vi.doMock("../lib/env", () => ({ env: { featureNotifications } }));
   return await import("./notifications.service");
 }
 
@@ -40,8 +41,8 @@ beforeEach(() => {
 });
 
 describe("notifications.service notify()", () => {
-  it("inserts when recipient differs from actor and flag is on", async () => {
-    const svc = await importWithFlag(true);
+  it("inserts when recipient differs from actor", async () => {
+    const svc = await importNotificationsService();
     insertIfNew.mockResolvedValueOnce({
       id: "n1",
       recipientId: "u-target",
@@ -72,7 +73,7 @@ describe("notifications.service notify()", () => {
   });
 
   it("no-ops when recipient === actor (no self-notify)", async () => {
-    const svc = await importWithFlag(true);
+    const svc = await importNotificationsService();
     await svc.notify({
       recipientId: "same",
       actorId: "same",
@@ -83,20 +84,8 @@ describe("notifications.service notify()", () => {
     expect(insertIfNew).not.toHaveBeenCalled();
   });
 
-  it("no-ops when feature flag is off", async () => {
-    const svc = await importWithFlag(false);
-    await svc.notify({
-      recipientId: "u-target",
-      actorId: "u-actor",
-      type: "comment.mention",
-      subjectType: "comment",
-      subjectId: "c1",
-    });
-    expect(insertIfNew).not.toHaveBeenCalled();
-  });
-
   it("swallows repository errors (never throws to caller)", async () => {
-    const svc = await importWithFlag(true);
+    const svc = await importNotificationsService();
     insertIfNew.mockRejectedValueOnce(new Error("db down"));
     await expect(
       svc.notify({
@@ -110,7 +99,7 @@ describe("notifications.service notify()", () => {
   });
 
   it("relies on repo for dedup (caller may invoke twice safely)", async () => {
-    const svc = await importWithFlag(true);
+    const svc = await importNotificationsService();
     insertIfNew.mockResolvedValueOnce(null); // duplicate suppressed by unique index
     await expect(
       svc.notify({

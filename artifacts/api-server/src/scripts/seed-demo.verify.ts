@@ -6,6 +6,7 @@
  */
 import { db } from "@workspace/db";
 import * as documentsService from "../services/documents.service";
+import * as searchService from "../services/search.service";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
 const DEMO_EMAILS = [
@@ -342,10 +343,10 @@ const checks: Check[] = [
       // (`1. Refine backlog`). It is not in any DEMO_DOC_TITLES nor
       // in any course code / tag, so a hit here proves the FTS
       // pipeline indexed `document_files.extracted_text`.
-      const res = await documentsService.listDocuments(
-        { q: "Refine", page: 1, pageSize: 10 } as Parameters<
-          typeof documentsService.listDocuments
-        >[0],
+      // Sprint-3 M7 retired the in-list `q` FTS branch — full-text
+      // search now lives exclusively on the v2 search service.
+      const res = await searchService.searchDocuments(
+        { q: "Refine", sort: "newest", page: 1, pageSize: 10 },
         authed,
       );
       const hit = res.items.find(

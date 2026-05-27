@@ -120,9 +120,8 @@ paths:
     get:
       operationId: listDocuments
       tags: [documents]
-      summary: List documents with search, filters, sort, pagination
+      summary: List documents with filters, sort, pagination (use /v2/documents/search for full-text)
       parameters:
-        - { in: query, name: q, schema: { type: string } }
         - { in: query, name: courseId, schema: { type: string, format: uuid } }
         - { in: query, name: courseCode, schema: { type: string } }
         - { in: query, name: lecturerName, schema: { type: string } }
@@ -210,27 +209,10 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/Document" }
 
-  /documents/suggestions:
-    get:
-      operationId: documentSuggestions
-      tags: [documents]
-      summary: Search suggestions for autocomplete
-      parameters:
-        - { in: query, name: q, required: true, schema: { type: string, minLength: 1 } }
-        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 8 } }
-      responses:
-        "200":
-          description: Suggestions
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/DocumentSuggestion" }
-
-  # ─── Sprint-3 M3: v2 search surface ──────────────────────────────
-  # Legacy `/documents` (with `q`) and `/documents/suggestions` are
-  # untouched; these v2 paths add rank-aware results with snippet
-  # headlines, facet counts, and tag/course/uploader autocomplete.
+  # ─── v2 search surface (Sprint-3 M3, only search surface as of M7) ─
+  # The legacy `/documents/suggestions` endpoint and the `q` parameter
+  # on `/documents` were retired in M7 — these v2 paths are the only
+  # full-text / autocomplete entry points.
   /v2/documents/search:
     get:
       operationId: searchDocumentsV2
@@ -1386,15 +1368,6 @@ components:
             name: { type: string }
         duplicate:
           $ref: "#/components/schemas/DuplicateDocument"
-
-    DocumentSuggestion:
-      type: object
-      required: [id, title]
-      properties:
-        id: { type: string, format: uuid }
-        title: { type: string }
-        courseCode: { type: string }
-        materialType: { type: string }
 
     DocumentPage:
       type: object

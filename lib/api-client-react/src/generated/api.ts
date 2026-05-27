@@ -31,8 +31,6 @@ import type {
   Document,
   DocumentDetail,
   DocumentPage,
-  DocumentSuggestion,
-  DocumentSuggestionsParams,
   DocumentVersion,
   DownloadDocumentParams,
   DuplicateCheckResponse,
@@ -486,7 +484,7 @@ export function useGetCurrentUser<
 }
 
 /**
- * @summary List documents with search, filters, sort, pagination
+ * @summary List documents with filters, sort, pagination (use /v2/documents/search for full-text)
  */
 export const getListDocumentsUrl = (params?: ListDocumentsParams) => {
   const normalizedParams = new URLSearchParams();
@@ -562,7 +560,7 @@ export type ListDocumentsQueryResult = NonNullable<
 export type ListDocumentsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List documents with search, filters, sort, pagination
+ * @summary List documents with filters, sort, pagination (use /v2/documents/search for full-text)
  */
 
 export function useListDocuments<
@@ -875,106 +873,6 @@ export function useListRecentDocuments<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListRecentDocumentsQueryOptions(params, options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Search suggestions for autocomplete
- */
-export const getDocumentSuggestionsUrl = (
-  params: DocumentSuggestionsParams,
-) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/documents/suggestions?${stringifiedParams}`
-    : `/api/documents/suggestions`;
-};
-
-export const documentSuggestions = async (
-  params: DocumentSuggestionsParams,
-  options?: RequestInit,
-): Promise<DocumentSuggestion[]> => {
-  return customFetch<DocumentSuggestion[]>(getDocumentSuggestionsUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getDocumentSuggestionsQueryKey = (
-  params?: DocumentSuggestionsParams,
-) => {
-  return [`/api/documents/suggestions`, ...(params ? [params] : [])] as const;
-};
-
-export const getDocumentSuggestionsQueryOptions = <
-  TData = Awaited<ReturnType<typeof documentSuggestions>>,
-  TError = ErrorType<unknown>,
->(
-  params: DocumentSuggestionsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof documentSuggestions>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ?? getDocumentSuggestionsQueryKey(params);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof documentSuggestions>>
-  > = ({ signal }) =>
-    documentSuggestions(params, { signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof documentSuggestions>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type DocumentSuggestionsQueryResult = NonNullable<
-  Awaited<ReturnType<typeof documentSuggestions>>
->;
-export type DocumentSuggestionsQueryError = ErrorType<unknown>;
-
-/**
- * @summary Search suggestions for autocomplete
- */
-
-export function useDocumentSuggestions<
-  TData = Awaited<ReturnType<typeof documentSuggestions>>,
-  TError = ErrorType<unknown>,
->(
-  params: DocumentSuggestionsParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof documentSuggestions>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getDocumentSuggestionsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
