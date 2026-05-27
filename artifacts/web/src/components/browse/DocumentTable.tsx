@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import type { Document } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/document-detail/StatusBadge";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ export default function DocumentTable({ items }: Props) {
             <TableHead>Title</TableHead>
             <TableHead>Course</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Uploaded</TableHead>
           </TableRow>
         </TableHeader>
@@ -76,6 +78,13 @@ export default function DocumentTable({ items }: Props) {
                 <Badge variant="secondary" className="capitalize text-xs font-normal">
                   {formatMaterialType(doc.materialType)}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                {doc.status !== "published" ? (
+                  <StatusBadge status={doc.status} />
+                ) : (
+                  <span className="text-muted-foreground text-xs">—</span>
+                )}
               </TableCell>
               <TableCell className="text-muted-foreground text-xs">
                 {formatDateTime(doc.createdAt)}

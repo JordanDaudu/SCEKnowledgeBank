@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import type { Document } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/document-detail/StatusBadge";
 import { formatDateTime } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
 import { apiUrl } from "@/lib/api-url";
@@ -55,11 +56,14 @@ export default function DocumentCards({ items }: Props) {
               <h3 className="font-serif font-semibold text-lg line-clamp-2 mb-2">{doc.title}</h3>
               <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{doc.description}</p>
 
-              <div className="mt-auto flex justify-between items-center pt-2">
-                <Badge variant="secondary" className="capitalize text-xs font-normal">
-                  {formatMaterialType(doc.materialType)}
-                </Badge>
-                <span className="text-xs text-muted-foreground">{formatDateTime(doc.createdAt)}</span>
+              <div className="mt-auto flex justify-between items-center pt-2 gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Badge variant="secondary" className="capitalize text-xs font-normal">
+                    {formatMaterialType(doc.materialType)}
+                  </Badge>
+                  {doc.status !== "published" && <StatusBadge status={doc.status} />}
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{formatDateTime(doc.createdAt)}</span>
               </div>
             </CardContent>
           </Card>
