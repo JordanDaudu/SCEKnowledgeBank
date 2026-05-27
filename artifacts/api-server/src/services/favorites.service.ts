@@ -117,5 +117,11 @@ export async function recipientsForDocumentActivity(
 // graph (which would otherwise create an import cycle through
 // documents.service for the producer code path).
 function isReviewHiddenStatus(status: string | null | undefined): boolean {
-  return status === "pending_review" || status === "rejected";
+  // Keep in lockstep with `permissions.REVIEW_HIDDEN_STATUSES`.
+  // Sprint-3 completion: `draft` joined the hidden set.
+  return (
+    status === "draft" ||
+    status === "pending_review" ||
+    status === "rejected"
+  );
 }

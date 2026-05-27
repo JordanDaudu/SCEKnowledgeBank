@@ -26,12 +26,18 @@ export interface LoginRequest {
   password: string;
 }
 
+export type CurrentUserEnrollmentsItem = {
+  courseId: string;
+  roleInCourse: string;
+};
+
 export interface CurrentUser {
   id: string;
   email: string;
   displayName: string;
   primaryRole: string;
   roles: string[];
+  enrollments: CurrentUserEnrollmentsItem[];
 }
 
 export type UserSummaryStatus =
@@ -732,6 +738,14 @@ export const UploadDocumentsBodyVisibility = {
   private: "private",
 } as const;
 
+export type UploadDocumentsBodyStatus =
+  (typeof UploadDocumentsBodyStatus)[keyof typeof UploadDocumentsBodyStatus];
+
+export const UploadDocumentsBodyStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
 export type UploadDocumentsBody = {
   files: Blob[];
   courseId?: string;
@@ -743,6 +757,8 @@ export type UploadDocumentsBody = {
   tagIds?: string[];
   title?: string;
   description?: string;
+  status?: UploadDocumentsBodyStatus;
+  autoSubmitForReview?: boolean;
 };
 
 export type ListRecentDocumentsParams = {

@@ -706,6 +706,15 @@ export const uploadDocuments = async (
   if (uploadDocumentsBody.description !== undefined) {
     formData.append(`description`, uploadDocumentsBody.description);
   }
+  if (uploadDocumentsBody.status !== undefined) {
+    formData.append(`status`, uploadDocumentsBody.status);
+  }
+  if (uploadDocumentsBody.autoSubmitForReview !== undefined) {
+    formData.append(
+      `autoSubmitForReview`,
+      uploadDocumentsBody.autoSubmitForReview.toString(),
+    );
+  }
 
   return customFetch<UploadResult>(getUploadDocumentsUrl(), {
     ...options,

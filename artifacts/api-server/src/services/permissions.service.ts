@@ -38,7 +38,13 @@ export interface DocumentForPermission {
  * visible. Uploaders and reviewers (admin / course lecturer) can
  * still see them; everyone else gets a 404-equivalent.
  */
-const REVIEW_HIDDEN_STATUSES = ["pending_review", "rejected"] as const;
+// Sprint-3 completion: `draft` joins the review-hidden set. A draft is
+// a not-yet-submitted document; it must NEVER be visible to the public
+// just because the uploader picked `visibility=public`. The uploader,
+// owner, and reviewers (admin / lecturer-of-course) still see it so
+// the M2 submit/approve flow keeps working. Closes the "student uploads
+// a public draft, never submits, doc is visible without review" bypass.
+const REVIEW_HIDDEN_STATUSES = ["draft", "pending_review", "rejected"] as const;
 function isReviewHidden(status: string | undefined): boolean {
   return !!status && (REVIEW_HIDDEN_STATUSES as readonly string[]).includes(status);
 }
@@ -227,9 +233,24 @@ export function canManageVersions(
   return canEdit(doc, user);
 }
 
-/** Can the user upload new documents at all? */
+/**
+ * Can the user upload new documents at all?
+ *
+ * Sprint-3 completion: students are eligible uploaders, but every
+ * student upload is gated to enrolled courses and forced through the
+ * M2 review workflow (see `canUploadToCourse` + `uploadDocuments`).
+ * The per-course / per-status checks remain the authoritative gate;
+ * this is only the "do you have ANY upload path at all" filter.
+ */
 export function canUpload(user: AuthenticatedUser): boolean {
-  return isAdmin(user) || hasRole(user, "lecturer");
+  if (isAdmin(user) || hasRole(user, "lecturer")) return true;
+  // Students may upload only when they have at least one enrolled
+  // course to target — otherwise there is nowhere they could legally
+  // upload to, and `canUploadToCourse` would reject every attempt.
+  if (hasRole(user, "student") && enrolledCourseIds(user).length > 0) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -241,17 +262,25 @@ export function canUpload(user: AuthenticatedUser): boolean {
  * - Course-less uploads (e.g. cross-course resources) require admin OR a
  *   user who already has any lecturer enrollment — a plain "lecturer"
  *   role alone is not enough.
- * - Students cannot upload.
+ * - Students can upload ONLY when a courseId is supplied AND they are
+ *   enrolled (any role) in that course. Course-less student uploads are
+ *   never allowed — the review workflow needs a course to route to.
  */
 export function canUploadToCourse(
   user: AuthenticatedUser,
   courseId: string | null | undefined,
 ): boolean {
   if (isAdmin(user)) return true;
-  if (!hasRole(user, "lecturer")) return false;
-  if (courseId) return isLecturerForCourse(user, courseId);
-  // No course → must teach at least one course to upload cross-course material.
-  return lecturerCourseIds(user).length > 0;
+  if (hasRole(user, "lecturer")) {
+    if (courseId) return isLecturerForCourse(user, courseId);
+    // No course → must teach at least one course to upload cross-course material.
+    return lecturerCourseIds(user).length > 0;
+  }
+  if (hasRole(user, "student")) {
+    if (!courseId) return false;
+    return enrolledCourseIds(user).includes(courseId);
+  }
+  return false;
 }
 
 /**

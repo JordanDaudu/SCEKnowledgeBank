@@ -14,6 +14,7 @@ A scholarly document repository for university communities — upload, browse, s
 | M5 | Workspace analytics — admin overview at `/admin/analytics`, course-scoped view at `/courses/:courseId/analytics`. |
 | M6 | Collaboration & UX polish — comment reactions, document favorites + "Following" feed, request status transitions, mention-picker keyboard nav. |
 | M7 | Hardening — graduated `FEATURE_NOTIFICATIONS` + `FEATURE_REVIEW` flags, retired legacy `GET /documents/suggestions` and the `q` parameter on `GET /documents`, quieted per-request 2xx access logs, refreshed docs. |
+| Completion | Student uploads through the M2 review workflow (gated to enrolled courses, forced `status=draft`, optional `autoSubmitForReview` on `POST /documents/upload`); student-facing upload UX (filtered course list, amber review notice, auto-submit checkbox, single-file title field + suggestion-apply); request-board status dropdown opened to the request author; regression gate now runs every package's tests via `pnpm -r --if-present run test` and ships `regression:local` / `regression:gcs` matrix scripts. |
 
 ### Endpoint inventory (post-M7)
 
@@ -86,22 +87,26 @@ Suggestion fetches are best-effort: a failed extract clears the panel without bl
 - `pnpm --filter @workspace/api-server run test` — vitest unit + service tests
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod from OpenAPI
 - `pnpm --filter @workspace/db run push` — quick dev push of the schema (skips migrations; prefer `generate` + `migrate`)
-- `pnpm regression` — Sprint-3 M0 regression gate: typecheck → api-server vitest → reseed demo → Playwright `sprint 2 smoke` spec (lecturer upload→preview→comment + student request-board upvote). Reuses the running `api-server` and `web` workflows; baselines below.
+- `pnpm regression` — Sprint-3 regression gate: typecheck → `pnpm -r --if-present run test` (every workspace package — currently only api-server has a `test` script, but new packages get caught automatically) → reseed demo → Playwright `sprint 2 smoke` spec (lecturer upload→preview→comment + student request-board upvote). Reuses the running `api-server` and `web` workflows; baselines below.
+- `pnpm regression:local` — same gate with `STORAGE_DRIVER=local` exported into the run.
+- `pnpm regression:gcs`   — same gate with `STORAGE_DRIVER=gcs` exported into the run.
 
-### Regression baselines (Sprint-3 M0)
+### Regression baselines
 
-Run on a freshly-seeded demo DB, both workflows up:
+Run on a freshly-seeded demo DB, both workflows up.
 
-| Driver                              | Wall  | api-server vitest | Playwright smoke |
-| ----------------------------------- | ----- | ----------------- | ---------------- |
-| `gcs` (auto-pick, default in Replit)| ~50 s | all pass          | 2/2 pass         |
-| `local` (`STORAGE_DRIVER=local`)    | ~47 s | all pass          | 2/2 pass         |
+| Driver                              | Wall   | Unit tests        | Playwright smoke |
+| ----------------------------------- | ------ | ----------------- | ---------------- |
+| `local` (`STORAGE_DRIVER=local`)    | ~57 s  | 267 / 267 pass    | 2/2 pass         |
+| `gcs` (auto-pick, default in Replit)| ~50 s  | 267 / 267 pass    | 2/2 pass (last verified at M7 — re-run after schema changes) |
 
-To switch drivers for a regression sweep:
+To switch drivers for a regression sweep, the wrapper scripts (`pnpm regression:local`, `pnpm regression:gcs`) export `STORAGE_DRIVER` into the vitest run. The Playwright leg drives the *running* `artifacts/api-server: API Server` workflow, so to make the end-to-end leg actually exercise the other driver you must additionally:
 
 1. Set or unset `STORAGE_DRIVER` (use the Secrets pane → `development` scope, or `setEnvVars`). Unset = auto-pick `gcs` when `DEFAULT_OBJECT_STORAGE_BUCKET_ID` + `PRIVATE_OBJECT_DIR` are present; otherwise `local`.
 2. Restart the `artifacts/api-server: API Server` workflow so the new env is read by `lib/env.ts`.
-3. Run `pnpm regression`.
+3. Run `pnpm regression` (or the matrix wrapper).
+
+Known limitation: the GCS leg can only run when `DEFAULT_OBJECT_STORAGE_BUCKET_ID` + `PRIVATE_OBJECT_DIR` are set in the environment; otherwise `lib/env.ts` falls back to the local driver and the run silently mirrors `regression:local`.
 
 The smoke spec is driver-agnostic: it uploads a unique-bytes PDF, drives the upload→detail→comment flow through the public API, and votes on a freshly-created request — so reruns against a warm DB stay green.
 
@@ -172,7 +177,7 @@ All demo users share the password `Demo1234!`.
 - Login with quick-login chips for the three demo roles.
 - Browse / search / filter documents (course code, lecturer, tags, material type, semester, year, full-text on title+description).
 - Document detail with inline preview (signed URL), download, threaded comments, edit/delete for uploader+admin.
-- Upload (lecturer/admin only) with multi-file batch, mime allowlist, size limit (413 on overflow). Duplicate filenames are accepted: the exact uploaded name is preserved on `documentFiles.originalFilename`, and a separate `displayFilename` is suffixed (`notes (2).pdf`, `notes (3).pdf`, …) so the user can tell them apart in lists.
+- Upload with multi-file batch, mime allowlist, size limit (413 on overflow). Duplicate filenames are accepted: the exact uploaded name is preserved on `documentFiles.originalFilename`, and a separate `displayFilename` is suffixed (`notes (2).pdf`, `notes (3).pdf`, …) so the user can tell them apart in lists. Lecturers and admins keep the legacy "upload-and-publish" path. Students (Sprint-3 completion) may upload too, but only to courses in their `enrollments[]`; the service force-sets `status=draft`, and an `autoSubmitForReview` flag on `POST /documents/upload` chains the upload into the M2 review workflow so the document lands in `pending_review` for a course lecturer (or admin) to approve or reject. Rejection reasons surface on the document detail page; approved student docs become publicly visible like any other document.
 - Material requests board with voting (toggle). Status changes (e.g. fulfill) are open to the request author, lecturers, and admins; editing the request title/description is restricted to the author or an admin. RBAC is enforced server-side in `requests.service.updateRequest`.
 - Document versions panel on the detail page: lists every version (newest first) with uploader + change note, "Upload new version" for the doc's editor, and "Restore" on older versions. Restoring promotes the old blob to a new version row (history preserved) without re-billing the uploader's quota.
 - Admin: user list with role management.

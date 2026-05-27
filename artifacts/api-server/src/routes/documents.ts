@@ -62,8 +62,17 @@ const UploadBodySchema = z.object({
     .optional(),
   // Sprint-3 M2: uploaders may choose to land a new doc as `draft` so
   // they can then move it through submit-for-review → approve/reject.
-  // Default stays `published` to preserve legacy upload UX.
+  // Default stays `published` to preserve legacy upload UX. Students
+  // are force-pinned to `draft` by the service regardless of input.
   status: z.enum(["draft", "published"]).optional(),
+  // Sprint-3 completion: when true, every successful upload is
+  // immediately routed through `submitForReview` (audited + uploader
+  // notified on approve/reject). Multipart delivers booleans as
+  // strings, so coerce common truthy literals.
+  autoSubmitForReview: z
+    .union([z.boolean(), z.string()])
+    .transform((v) => (typeof v === "boolean" ? v : ["1", "true", "on", "yes"].includes(v.toLowerCase())))
+    .optional(),
 });
 
 const router: IRouter = Router();
@@ -277,7 +286,13 @@ router.post(
   requireAuth,
   (req, res, next) => {
     if (!req.authUser || !permissions.canUpload(req.authUser)) {
-      return next(forbidden("Only lecturers and admins can upload"));
+      // Students with zero enrollments fall through canUpload — the
+      // message has to cover all three roles now (Sprint-3 completion).
+      return next(
+        forbidden(
+          "You do not have permission to upload. Students must be enrolled in at least one course.",
+        ),
+      );
     }
     next();
   },
@@ -303,11 +318,36 @@ router.post(
       if (body.academicYear != null) input.academicYear = body.academicYear;
       if (body.title) input.titleOverride = body.title;
       if (body.status) input.status = body.status;
+      if (body.autoSubmitForReview != null) {
+        input.autoSubmitForReview = body.autoSubmitForReview;
+      }
 
       const results = await documentsService.uploadDocuments(
         input,
         req.authUser!,
       );
+
+      // Sprint-3 completion: after a successful upload, if the caller
+      // asked for auto-submit (student UI default), route every fresh
+      // draft through the M2 submit-for-review service so the audit
+      // row + downstream notify pipeline fire exactly once. A
+      // per-doc failure here is non-fatal — the file is uploaded and
+      // the uploader can retry submission from the doc detail page.
+      if (body.autoSubmitForReview) {
+        for (const r of results) {
+          if (r.success && r.document && r.document.status === "draft") {
+            try {
+              const dto = await documentsService.submitForReview(
+                r.document.id,
+                req.authUser!,
+              );
+              r.document = dto;
+            } catch {
+              // swallow — doc is still uploaded as draft
+            }
+          }
+        }
+      }
       res.status(201).json({ results });
     } catch (err) {
       next(err);

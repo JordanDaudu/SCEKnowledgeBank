@@ -50,7 +50,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <NavLink href="/" icon={BookOpen}>Home</NavLink>
                 <NavLink href="/browse" icon={Search}>Browse</NavLink>
                 <NavLink href="/requests" icon={MessageSquare}>Requests</NavLink>
-                {isLecturerOrAdmin && <NavLink href="/upload" icon={Upload}>Upload</NavLink>}
+                {/* Sprint-3 completion: Upload is visible to every
+                    authenticated user. Per-page server permission still
+                    rejects users with no upload path (e.g. students
+                    with zero enrollments). */}
+                <NavLink href="/upload" icon={Upload}>Upload</NavLink>
                 {isLecturerOrAdmin && (
                   <NavLink href="/review-queue" icon={ShieldCheck}>Review</NavLink>
                 )}

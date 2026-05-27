@@ -4,6 +4,7 @@ import {
   useListCategories,
   useListTags,
   useGetMyStorageQuota,
+  useGetCurrentUser,
   getGetMyStorageQuotaQueryKey,
   getListDocumentsQueryKey,
   getListRecentDocumentsQueryKey,
@@ -147,12 +148,33 @@ export default function Upload() {
   const [semester, setSemester] = useState<Semester>("");
   const [academicYear, setAcademicYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [title, setTitle] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
 
-  const { data: courses } = useListCourses();
+  const { data: user } = useGetCurrentUser();
+  const { data: allCourses } = useListCourses();
   const { data: categories } = useListCategories();
   const { data: availableTags } = useListTags();
   const { data: quota } = useGetMyStorageQuota();
+
+  // Sprint-3 completion: a "student" here means a user with NEITHER
+  // the lecturer nor admin role — those are the uploaders gated to
+  // enrolled courses + the review workflow on the server. We
+  // recompute every render off the cached /auth/me so a role change
+  // (e.g. admin elevation in another tab) takes effect on next fetch.
+  const isStudentUploader = !!user && !user.roles.includes("admin") && !user.roles.includes("lecturer");
+  const [autoSubmitForReview, setAutoSubmitForReview] = useState(true);
+
+  // For students, only show courses they're enrolled in. For
+  // lecturers/admins, show everything (server-side `canUploadToCourse`
+  // is the authoritative gate; this is just a UX filter so students
+  // don't pick a course they can't actually upload to).
+  const courses = useMemo(() => {
+    if (!allCourses) return undefined;
+    if (!isStudentUploader || !user) return allCourses;
+    const enrolledIds = new Set(user.enrollments.map((e) => e.courseId));
+    return allCourses.filter((c) => enrolledIds.has(c.id));
+  }, [allCourses, isStudentUploader, user]);
 
   // Sprint-3 M4: smart-metadata suggestion. We fetch suggestions for
   // the *first* still-queued file in the batch — the only file whose
@@ -358,6 +380,14 @@ export default function Upload() {
       visibility,
       semester: semester || undefined,
       academicYear: academicYear || undefined,
+      // Title applies only when uploading a single file (the server
+      // honours `title` as `titleOverride` only for 1-file batches).
+      title: isSingleFileBatch && title.trim() ? title.trim() : undefined,
+      // Sprint-3 completion: only send autoSubmit when the uploader
+      // is a student — for lecturers/admins the legacy publish path
+      // is preserved.
+      autoSubmitForReview:
+        isStudentUploader && autoSubmitForReview ? "true" : undefined,
     };
 
     const toUpload = items.filter((i) => i.status === "queued");
@@ -479,6 +509,21 @@ export default function Upload() {
             />
           </CardContent>
         </Card>
+      )}
+
+      {isStudentUploader && (
+        <div
+          className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm"
+          data-testid="upload-student-notice"
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <span className="font-medium">Student uploads require lecturer or admin approval before they appear publicly.</span>{" "}
+            <span className="text-muted-foreground">
+              You can only upload to courses you are enrolled in. After upload, a reviewer will approve or reject — you'll see the status (and any rejection reason) on the document page.
+            </span>
+          </div>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -747,7 +792,43 @@ export default function Upload() {
                   placeholder="e.g. 2024"
                 />
               </div>
+              {isSingleFileBatch && (
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium" htmlFor="upload-title-input">Title</label>
+                  <Input
+                    id="upload-title-input"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Defaults to the filename if blank"
+                    maxLength={300}
+                    data-testid="upload-title-input"
+                  />
+                </div>
+              )}
             </div>
+
+            {isStudentUploader && (
+              <div
+                className="flex items-start gap-2 rounded-md border bg-secondary/40 px-3 py-2"
+                data-testid="upload-autosubmit-row"
+              >
+                <input
+                  id="upload-autosubmit"
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={autoSubmitForReview}
+                  onChange={(e) => setAutoSubmitForReview(e.target.checked)}
+                  data-testid="upload-autosubmit"
+                />
+                <label htmlFor="upload-autosubmit" className="text-sm flex-1 cursor-pointer">
+                  <span className="font-medium">Submit for review immediately after upload</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    Recommended. Uncheck only if you want to keep the document as a draft and submit it later from its page.
+                  </span>
+                </label>
+              </div>
+            )}
 
             {suggestion &&
               ((suggestion.tags && suggestion.tags.length > 0) ||
@@ -766,20 +847,21 @@ export default function Upload() {
                     )}
                   </div>
                   {isSingleFileBatch && suggestion.title && (
-                    <div className="text-sm">
+                    <div className="text-sm flex items-center gap-2 flex-wrap">
                       <span className="text-muted-foreground">Title: </span>
-                      <button
-                        type="button"
-                        className="underline font-medium"
-                        onClick={() => {
-                          /* Title is derived from filename at upload;
-                             we surface the suggestion but the v1 upload
-                             form has no per-file title field yet. */
-                        }}
-                        data-testid="suggestion-title"
-                      >
+                      <span className="font-medium" data-testid="suggestion-title">
                         {suggestion.title}
-                      </button>
+                      </span>
+                      <Button
+                        type="button"
+                        variant={title === suggestion.title ? "default" : "outline"}
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setTitle(suggestion.title!)}
+                        data-testid="suggestion-title-apply"
+                      >
+                        {title === suggestion.title ? "Applied" : "Apply"}
+                      </Button>
                     </div>
                   )}
                   {suggestion.category && (

@@ -7,7 +7,9 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "regression": "pnpm run typecheck && pnpm --filter @workspace/api-server run test && pnpm --filter @workspace/api-server run seed:demo && PLAYWRIGHT_BASE_URL=https://$REPLIT_DEV_DOMAIN pnpm --filter @workspace/web exec playwright test --grep \"sprint 2 smoke\""
+    "regression": "pnpm run typecheck && pnpm -r --if-present run test && pnpm --filter @workspace/api-server run seed:demo && PLAYWRIGHT_BASE_URL=https://$REPLIT_DEV_DOMAIN pnpm --filter @workspace/web exec playwright test --grep \"sprint 2 smoke\"",
+    "regression:local": "STORAGE_DRIVER=local pnpm run regression",
+    "regression:gcs": "STORAGE_DRIVER=gcs pnpm run regression"
   },
   "private": true,
   "devDependencies": {

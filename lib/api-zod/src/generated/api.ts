@@ -68,6 +68,12 @@ export const LoginResponse = zod.object({
   displayName: zod.string(),
   primaryRole: zod.string(),
   roles: zod.array(zod.string()),
+  enrollments: zod.array(
+    zod.object({
+      courseId: zod.string().uuid(),
+      roleInCourse: zod.string(),
+    }),
+  ),
 });
 
 /**
@@ -79,6 +85,12 @@ export const GetCurrentUserResponse = zod.object({
   displayName: zod.string(),
   primaryRole: zod.string(),
   roles: zod.array(zod.string()),
+  enrollments: zod.array(
+    zod.object({
+      courseId: zod.string().uuid(),
+      roleInCourse: zod.string(),
+    }),
+  ),
 });
 
 /**
@@ -347,6 +359,8 @@ export const UploadDocumentsBody = zod.object({
   tagIds: zod.array(zod.string().uuid()).optional(),
   title: zod.string().optional(),
   description: zod.string().optional(),
+  status: zod.enum(["draft", "published"]).optional(),
+  autoSubmitForReview: zod.boolean().optional(),
 });
 
 /**

@@ -225,7 +225,7 @@ export default function Requests() {
                             Closed
                           </Badge>
                         )}
-                        {isLecturerOrAdmin && (req.status === 'open' || req.status === 'in_progress') && (
+                        {(isLecturerOrAdmin || req.requestedBy.id === user?.id) && (req.status === 'open' || req.status === 'in_progress') && (
                           <Select
                             value={req.status}
                             onValueChange={(next) => {

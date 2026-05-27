@@ -186,6 +186,16 @@ paths:
                 # Optional title override; otherwise derived from filename
                 title: { type: string }
                 description: { type: string }
+                # Sprint-3 M2: when "draft", the doc lands in `draft`
+                # and the uploader can submit it for review. Default
+                # is `published` (legacy upload-and-publish). Students
+                # are always forced to `draft` regardless of input.
+                status: { type: string, enum: [draft, published] }
+                # Sprint-3 completion: when true, every successfully
+                # uploaded doc is immediately routed through
+                # `submitForReview` (audited + uploader notified on
+                # approve/reject). Used by the student UI default.
+                autoSubmitForReview: { type: boolean }
       responses:
         "201":
           description: Per-file results (partial success possible)
@@ -1072,7 +1082,7 @@ components:
 
     CurrentUser:
       type: object
-      required: [id, email, displayName, roles, primaryRole]
+      required: [id, email, displayName, roles, primaryRole, enrollments]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
@@ -1081,6 +1091,18 @@ components:
         roles:
           type: array
           items: { type: string }
+        # Sprint-3 completion: course enrollments are surfaced on
+        # /auth/me so the web client can filter the upload course
+        # picker for students (enrolled-only) without a second
+        # round-trip. `roleInCourse` is "student" or "lecturer".
+        enrollments:
+          type: array
+          items:
+            type: object
+            required: [courseId, roleInCourse]
+            properties:
+              courseId: { type: string, format: uuid }
+              roleInCourse: { type: string }
 
     UserSummary:
       type: object

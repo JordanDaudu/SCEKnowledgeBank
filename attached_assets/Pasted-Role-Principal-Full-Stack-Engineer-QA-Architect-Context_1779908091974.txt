@@ -1,0 +1,147 @@
+Role: Principal Full-Stack Engineer + QA Architect
+
+Context:
+We are in Sprint 3 of the Knowledge Bank project. The current codebase already contains implementations for Sprint 3 M0–M7:
+- M0 regression gate
+- M1 notifications
+- M2 review/approval workflow
+- M3 enhanced search
+- M4 smart metadata/document intelligence
+- M5 analytics
+- M6 collaboration polish
+- M7 hardening/docs
+
+Task:
+Perform a focused Sprint 3 completion pass. Do NOT add unrelated features. Fix only the gaps listed below, then run the full validation gate and update replit.md with exact results.
+
+Critical finding:
+The review/approval workflow exists, but the main M2 flow is not reachable because students still cannot upload documents. Sprint 3 requires student-uploaded documents to be submitted for lecturer/admin review before becoming public.
+
+Required fixes:
+
+1. Enable student upload into the review workflow
+- Students must be allowed to upload documents only to courses they are enrolled in.
+- Students must NOT be allowed to upload to courses they are not enrolled in.
+- Students must NOT be allowed to publish directly.
+- Lecturer/admin uploads may continue to publish directly according to the existing behavior.
+- For student uploads, use the existing review state machine:
+  - Student upload should create a document in draft state, or create it and immediately submit through the existing submit-for-review service path if the UI explicitly chooses “submit for review”.
+  - Do not bypass service-level transition/audit/notification logic by writing pending_review directly unless all audit and transition behavior is preserved.
+- Add or update permission service methods so:
+  - students can upload to enrolled courses only,
+  - lecturers can review only their own courses,
+  - admins can review all courses,
+  - public listings still hide pending/rejected documents.
+
+2. Update frontend upload access
+- Show the Upload navigation item to students as well as lecturers/admins.
+- Allow `/upload` route access for authenticated students.
+- In the upload form:
+  - If the user is a student, make course selection required.
+  - Prevent selecting courses the student is not enrolled in.
+  - Clearly show that student uploads require review before appearing publicly.
+  - After upload, give the student a clear path to submit for review, or include a “Submit for review after upload” option that calls the existing submit endpoint.
+- Keep lecturer/admin upload UX compatible with current behavior.
+
+3. Complete review workflow UX
+- Ensure student-owned draft/pending/rejected documents are visible to the uploader from their own document detail page or personal document list.
+- Ensure rejected documents show the rejection reason to the uploader.
+- Ensure approved documents become visible in public listings.
+- Ensure status badges are shown consistently on:
+  - document cards,
+  - document detail page,
+  - review queue,
+  - uploader-owned document views.
+
+4. Update API/OpenAPI/codegen
+- If upload body/status/course behavior changes, update OpenAPI.
+- Regenerate the API Zod/client packages using the existing project codegen flow.
+- Make sure the generated frontend hooks/types compile.
+
+5. Fix small known cleanup items
+- In `documents.service.ts`, remove the duplicate `docsRepo.listPendingReview(...)` call inside `listPendingReview`.
+- Align `replit.md` notification dedup documentation with the actual schema. The current schema dedups by `(recipientId, subjectType, subjectId)`, not necessarily by notification type. Either update the docs or adjust schema/repo consistently, but do not leave them contradictory.
+- In the upload metadata suggestion UI, either:
+  - make the suggested title actually actionable, or
+  - remove/rename the UI so it does not imply a one-click title acceptance that does nothing.
+- Review request-board status permissions:
+  - Either expose allowed author status transitions in the UI, or tighten the backend/docs so only lecturer/admin transitions are intended.
+  - Keep behavior consistent between service permissions and UI.
+
+6. Strengthen M0 regression gate
+- Review the top-level `pnpm regression` script.
+- Ensure it actually runs:
+  - workspace-wide typecheck,
+  - all package tests that exist,
+  - API unit/integration tests,
+  - Sprint 2 Playwright smoke spec.
+- If not feasible to fully automate local/GCS in one command because of Replit environment constraints, add explicit scripts:
+  - `regression:local`
+  - `regression:gcs`
+  or document the exact two-command matrix in `replit.md`.
+- The smoke spec must remain under the existing Sprint 2 journey:
+  - seeded login,
+  - fixture PDF upload,
+  - preview open,
+  - comment creation,
+  - request-board upvote.
+
+7. Add/adjust tests
+Add or update tests for the real Sprint 3 M2 flow:
+- Student can upload to an enrolled course.
+- Student cannot upload to a non-enrolled course.
+- Student upload is not public before approval.
+- Student can submit own draft document for review.
+- Lecturer for that course can see it in pending-review queue.
+- Lecturer for another course cannot review it.
+- Admin can review it.
+- Approval makes it visible in public listings.
+- Rejection hides it from public listings and sends notification with reason.
+- Illegal state transitions fail with explicit errors.
+- Existing Sprint 2 published documents remain visible after migration.
+
+Also verify existing tests for:
+- notifications dedup and mark-read behavior,
+- search v2 facets/autocomplete/snippets,
+- metadata best-effort failure behavior,
+- duplicate checksum warning,
+- analytics permission boundaries,
+- reactions unique constraint,
+- favorites/following tab,
+- request status transitions.
+
+8. Run validation
+Run the following or the project’s equivalent commands:
+
+- pnpm install --frozen-lockfile
+- pnpm run typecheck
+- pnpm --filter @workspace/api-server run test
+- pnpm --filter @workspace/api-server run seed:demo
+- pnpm --filter @workspace/api-server run seed:demo:verify
+- pnpm regression
+
+Then run the regression matrix for both storage modes:
+- STORAGE_DRIVER=local
+- STORAGE_DRIVER=gcs or the project’s current auto-GCS configuration
+
+If Playwright requires the Replit dev server, start the API/web workflows first and set `PLAYWRIGHT_BASE_URL` correctly.
+
+9. Update replit.md
+After validation, update `replit.md` with:
+- exact commands run,
+- pass/fail result,
+- total API test count,
+- Playwright smoke result,
+- local storage runtime,
+- GCS storage runtime,
+- any remaining known limitations,
+- confirmation that the Sprint 3 M2 student upload review flow is now reachable end-to-end.
+
+Acceptance criteria:
+- The code compiles.
+- All tests pass.
+- Regression gate passes.
+- Student upload/review/approval/rejection works end-to-end.
+- No Sprint 2 behavior is broken.
+- OpenAPI/generated clients are in sync.
+- replit.md accurately reflects the current implementation.

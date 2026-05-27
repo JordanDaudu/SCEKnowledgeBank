@@ -707,8 +707,15 @@ export interface UploadInput {
   tagIds: string[];
   // Sprint-3 M2: when set to "draft", the doc lands in `draft` so the
   // uploader can submit it for review via the M2 endpoint. Defaults to
-  // "published" to preserve the legacy "upload-and-publish" flow.
+  // "published" to preserve the legacy "upload-and-publish" flow. For
+  // student uploaders the service forces "draft" regardless of input
+  // — students never get a direct-publish path.
   status?: "draft" | "published";
+  // Sprint-3 completion: when true, every successfully-uploaded doc
+  // is immediately submitted for review (status=pending_review) via
+  // the M2 service. Used by the student UI so the upload+submit
+  // becomes one user action with one shared audit/notification trail.
+  autoSubmitForReview?: boolean;
 }
 
 export interface UploadResultEntry {
@@ -744,14 +751,38 @@ export async function uploadDocuments(
     );
   }
 
+  // Sprint-3 completion: student uploads MUST target a course (the
+  // review router needs a course to find a lecturer reviewer) and
+  // can never reach `published` directly — the review workflow is
+  // the only publish path open to them. We enforce both before the
+  // generic course-permission check so the error messages are clear.
+  const isStudent =
+    !permissions.isAdmin(user) &&
+    !user.roles.includes("lecturer") &&
+    user.roles.includes("student");
+  if (isStudent) {
+    if (!input.courseId) {
+      throw badRequest(
+        "Students must select a course they are enrolled in to upload.",
+      );
+    }
+    // Force-draft regardless of client-supplied status; the M2 review
+    // workflow is the only publish path open to students.
+    input.status = "draft";
+  }
+
   // Authoritative course-aware upload check — keeps internal callers
   // (not just the HTTP route) honest. Lecturers may only upload into
-  // courses they actually teach; admins may upload anywhere.
+  // courses they actually teach; admins may upload anywhere; students
+  // only into courses they're enrolled in (re-verified here even when
+  // the route already checked, so non-HTTP callers are safe too).
   if (!permissions.canUploadToCourse(user, input.courseId ?? null)) {
     throw forbidden(
-      input.courseId
-        ? "You can only upload to courses you teach"
-        : "Only admins or lecturers with at least one taught course may upload",
+      isStudent
+        ? "You can only upload to courses you are enrolled in"
+        : input.courseId
+          ? "You can only upload to courses you teach"
+          : "Only admins or lecturers with at least one taught course may upload",
     );
   }
 
