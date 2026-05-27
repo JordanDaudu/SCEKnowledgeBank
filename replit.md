@@ -37,6 +37,31 @@ Source of truth is `lib/api-spec/openapi.yaml`; the list below is a hand-curated
 
 All Sprint-3 feature flags were graduated in M7. There are **no `FEATURE_*` env flags** in `lib/env.ts` or `import.meta.env.VITE_FEATURE_*` references in the web app today. New flags should be reintroduced only for genuinely-in-flight surfaces and documented here when added.
 
+### M7 hardening sign-off — security scan
+
+Run against `main` on 2026-05-27 via the in-repo scanners (`runDependencyAudit`, `runSastScan`, `runHoundDogScan`):
+
+| Scanner | Critical | High | Moderate | Notes |
+| ------- | -------- | ---- | -------- | ----- |
+| `runDependencyAudit` (osv-scanner) | 0 | 0 in app code (8 in transitive deps) | 8 | All 8 highs are transitive: `fast-uri@3.1.0` x2, `lodash@4.17.23`, `path-to-regexp@8.3.0` (Express 5), `picomatch@2.3.1` + `@4.0.3`, `uuid@8.3.2` + `@9.0.1`. None exploitable in current request path; tracked as a separate "Patch known-vulnerable transitive dependencies" follow-up. |
+| `runSastScan` (semgrep) | 0 | 0 | 1 | The single MEDIUM is `unsafe-dynamic-method` in `artifacts/mockup-sandbox/src/App.tsx` — dev-only canvas preview, loader keys come from a Vite glob over a controlled fixtures directory (not user input). Documented in `threat_model.md` "Scan Anchors". |
+| `runHoundDogScan` (privacy / dataflow) | 0 | 0 | 0 | Clean. |
+
+**Critical/High in application code: 0.**
+
+### M7 hardening sign-off — load test
+
+Targeted load test against the busiest new Sprint-3 endpoints, run on 2026-05-27 against a freshly-seeded demo DB with both workflows up (single api-server process, default `STORAGE_DRIVER` auto-pick, `LOG_LEVEL=info` so the new M7 access-log demotion is in effect). Test driver: `/tmp/loadtest.mjs` (Node 24 `fetch`, cookie-authenticated, warm-up shot before each run). All runs returned 0 errors.
+
+| Endpoint | Auth | Concurrency × Total | RPS | p50 | p95 | p99 | Max |
+| -------- | ---- | ------------------- | --- | --- | --- | --- | --- |
+| `GET /v2/documents/search?q=algebra&pageSize=20` | admin | 16 × 200 | 240 | 52 ms | 184 ms | 252 ms | 256 ms |
+| `GET /v2/documents/search?q=lecture&pageSize=20` | student | 16 × 200 | 268 | 54 ms | 103 ms | 141 ms | 153 ms |
+| `GET /notifications?pageSize=20` | student | 32 × 400 | 451 | 63 ms | 112 ms | 146 ms | 159 ms |
+| `GET /notifications/unread-count` | student | 64 × 800 | 477 | 127 ms | 172 ms | 198 ms | 239 ms |
+
+The admin search run has the longest tail because the visibility predicate degenerates to "all rows" so `ts_headline` runs against the largest result set; even there p95 stays under 200 ms. Re-run with `node /tmp/loadtest.mjs` (recreate the script from `git log` if it has been cleaned up) against a fresh seed to refresh the baseline.
+
 ## Sprint-3 M4 — Smart metadata & document intelligence
 
 Every uploaded `DocumentFile` is now passed through a pluggable extractor chain: the per-MIME byte extractor produces `extractedText`, then post-processors fill in `language` (en/es/fr/de/it/pt via stopword classifier) and `keywords` (top frequency terms, stopword + length filtered). Both fields are persisted on `document_files` and surfaced in the document detail metadata strip.
