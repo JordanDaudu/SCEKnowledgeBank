@@ -345,10 +345,13 @@ export function visibleDocumentFilter(
       },
     ],
   };
-  // Sprint-3 M2: hide `pending_review` / `rejected` from non-reviewers
-  // who aren't the uploader/owner. Lecturers who teach the doc's
-  // course (i.e. potential reviewers) continue to see them so they
-  // can find work in the queue and on the doc's own page.
+  // Sprint-3 M2 + completion: hide every review-hidden status —
+  // `draft`, `pending_review`, `rejected` — from non-reviewers who
+  // aren't the uploader/owner. Lecturers who teach the doc's course
+  // (i.e. potential reviewers) continue to see them so they can find
+  // work in the queue and on the doc's own page. The exact same set
+  // is enforced in `visibleDocumentFilterSql` for the v2 raw-SQL
+  // path; both branches share `REVIEW_HIDDEN_STATUSES`.
   const lecturerCourses = lecturerCourseIds(user);
   const statusOK: Prisma.DocumentWhereInput = {
     OR: [

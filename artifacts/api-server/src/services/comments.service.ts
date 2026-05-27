@@ -238,12 +238,13 @@ export async function createForDocument(
       .then(() => notificationsService.notify(args))
       .catch((err) => logger.warn({ err }, `${label} notify threw`));
   };
-  // Dedup precedence: when the parent author also appears in the
-  // mention list, the reply notification supersedes the mention so
-  // the recipient sees exactly one row for this comment (matches the
-  // per-(recipient, subject) unique key in the DB). Reply wins
-  // because it's the stronger signal — a direct response to the
-  // recipient's own content.
+  // Dedup precedence: the DB unique key is per-(recipient, type,
+  // subject), so a single recipient COULD receive both
+  // `comment.mention` and `comment.reply` for the same comment.
+  // Producer-side we want exactly one row — reply wins because it's
+  // the stronger signal (a direct response to the recipient's own
+  // content). Suppress the mention here when the parent author is
+  // also @mentioned.
   const replyRecipient =
     parentComment && parentComment.authorId !== user.id
       ? parentComment.authorId
@@ -301,9 +302,9 @@ export async function createForDocument(
         type: "document.activity",
         // Subject is the *comment*, not the document — the notification
         // store enforces uniqueness on (recipient, type, subject) and
-        // collapsing every new comment under the same documentId would
-        // suppress all but the first activity ping per follower per
-        // document.
+        // collapsing every new comment under the same documentId
+        // would suppress all but the first `document.activity` ping
+        // per follower per document.
         subjectType: "comment",
         subjectId: c.id,
         body: body.body.slice(0, 280),

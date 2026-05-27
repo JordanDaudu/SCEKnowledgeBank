@@ -494,10 +494,14 @@ export async function deleteDocument(
 //   - canSubmitForReview = uploader/owner OR canEdit
 //   - canReview          = admin OR lecturer-for-course
 //
-// Notifications go through the M1 bus with subjectType='document'
-// so the (recipient, subject) dedup index absorbs spam from rapid
-// approve/reject toggles. The bus is non-throwing (notify swallows
-// errors), so transitions never fail because of a notify hiccup.
+// Notifications go through the M1 bus with subjectType='document'.
+// The (recipient, type, subject) dedup index absorbs duplicate inserts
+// of the *same* event (e.g. two reviewers race-approving the same
+// doc), while still letting distinct outcomes through — `document.
+// rejected` then a later `document.approved` on the same doc both
+// reach the uploader because they differ in `type`. The bus is
+// non-throwing (notify swallows errors), so transitions never fail
+// because of a notify hiccup.
 //
 // Audit log records every transition. The actor never notifies
 // themselves (notifications.service short-circuits on actor=recipient).

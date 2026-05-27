@@ -205,14 +205,82 @@ describe("v2 search visibility — review-hidden statuses", () => {
   });
 
   it("autocomplete uploader-name prefix does not surface an uploader whose only matching doc is a draft", async () => {
-    // Strip everything from the dataset that could match `Plkn Uploader`
-    // *except* the draft, by deleting the other three first inside this
-    // test's scope.
-    // We do NOT actually mutate — instead, we rely on the fact that
-    // the uploader also owns a published doc, so this assertion would
-    // false-positive. So instead we just sanity-check the inverse:
-    // stranger still sees the uploader because of the published doc.
-    const out = await searchService.autocomplete(ctx.uploaderName, 10, ctx.stranger);
-    expect(out.uploaders.some((u) => u.id === ctx.uploader.id)).toBe(true);
+    // Hermetic scenario: a brand-new user owns a single `draft` doc
+    // on the same course, with a unique display-name token. Stranger
+    // must NOT see the uploader in autocomplete; uploader themselves
+    // and the course lecturer MUST.
+    const draftOnlyName = `Onlydraft Author${SUFFIX}`;
+    const draftOnlyTagName = `onlydraft-tag${SUFFIX}`;
+    const draftOnlyUserRow = await db.user.create({
+      data: {
+        email: `pdo${SUFFIX}@d`,
+        passwordHash: "x",
+        displayName: draftOnlyName,
+        isActive: true,
+      },
+    });
+    const draftOnlyTag = await db.tag.create({ data: { name: draftOnlyTagName } });
+    const draftOnlyDoc = await db.document.create({
+      data: {
+        title: `onlydraft${SUFFIX} doc`,
+        description: "vis",
+        uploaderId: draftOnlyUserRow.id,
+        ownerId: draftOnlyUserRow.id,
+        materialType: "lecture_notes",
+        semester: "fall",
+        status: "draft",
+        visibility: "public",
+        courseId: ctx.courseId,
+      },
+    });
+    await db.documentTag.create({
+      data: { documentId: draftOnlyDoc.id, tagId: draftOnlyTag.id },
+    });
+    const draftOnlyUser = mkAuthed(draftOnlyUserRow.id, {
+      email: draftOnlyUserRow.email,
+      displayName: draftOnlyName,
+    });
+    try {
+      const namePrefix = draftOnlyName.split(" ")[0]!;
+      // Stranger: no draft-only uploader, no draft-only tag.
+      const strangerOut = await searchService.autocomplete(namePrefix, 10, ctx.stranger);
+      expect(strangerOut.uploaders.some((u) => u.id === draftOnlyUser.id)).toBe(false);
+      const strangerTagOut = await searchService.autocomplete(
+        draftOnlyTagName.slice(0, 8),
+        10,
+        ctx.stranger,
+      );
+      expect(strangerTagOut.tags.some((t) => t.id === draftOnlyTag.id)).toBe(false);
+
+      // Uploader sees themselves (their own draft is visible to them).
+      const ownOut = await searchService.autocomplete(namePrefix, 10, draftOnlyUser);
+      expect(ownOut.uploaders.some((u) => u.id === draftOnlyUser.id)).toBe(true);
+
+      // Course lecturer sees the draft-only uploader and tag.
+      const lecOut = await searchService.autocomplete(namePrefix, 10, ctx.lecturerSame);
+      expect(lecOut.uploaders.some((u) => u.id === draftOnlyUser.id)).toBe(true);
+      const lecTagOut = await searchService.autocomplete(
+        draftOnlyTagName.slice(0, 8),
+        10,
+        ctx.lecturerSame,
+      );
+      expect(lecTagOut.tags.some((t) => t.id === draftOnlyTag.id)).toBe(true);
+
+      // Lecturer of another course is treated as a stranger for both
+      // the uploader-name prefix and the tag-name prefix.
+      const otherOut = await searchService.autocomplete(namePrefix, 10, ctx.lecturerOther);
+      expect(otherOut.uploaders.some((u) => u.id === draftOnlyUser.id)).toBe(false);
+      const otherTagOut = await searchService.autocomplete(
+        draftOnlyTagName.slice(0, 8),
+        10,
+        ctx.lecturerOther,
+      );
+      expect(otherTagOut.tags.some((t) => t.id === draftOnlyTag.id)).toBe(false);
+    } finally {
+      await db.documentTag.deleteMany({ where: { documentId: draftOnlyDoc.id } });
+      await db.document.deleteMany({ where: { id: draftOnlyDoc.id } });
+      await db.tag.deleteMany({ where: { id: draftOnlyTag.id } });
+      await db.user.deleteMany({ where: { id: draftOnlyUserRow.id } });
+    }
   });
 });
