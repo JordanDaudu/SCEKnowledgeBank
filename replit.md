@@ -15,6 +15,24 @@ A scholarly document repository for university communities — upload, browse, s
 - `pnpm --filter @workspace/api-server run test` — vitest unit + service tests
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod from OpenAPI
 - `pnpm --filter @workspace/db run push` — quick dev push of the schema (skips migrations; prefer `generate` + `migrate`)
+- `pnpm regression` — Sprint-3 M0 regression gate: typecheck → api-server vitest → reseed demo → Playwright `sprint 2 smoke` spec (lecturer upload→preview→comment + student request-board upvote). Reuses the running `api-server` and `web` workflows; baselines below.
+
+### Regression baselines (Sprint-3 M0)
+
+Run on a freshly-seeded demo DB, both workflows up:
+
+| Driver                              | Wall  | api-server vitest | Playwright smoke |
+| ----------------------------------- | ----- | ----------------- | ---------------- |
+| `gcs` (auto-pick, default in Replit)| ~50 s | all pass          | 2/2 pass         |
+| `local` (`STORAGE_DRIVER=local`)    | ~47 s | all pass          | 2/2 pass         |
+
+To switch drivers for a regression sweep:
+
+1. Set or unset `STORAGE_DRIVER` (use the Secrets pane → `development` scope, or `setEnvVars`). Unset = auto-pick `gcs` when `DEFAULT_OBJECT_STORAGE_BUCKET_ID` + `PRIVATE_OBJECT_DIR` are present; otherwise `local`.
+2. Restart the `artifacts/api-server: API Server` workflow so the new env is read by `lib/env.ts`.
+3. Run `pnpm regression`.
+
+The smoke spec is driver-agnostic: it uploads a unique-bytes PDF, drives the upload→detail→comment flow through the public API, and votes on a freshly-created request — so reruns against a warm DB stay green.
 
 ### Required env
 
