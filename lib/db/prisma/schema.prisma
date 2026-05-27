@@ -77,6 +77,8 @@ model User {
   viewHistory       MaterialViewHistory[]
   auditLogs         AuditLog[]
   courseEnrollments CourseEnrollment[]
+  notificationsReceived Notification[]    @relation("NotificationRecipient")
+  notificationsActed    Notification[]    @relation("NotificationActor")
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
   @@map("users")
@@ -395,6 +397,50 @@ model AuditLog {
   @@index([entityType, entityId, createdAt], map: "audit_logs_entity_idx")
   @@index([actorUserId], map: "audit_logs_actor_idx")
   @@map("audit_logs")
+}
+
+// ─── Notifications (Sprint-3 M1) ──────────────────────────────────
+//
+// Polling-only in-app notification bus. Producers (comment mentions,
+// replies, future approvals/follows) call `notify(...)` which inserts
+// here; the unique key (recipient_id, type, subject_type, subject_id)
+// dedupes so the same producer event cannot create two rows for the
+// same recipient.
+
+model Notification {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientId String    @map("recipient_id") @db.Uuid
+  // Optional — system-generated notifications have no actor.
+  actorId     String?   @map("actor_id") @db.Uuid
+  // Producer-defined kind, e.g. `comment.mention`, `comment.reply`.
+  type        String
+  // What the notification refers to. Stored as text (not uuid) so
+  // non-uuid subjects (composite keys, future external refs) work
+  // without a schema change.
+  subjectType String    @map("subject_type")
+  subjectId   String    @map("subject_id")
+  body        String    @default("")
+  // Optional deep-link path within the web app (e.g.
+  // `/documents/<id>#comment-<cid>`).
+  url         String?
+  readAt      DateTime? @map("read_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  recipient User  @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([recipientId, type, subjectType, subjectId], map: "notifications_recipient_subject_unique")
+  // Two complementary indexes:
+  //   • `_unread_idx` keeps `read_at` in the middle so the
+  //     unread-count + unread-only feed (`WHERE recipient_id = ?
+  //     AND read_at IS NULL ORDER BY created_at DESC`) is a clean
+  //     index scan.
+  //   • `_feed_idx` covers the default list query (no read_at
+  //     predicate, just `WHERE recipient_id = ? ORDER BY
+  //     created_at DESC LIMIT N`) without an extra sort step.
+  @@index([recipientId, readAt, createdAt(sort: Desc)], map: "notifications_recipient_unread_idx")
+  @@index([recipientId, createdAt(sort: Desc)], map: "notifications_recipient_feed_idx")
+  @@map("notifications")
 }
 
 // ─── Sessions (connect-pg-simple shape) ───────────────────────────

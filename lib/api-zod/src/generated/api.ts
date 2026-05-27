@@ -1244,3 +1244,74 @@ export const SearchUsersResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const SearchUsersResponse = zod.array(SearchUsersResponseItem);
+
+/**
+ * @summary List the current user's notifications (newest first)
+ */
+export const listNotificationsQueryLimitDefault = 20;
+export const listNotificationsQueryLimitMax = 100;
+
+export const listNotificationsQueryUnreadOnlyDefault = false;
+
+export const ListNotificationsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listNotificationsQueryLimitMax)
+    .default(listNotificationsQueryLimitDefault),
+  unreadOnly: zod.coerce
+    .boolean()
+    .default(listNotificationsQueryUnreadOnlyDefault),
+});
+
+export const ListNotificationsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  type: zod
+    .string()
+    .describe("Producer-defined kind, e.g. comment.mention, comment.reply"),
+  subjectType: zod.string(),
+  subjectId: zod.string(),
+  body: zod.string(),
+  url: zod.string().nullable(),
+  readAt: zod.coerce.date().nullable(),
+  createdAt: zod.coerce.date(),
+  actor: zod
+    .object({
+      id: zod.string().uuid(),
+      email: zod.string(),
+      displayName: zod.string(),
+      roles: zod.array(zod.string()),
+      isActive: zod.boolean(),
+      status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+      createdAt: zod.coerce.date(),
+    })
+    .nullable(),
+});
+export const ListNotificationsResponse = zod.array(
+  ListNotificationsResponseItem,
+);
+
+/**
+ * @summary Lightweight unread count for the bell badge (polled)
+ */
+export const getNotificationUnreadCountResponseUnreadMin = 0;
+
+export const GetNotificationUnreadCountResponse = zod.object({
+  unread: zod.number().min(getNotificationUnreadCountResponseUnreadMin),
+});
+
+/**
+ * @summary Mark a single notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Mark every unread notification for the current user as read
+ */
+export const markAllNotificationsReadResponseUpdatedMin = 0;
+
+export const MarkAllNotificationsReadResponse = zod.object({
+  updated: zod.number().min(markAllNotificationsReadResponseUpdatedMin),
+});

@@ -11,6 +11,7 @@ import Browse from "@/pages/browse";
 import DocumentDetail from "@/pages/document-detail";
 import Upload from "@/pages/upload";
 import Requests from "@/pages/requests";
+import Notifications from "@/pages/notifications";
 import AdminUsers from "@/pages/admin-users";
 
 import { Layout } from "@/components/layout";
@@ -77,6 +78,14 @@ function Router() {
         <AuthGuard>
           <Layout>
             <Requests />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/notifications">
+        <AuthGuard>
+          <Layout>
+            <Notifications />
           </Layout>
         </AuthGuard>
       </Route>

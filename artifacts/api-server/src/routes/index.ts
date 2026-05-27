@@ -7,6 +7,7 @@ import requestsRouter from "./requests";
 import taxonomyRouter from "./taxonomy";
 import usersRouter from "./users";
 import storageRouter from "./storage";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(requestsRouter);
 router.use(taxonomyRouter);
 router.use(usersRouter);
 router.use(storageRouter);
+router.use(notificationsRouter);
 
 export default router;

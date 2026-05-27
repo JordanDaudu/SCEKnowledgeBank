@@ -15,6 +15,7 @@ tags:
   - name: requests
   - name: taxonomy
   - name: users
+  - name: notifications
 
 paths:
   /healthz:
@@ -690,6 +691,61 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/UserSummary" }
 
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List the current user's notifications (newest first)
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: unreadOnly, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Notification" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /notifications/unread-count:
+    get:
+      operationId: getNotificationUnreadCount
+      tags: [notifications]
+      summary: Lightweight unread count for the bell badge (polled)
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationUnreadCount" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a single notification as read
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Marked read }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark every unread notification for the current user as read
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationMarkAllResponse" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
 components:
   schemas:
     HealthStatus:
@@ -1107,3 +1163,32 @@ components:
         fulfillingDocumentId: { type: string, format: uuid }
         title: { type: string }
         description: { type: string }
+
+    Notification:
+      type: object
+      required: [id, type, subjectType, subjectId, body, readAt, createdAt, actor, url]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, description: "Producer-defined kind, e.g. comment.mention, comment.reply" }
+        subjectType: { type: string }
+        subjectId: { type: string }
+        body: { type: string }
+        url: { type: string, nullable: true }
+        readAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        actor:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/UserSummary" }]
+
+    NotificationUnreadCount:
+      type: object
+      required: [unread]
+      properties:
+        unread: { type: integer, minimum: 0 }
+
+    NotificationMarkAllResponse:
+      type: object
+      required: [updated]
+      properties:
+        updated: { type: integer, minimum: 0 }
+

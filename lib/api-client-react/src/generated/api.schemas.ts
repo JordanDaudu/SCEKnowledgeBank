@@ -416,6 +416,29 @@ export interface UpdateRequestRequest {
   description?: string;
 }
 
+export interface Notification {
+  id: string;
+  /** Producer-defined kind, e.g. comment.mention, comment.reply */
+  type: string;
+  subjectType: string;
+  subjectId: string;
+  body: string;
+  url: string | null;
+  readAt: string | null;
+  createdAt: string;
+  actor: UserSummary | null;
+}
+
+export interface NotificationUnreadCount {
+  /** @minimum 0 */
+  unread: number;
+}
+
+export interface NotificationMarkAllResponse {
+  /** @minimum 0 */
+  updated: number;
+}
+
 export type ListDocumentsParams = {
   q?: string;
   courseId?: string;
@@ -554,4 +577,13 @@ export type SearchUsersParams = {
    * @maximum 20
    */
   limit?: number;
+};
+
+export type ListNotificationsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  unreadOnly?: boolean;
 };

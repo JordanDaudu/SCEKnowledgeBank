@@ -5,6 +5,7 @@ import { Logo } from "./logo";
 import { Button } from "./ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "./ui/badge";
+import { NotificationBell } from "./notification-bell";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -57,6 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {user && (
             <div className="flex items-center gap-4">
+              <NotificationBell />
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end">
                   <span className="text-sm font-medium leading-none">{user.displayName}</span>
