@@ -88,10 +88,10 @@ export async function fetchOverviewTotals(): Promise<OverviewTotals> {
       (SELECT COUNT(*) FROM material_view_history
          WHERE viewed_at >= now() - interval '14 days'
            AND viewed_at <  now() - interval '7 days')                      AS views_prior_week,
-      (SELECT COUNT(*) FROM audit_log
+      (SELECT COUNT(*) FROM audit_logs
          WHERE action = 'document.download'
            AND created_at >= now() - interval '7 days')                     AS downloads_this_week,
-      (SELECT COUNT(*) FROM audit_log
+      (SELECT COUNT(*) FROM audit_logs
          WHERE action = 'document.download'
            AND created_at >= now() - interval '14 days'
            AND created_at <  now() - interval '7 days')                     AS downloads_prior_week,
@@ -156,7 +156,7 @@ export async function fetchTopDocumentsByDownloads(
   >`
     SELECT d.id::text AS document_id, d.title, c.code AS course_code,
            COUNT(*)::bigint AS count
-    FROM audit_log a
+    FROM audit_logs a
     JOIN documents d ON d.id::text = a.entity_id
     LEFT JOIN courses c ON c.id = d.course_id
     WHERE a.action = 'document.download'
@@ -277,12 +277,12 @@ export async function fetchCourseTotals(
          WHERE v.viewed_at >= now() - interval '14 days'
            AND v.viewed_at <  now() - interval '7 days'
            AND d.course_id = ${courseId}::uuid)                             AS views_prior_week,
-      (SELECT COUNT(*) FROM audit_log a
+      (SELECT COUNT(*) FROM audit_logs a
          JOIN documents d ON d.id::text = a.entity_id
          WHERE a.action = 'document.download'
            AND a.created_at >= now() - interval '7 days'
            AND d.course_id = ${courseId}::uuid)                             AS downloads_this_week,
-      (SELECT COUNT(*) FROM audit_log a
+      (SELECT COUNT(*) FROM audit_logs a
          JOIN documents d ON d.id::text = a.entity_id
          WHERE a.action = 'document.download'
            AND a.created_at >= now() - interval '14 days'
@@ -352,7 +352,7 @@ export async function fetchCourseTopDocumentsByDownloads(
   >`
     SELECT d.id::text AS document_id, d.title, c.code AS course_code,
            COUNT(*)::bigint AS count
-    FROM audit_log a
+    FROM audit_logs a
     JOIN documents d ON d.id::text = a.entity_id
     LEFT JOIN courses c ON c.id = d.course_id
     WHERE a.action = 'document.download'
