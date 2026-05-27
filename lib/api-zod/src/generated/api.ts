@@ -2756,3 +2756,210 @@ export const markAllNotificationsReadResponseUpdatedMin = 0;
 export const MarkAllNotificationsReadResponse = zod.object({
   updated: zod.number().min(markAllNotificationsReadResponseUpdatedMin),
 });
+
+/**
+ * Workspace-wide totals plus leaderboards (top viewed, top downloaded, most active uploaders) and a 14-day daily upload series. Results are served from a short-lived in-memory cache.
+ * @summary Admin-only workspace analytics overview
+ */
+export const getAdminAnalyticsOverviewResponseTotalsTotalDocumentsMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsTotalUsersMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsTotalCommentsMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsPendingReviewCountMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsViewsThisWeekMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsViewsPriorWeekMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsDownloadsThisWeekMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsDownloadsPriorWeekMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTotalsUploadsThisWeekMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTopDocumentsByViewsItemCountMin = 0;
+
+export const getAdminAnalyticsOverviewResponseTopDocumentsByDownloadsItemCountMin = 0;
+
+export const getAdminAnalyticsOverviewResponseActiveUploadersItemUploadCountMin = 0;
+
+export const getAdminAnalyticsOverviewResponseUploadsLast14DaysItemCountMin = 0;
+
+export const GetAdminAnalyticsOverviewResponse = zod.object({
+  totals: zod.object({
+    totalDocuments: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsTotalDocumentsMin),
+    totalUsers: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsTotalUsersMin),
+    totalComments: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsTotalCommentsMin),
+    pendingReviewCount: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsPendingReviewCountMin),
+    viewsThisWeek: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsViewsThisWeekMin),
+    viewsPriorWeek: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsViewsPriorWeekMin),
+    downloadsThisWeek: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsDownloadsThisWeekMin),
+    downloadsPriorWeek: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsDownloadsPriorWeekMin),
+    uploadsThisWeek: zod
+      .number()
+      .min(getAdminAnalyticsOverviewResponseTotalsUploadsThisWeekMin),
+  }),
+  topDocumentsByViews: zod.array(
+    zod.object({
+      documentId: zod.string().uuid(),
+      title: zod.string(),
+      courseCode: zod.string().nullable(),
+      count: zod
+        .number()
+        .min(getAdminAnalyticsOverviewResponseTopDocumentsByViewsItemCountMin),
+    }),
+  ),
+  topDocumentsByDownloads: zod.array(
+    zod.object({
+      documentId: zod.string().uuid(),
+      title: zod.string(),
+      courseCode: zod.string().nullable(),
+      count: zod
+        .number()
+        .min(
+          getAdminAnalyticsOverviewResponseTopDocumentsByDownloadsItemCountMin,
+        ),
+    }),
+  ),
+  activeUploaders: zod.array(
+    zod.object({
+      userId: zod.string().uuid(),
+      displayName: zod.string(),
+      uploadCount: zod
+        .number()
+        .min(
+          getAdminAnalyticsOverviewResponseActiveUploadersItemUploadCountMin,
+        ),
+    }),
+  ),
+  uploadsLast14Days: zod.array(
+    zod.object({
+      day: zod.string().describe("YYYY-MM-DD"),
+      count: zod
+        .number()
+        .min(getAdminAnalyticsOverviewResponseUploadsLast14DaysItemCountMin),
+    }),
+  ),
+  generatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Per-course analytics for the course's lecturers (or admins)
+ */
+export const GetCourseAnalyticsParams = zod.object({
+  courseId: zod.coerce.string().uuid(),
+});
+
+export const getCourseAnalyticsResponseTotalsTotalDocumentsMin = 0;
+
+export const getCourseAnalyticsResponseTotalsPendingReviewCountMin = 0;
+
+export const getCourseAnalyticsResponseTotalsTotalCommentsMin = 0;
+
+export const getCourseAnalyticsResponseTotalsViewsThisWeekMin = 0;
+
+export const getCourseAnalyticsResponseTotalsViewsPriorWeekMin = 0;
+
+export const getCourseAnalyticsResponseTotalsDownloadsThisWeekMin = 0;
+
+export const getCourseAnalyticsResponseTotalsDownloadsPriorWeekMin = 0;
+
+export const getCourseAnalyticsResponseTotalsUploadsThisWeekMin = 0;
+
+export const getCourseAnalyticsResponseTopDocumentsByViewsItemCountMin = 0;
+
+export const getCourseAnalyticsResponseTopDocumentsByDownloadsItemCountMin = 0;
+
+export const getCourseAnalyticsResponseActiveUploadersItemUploadCountMin = 0;
+
+export const getCourseAnalyticsResponseUploadsLast14DaysItemCountMin = 0;
+
+export const GetCourseAnalyticsResponse = zod.object({
+  course: zod.object({
+    id: zod.string().uuid(),
+    code: zod.string(),
+    title: zod.string(),
+  }),
+  totals: zod.object({
+    totalDocuments: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsTotalDocumentsMin),
+    pendingReviewCount: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsPendingReviewCountMin),
+    totalComments: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsTotalCommentsMin),
+    viewsThisWeek: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsViewsThisWeekMin),
+    viewsPriorWeek: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsViewsPriorWeekMin),
+    downloadsThisWeek: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsDownloadsThisWeekMin),
+    downloadsPriorWeek: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsDownloadsPriorWeekMin),
+    uploadsThisWeek: zod
+      .number()
+      .min(getCourseAnalyticsResponseTotalsUploadsThisWeekMin),
+  }),
+  topDocumentsByViews: zod.array(
+    zod.object({
+      documentId: zod.string().uuid(),
+      title: zod.string(),
+      courseCode: zod.string().nullable(),
+      count: zod
+        .number()
+        .min(getCourseAnalyticsResponseTopDocumentsByViewsItemCountMin),
+    }),
+  ),
+  topDocumentsByDownloads: zod.array(
+    zod.object({
+      documentId: zod.string().uuid(),
+      title: zod.string(),
+      courseCode: zod.string().nullable(),
+      count: zod
+        .number()
+        .min(getCourseAnalyticsResponseTopDocumentsByDownloadsItemCountMin),
+    }),
+  ),
+  activeUploaders: zod.array(
+    zod.object({
+      userId: zod.string().uuid(),
+      displayName: zod.string(),
+      uploadCount: zod
+        .number()
+        .min(getCourseAnalyticsResponseActiveUploadersItemUploadCountMin),
+    }),
+  ),
+  uploadsLast14Days: zod.array(
+    zod.object({
+      day: zod.string().describe("YYYY-MM-DD"),
+      count: zod
+        .number()
+        .min(getCourseAnalyticsResponseUploadsLast14DaysItemCountMin),
+    }),
+  ),
+  generatedAt: zod.coerce.date(),
+});

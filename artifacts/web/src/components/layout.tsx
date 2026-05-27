@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useGetCurrentUser, useLogout, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
-import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BookOpen, Search, Upload, MessageSquare, Users, LogOut, Loader2, ShieldCheck, BarChart3, type LucideIcon } from "lucide-react";
 import { Logo } from "./logo";
 import { Button } from "./ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -56,6 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <NavLink href="/review-queue" icon={ShieldCheck}>Review</NavLink>
                 )}
                 {isAdmin && <NavLink href="/admin/users" icon={Users}>Admin</NavLink>}
+                {isAdmin && <NavLink href="/admin/analytics" icon={BarChart3}>Analytics</NavLink>}
               </nav>
             )}
           </div>

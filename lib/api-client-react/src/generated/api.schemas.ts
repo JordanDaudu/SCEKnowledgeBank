@@ -563,6 +563,93 @@ export interface NotificationMarkAllResponse {
   updated: number;
 }
 
+export interface AnalyticsTopDocument {
+  documentId: string;
+  title: string;
+  courseCode: string | null;
+  /** @minimum 0 */
+  count: number;
+}
+
+export interface AnalyticsActiveUploader {
+  userId: string;
+  displayName: string;
+  /** @minimum 0 */
+  uploadCount: number;
+}
+
+export interface AnalyticsDailyCount {
+  /** YYYY-MM-DD */
+  day: string;
+  /** @minimum 0 */
+  count: number;
+}
+
+export interface AnalyticsOverviewTotals {
+  /** @minimum 0 */
+  totalDocuments: number;
+  /** @minimum 0 */
+  totalUsers: number;
+  /** @minimum 0 */
+  totalComments: number;
+  /** @minimum 0 */
+  pendingReviewCount: number;
+  /** @minimum 0 */
+  viewsThisWeek: number;
+  /** @minimum 0 */
+  viewsPriorWeek: number;
+  /** @minimum 0 */
+  downloadsThisWeek: number;
+  /** @minimum 0 */
+  downloadsPriorWeek: number;
+  /** @minimum 0 */
+  uploadsThisWeek: number;
+}
+
+export interface AnalyticsCourseTotals {
+  /** @minimum 0 */
+  totalDocuments: number;
+  /** @minimum 0 */
+  pendingReviewCount: number;
+  /** @minimum 0 */
+  totalComments: number;
+  /** @minimum 0 */
+  viewsThisWeek: number;
+  /** @minimum 0 */
+  viewsPriorWeek: number;
+  /** @minimum 0 */
+  downloadsThisWeek: number;
+  /** @minimum 0 */
+  downloadsPriorWeek: number;
+  /** @minimum 0 */
+  uploadsThisWeek: number;
+}
+
+export interface AdminAnalyticsOverview {
+  totals: AnalyticsOverviewTotals;
+  topDocumentsByViews: AnalyticsTopDocument[];
+  topDocumentsByDownloads: AnalyticsTopDocument[];
+  activeUploaders: AnalyticsActiveUploader[];
+  uploadsLast14Days: AnalyticsDailyCount[];
+  generatedAt: string;
+}
+
+export interface AnalyticsCourseInfo {
+  id: string;
+  code: string;
+  title: string;
+}
+
+export interface CourseAnalytics {
+  course: AnalyticsCourseInfo;
+  totals: AnalyticsCourseTotals;
+  topDocumentsByViews: AnalyticsTopDocument[];
+  topDocumentsByDownloads: AnalyticsTopDocument[];
+  activeUploaders: AnalyticsActiveUploader[];
+  uploadsLast14Days: AnalyticsDailyCount[];
+  generatedAt: string;
+}
+
 export type ListDocumentsParams = {
   q?: string;
   courseId?: string;

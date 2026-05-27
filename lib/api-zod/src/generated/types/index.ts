@@ -6,6 +6,13 @@
  * OpenAPI spec version: 0.2.0
  */
 
+export * from "./adminAnalyticsOverview";
+export * from "./analyticsActiveUploader";
+export * from "./analyticsCourseInfo";
+export * from "./analyticsCourseTotals";
+export * from "./analyticsDailyCount";
+export * from "./analyticsOverviewTotals";
+export * from "./analyticsTopDocument";
 export * from "./apiError";
 export * from "./apiErrorError";
 export * from "./autocompleteCourseHit";
@@ -15,6 +22,7 @@ export * from "./category";
 export * from "./checkDuplicateDocumentParams";
 export * from "./comment";
 export * from "./course";
+export * from "./courseAnalytics";
 export * from "./createCommentRequest";
 export * from "./createRequestRequest";
 export * from "./currentUser";

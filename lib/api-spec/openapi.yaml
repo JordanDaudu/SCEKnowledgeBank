@@ -16,6 +16,7 @@ tags:
   - name: taxonomy
   - name: users
   - name: notifications
+  - name: analytics
 
 paths:
   /healthz:
@@ -951,6 +952,41 @@ paths:
               schema: { $ref: "#/components/schemas/NotificationMarkAllResponse" }
         "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
+  /admin/analytics/overview:
+    get:
+      operationId: getAdminAnalyticsOverview
+      tags: [analytics]
+      summary: Admin-only workspace analytics overview
+      description: >-
+        Workspace-wide totals plus leaderboards (top viewed, top
+        downloaded, most active uploaders) and a 14-day daily upload
+        series. Results are served from a short-lived in-memory cache.
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAnalyticsOverview" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /courses/{courseId}/analytics:
+    get:
+      operationId: getCourseAnalytics
+      tags: [analytics]
+      summary: Per-course analytics for the course's lecturers (or admins)
+      parameters:
+        - { in: path, name: courseId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Course analytics
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseAnalytics" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Course not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
 components:
   schemas:
     HealthStatus:
@@ -1616,3 +1652,131 @@ components:
       properties:
         updated: { type: integer, minimum: 0 }
 
+
+    AnalyticsTopDocument:
+      type: object
+      required: [documentId, title, courseCode, count]
+      properties:
+        documentId: { type: string, format: uuid }
+        title: { type: string }
+        courseCode: { type: string, nullable: true }
+        count: { type: integer, minimum: 0 }
+
+    AnalyticsActiveUploader:
+      type: object
+      required: [userId, displayName, uploadCount]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        uploadCount: { type: integer, minimum: 0 }
+
+    AnalyticsDailyCount:
+      type: object
+      required: [day, count]
+      properties:
+        day: { type: string, description: "YYYY-MM-DD" }
+        count: { type: integer, minimum: 0 }
+
+    AnalyticsOverviewTotals:
+      type: object
+      required:
+        - totalDocuments
+        - totalUsers
+        - totalComments
+        - pendingReviewCount
+        - viewsThisWeek
+        - viewsPriorWeek
+        - downloadsThisWeek
+        - downloadsPriorWeek
+        - uploadsThisWeek
+      properties:
+        totalDocuments:      { type: integer, minimum: 0 }
+        totalUsers:          { type: integer, minimum: 0 }
+        totalComments:       { type: integer, minimum: 0 }
+        pendingReviewCount:  { type: integer, minimum: 0 }
+        viewsThisWeek:       { type: integer, minimum: 0 }
+        viewsPriorWeek:      { type: integer, minimum: 0 }
+        downloadsThisWeek:   { type: integer, minimum: 0 }
+        downloadsPriorWeek:  { type: integer, minimum: 0 }
+        uploadsThisWeek:     { type: integer, minimum: 0 }
+
+    AnalyticsCourseTotals:
+      type: object
+      required:
+        - totalDocuments
+        - pendingReviewCount
+        - totalComments
+        - viewsThisWeek
+        - viewsPriorWeek
+        - downloadsThisWeek
+        - downloadsPriorWeek
+        - uploadsThisWeek
+      properties:
+        totalDocuments:      { type: integer, minimum: 0 }
+        pendingReviewCount:  { type: integer, minimum: 0 }
+        totalComments:       { type: integer, minimum: 0 }
+        viewsThisWeek:       { type: integer, minimum: 0 }
+        viewsPriorWeek:      { type: integer, minimum: 0 }
+        downloadsThisWeek:   { type: integer, minimum: 0 }
+        downloadsPriorWeek:  { type: integer, minimum: 0 }
+        uploadsThisWeek:     { type: integer, minimum: 0 }
+
+    AdminAnalyticsOverview:
+      type: object
+      required:
+        - totals
+        - topDocumentsByViews
+        - topDocumentsByDownloads
+        - activeUploaders
+        - uploadsLast14Days
+        - generatedAt
+      properties:
+        totals: { $ref: "#/components/schemas/AnalyticsOverviewTotals" }
+        topDocumentsByViews:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        topDocumentsByDownloads:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        activeUploaders:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsActiveUploader" }
+        uploadsLast14Days:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsDailyCount" }
+        generatedAt: { type: string, format: date-time }
+
+    AnalyticsCourseInfo:
+      type: object
+      required: [id, code, title]
+      properties:
+        id:    { type: string, format: uuid }
+        code:  { type: string }
+        title: { type: string }
+
+    CourseAnalytics:
+      type: object
+      required:
+        - course
+        - totals
+        - topDocumentsByViews
+        - topDocumentsByDownloads
+        - activeUploaders
+        - uploadsLast14Days
+        - generatedAt
+      properties:
+        course: { $ref: "#/components/schemas/AnalyticsCourseInfo" }
+        totals: { $ref: "#/components/schemas/AnalyticsCourseTotals" }
+        topDocumentsByViews:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        topDocumentsByDownloads:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        activeUploaders:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsActiveUploader" }
+        uploadsLast14Days:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsDailyCount" }
+        generatedAt: { type: string, format: date-time }

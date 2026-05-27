@@ -13,6 +13,8 @@ import Upload from "@/pages/upload";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
 import AdminUsers from "@/pages/admin-users";
+import AdminAnalytics from "@/pages/admin-analytics";
+import CourseAnalytics from "@/pages/course-analytics";
 import ReviewQueue from "@/pages/review-queue";
 import { FEATURE_REVIEW } from "@/lib/feature-flags";
 
@@ -106,6 +108,22 @@ function Router() {
         <AuthGuard requireRole="admin">
           <Layout>
             <AdminUsers />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/admin/analytics">
+        <AuthGuard requireRole="admin">
+          <Layout>
+            <AdminAnalytics />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/courses/:courseId/analytics">
+        <AuthGuard requireRole="lecturer">
+          <Layout>
+            <CourseAnalytics />
           </Layout>
         </AuthGuard>
       </Route>

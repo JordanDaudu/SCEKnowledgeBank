@@ -17,11 +17,13 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminAnalyticsOverview,
   ApiError,
   Category,
   CheckDuplicateDocumentParams,
   Comment,
   Course,
+  CourseAnalytics,
   CreateCommentRequest,
   CreateRequestRequest,
   CurrentUser,
@@ -4677,3 +4679,172 @@ export const useMarkAllNotificationsRead = <
 > => {
   return useMutation(getMarkAllNotificationsReadMutationOptions(options));
 };
+
+/**
+ * Workspace-wide totals plus leaderboards (top viewed, top downloaded, most active uploaders) and a 14-day daily upload series. Results are served from a short-lived in-memory cache.
+ * @summary Admin-only workspace analytics overview
+ */
+export const getGetAdminAnalyticsOverviewUrl = () => {
+  return `/api/admin/analytics/overview`;
+};
+
+export const getAdminAnalyticsOverview = async (
+  options?: RequestInit,
+): Promise<AdminAnalyticsOverview> => {
+  return customFetch<AdminAnalyticsOverview>(
+    getGetAdminAnalyticsOverviewUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminAnalyticsOverviewQueryKey = () => {
+  return [`/api/admin/analytics/overview`] as const;
+};
+
+export const getGetAdminAnalyticsOverviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminAnalyticsOverview>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminAnalyticsOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminAnalyticsOverviewQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminAnalyticsOverview>>
+  > = ({ signal }) => getAdminAnalyticsOverview({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminAnalyticsOverview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminAnalyticsOverviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminAnalyticsOverview>>
+>;
+export type GetAdminAnalyticsOverviewQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Admin-only workspace analytics overview
+ */
+
+export function useGetAdminAnalyticsOverview<
+  TData = Awaited<ReturnType<typeof getAdminAnalyticsOverview>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminAnalyticsOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminAnalyticsOverviewQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Per-course analytics for the course's lecturers (or admins)
+ */
+export const getGetCourseAnalyticsUrl = (courseId: string) => {
+  return `/api/courses/${courseId}/analytics`;
+};
+
+export const getCourseAnalytics = async (
+  courseId: string,
+  options?: RequestInit,
+): Promise<CourseAnalytics> => {
+  return customFetch<CourseAnalytics>(getGetCourseAnalyticsUrl(courseId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCourseAnalyticsQueryKey = (courseId: string) => {
+  return [`/api/courses/${courseId}/analytics`] as const;
+};
+
+export const getGetCourseAnalyticsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCourseAnalytics>>,
+  TError = ErrorType<ApiError>,
+>(
+  courseId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCourseAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCourseAnalyticsQueryKey(courseId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCourseAnalytics>>
+  > = ({ signal }) =>
+    getCourseAnalytics(courseId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!courseId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCourseAnalytics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCourseAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCourseAnalytics>>
+>;
+export type GetCourseAnalyticsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Per-course analytics for the course's lecturers (or admins)
+ */
+
+export function useGetCourseAnalytics<
+  TData = Awaited<ReturnType<typeof getCourseAnalytics>>,
+  TError = ErrorType<ApiError>,
+>(
+  courseId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCourseAnalytics>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCourseAnalyticsQueryOptions(courseId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

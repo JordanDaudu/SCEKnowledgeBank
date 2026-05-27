@@ -115,6 +115,7 @@ All demo users share the password `Demo1234!`.
 - Material requests board with voting (toggle). Status changes (e.g. fulfill) are open to the request author, lecturers, and admins; editing the request title/description is restricted to the author or an admin. RBAC is enforced server-side in `requests.service.updateRequest`.
 - Document versions panel on the detail page: lists every version (newest first) with uploader + change note, "Upload new version" for the doc's editor, and "Restore" on older versions. Restoring promotes the old blob to a new version row (history preserved) without re-billing the uploader's quota.
 - Admin: user list with role management.
+- Analytics (Sprint-3 M5): admins get a workspace overview at `/admin/analytics` (totals, week-over-week views and downloads, top-viewed / top-downloaded docs over 30 days, active uploaders this week, 14-day daily upload chart, pending-review backlog). Lecturers get the same shape scoped to a course they teach at `/courses/:courseId/analytics`. Both are read-only, cached in-process for ~30s, and gated by `analytics.service` via the central `permissions.service` (students get 403).
 
 ## User preferences
 
