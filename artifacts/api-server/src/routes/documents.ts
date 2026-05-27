@@ -58,6 +58,10 @@ const UploadBodySchema = z.object({
     .union([z.string().uuid(), z.array(z.string().uuid())])
     .transform((v) => (Array.isArray(v) ? v : [v]))
     .optional(),
+  // Sprint-3 M2: uploaders may choose to land a new doc as `draft` so
+  // they can then move it through submit-for-review → approve/reject.
+  // Default stays `published` to preserve legacy upload UX.
+  status: z.enum(["draft", "published"]).optional(),
 });
 
 const router: IRouter = Router();
@@ -152,6 +156,7 @@ router.post(
       if (body.semester) input.semester = body.semester;
       if (body.academicYear != null) input.academicYear = body.academicYear;
       if (body.title) input.titleOverride = body.title;
+      if (body.status) input.status = body.status;
 
       const results = await documentsService.uploadDocuments(
         input,

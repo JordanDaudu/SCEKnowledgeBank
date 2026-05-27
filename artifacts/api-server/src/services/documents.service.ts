@@ -740,6 +740,10 @@ export interface UploadInput {
   titleOverride?: string;
   description: string;
   tagIds: string[];
+  // Sprint-3 M2: when set to "draft", the doc lands in `draft` so the
+  // uploader can submit it for review via the M2 endpoint. Defaults to
+  // "published" to preserve the legacy "upload-and-publish" flow.
+  status?: "draft" | "published";
 }
 
 export interface UploadResultEntry {
@@ -948,7 +952,7 @@ export async function uploadDocuments(
         description: input.description,
         materialType: input.materialType,
         visibility: input.visibility,
-        status: "published",
+        status: input.status ?? "published",
         uploaderId: user.id,
         ownerId: user.id,
         createdBy: user.id,
