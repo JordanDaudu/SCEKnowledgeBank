@@ -324,7 +324,7 @@ describe("updateRequest RBAC", () => {
 
   it("allows an admin to update any request", async () => {
     findAliveById.mockResolvedValue(makeRequest({ requestedBy: "someone" }));
-    await updateRequest("r1", { status: "rejected" }, admin);
+    await updateRequest("r1", { status: "closed" }, admin);
     expect(updateById).toHaveBeenCalled();
   });
 

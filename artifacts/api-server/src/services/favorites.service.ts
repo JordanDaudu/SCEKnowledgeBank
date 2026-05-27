@@ -1,5 +1,6 @@
 import * as favoritesRepo from "../repositories/favorites.repo";
 import * as docsRepo from "../repositories/documents.repo";
+import * as enrollmentsRepo from "../repositories/enrollments.repo";
 import * as documentsService from "./documents.service";
 import * as permissions from "./permissions.service";
 import { forbidden, notFound } from "../lib/errors";
@@ -77,9 +78,44 @@ export async function recipientsForDocumentActivity(
   documentId: string,
   excludeUserIds: Iterable<string>,
 ): Promise<string[]> {
+  const doc = await docsRepo.findByIdAlive(documentId);
+  if (!doc) return [];
   const subscribers = await favoritesRepo.listSubscribersForDocument(
     documentId,
   );
   const exclude = new Set(excludeUserIds);
-  return subscribers.filter((uid) => !exclude.has(uid));
+  const candidates = subscribers.filter((uid) => !exclude.has(uid));
+  if (candidates.length === 0) return [];
+
+  // Re-validate visibility on the producer side. Favorite rows survive
+  // access revocation (so a user can still unsubscribe), so we must
+  // never blindly fan out activity content to them. Mirror the same
+  // rules permissions.canView enforces for a viewer:
+  //   - public    → anyone
+  //   - private   → uploader/owner only
+  //   - restricted→ users currently enrolled in the doc's course
+  // Documents hidden by the review workflow are also filtered out:
+  // only the uploader/owner sees pre-approval activity.
+  const reviewHidden = isReviewHiddenStatus(doc.status);
+  const ownerAllowed = (uid: string) =>
+    uid === doc.uploaderId || uid === doc.ownerId;
+
+  if (reviewHidden) return candidates.filter(ownerAllowed);
+  if (doc.visibility === "private") return candidates.filter(ownerAllowed);
+  if (doc.visibility === "public") return candidates;
+  if (doc.visibility === "restricted") {
+    if (!doc.courseId) return candidates.filter(ownerAllowed);
+    const enrolled = new Set(
+      await enrollmentsRepo.findEnrolledUserIds(doc.courseId, candidates),
+    );
+    return candidates.filter((uid) => ownerAllowed(uid) || enrolled.has(uid));
+  }
+  return [];
+}
+
+// Mirrors permissions.isReviewHidden without pulling the whole module
+// graph (which would otherwise create an import cycle through
+// documents.service for the producer code path).
+function isReviewHiddenStatus(status: string | null | undefined): boolean {
+  return status === "pending_review" || status === "rejected";
 }

@@ -11,6 +11,9 @@ vi.mock("../repositories/documents.repo", () => ({
   findByIdAlive: vi.fn(),
   findManyByIdsAlive: vi.fn(),
 }));
+vi.mock("../repositories/enrollments.repo", () => ({
+  findEnrolledUserIds: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("./documents.service", () => ({
   assembleDocuments: vi.fn(),
 }));
@@ -18,6 +21,7 @@ vi.mock("./permissions.service", () => ({ canView: vi.fn() }));
 
 import * as favoritesRepo from "../repositories/favorites.repo";
 import * as docsRepo from "../repositories/documents.repo";
+import * as enrollmentsRepo from "../repositories/enrollments.repo";
 import * as documentsService from "./documents.service";
 import * as permissions from "./permissions.service";
 import {
@@ -103,9 +107,55 @@ describe("favorites.service", () => {
     expect(findMany).not.toHaveBeenCalled();
   });
 
-  it("recipientsForDocumentActivity excludes the actor + reply/mention set", async () => {
+  it("recipientsForDocumentActivity excludes the actor + reply/mention set (public doc)", async () => {
+    findDoc.mockResolvedValue({
+      id: "d1",
+      visibility: "public",
+      status: "approved",
+      uploaderId: "owner",
+      ownerId: "owner",
+      courseId: null,
+    } as never);
     listSubs.mockResolvedValue(["u1", "u2", "u3", "u4"]);
     const out = await recipientsForDocumentActivity("d1", ["u1", "u3"]);
     expect(out).toEqual(["u2", "u4"]);
+  });
+
+  it("recipientsForDocumentActivity drops restricted-doc subscribers no longer enrolled", async () => {
+    findDoc.mockResolvedValue({
+      id: "d1",
+      visibility: "restricted",
+      status: "approved",
+      uploaderId: "owner",
+      ownerId: "owner",
+      courseId: "course-1",
+    } as never);
+    listSubs.mockResolvedValue(["enrolled", "revoked", "owner"]);
+    vi.mocked(enrollmentsRepo.findEnrolledUserIds).mockResolvedValue([
+      "enrolled",
+    ]);
+    const out = await recipientsForDocumentActivity("d1", []);
+    expect(out.sort()).toEqual(["enrolled", "owner"]);
+  });
+
+  it("recipientsForDocumentActivity keeps only uploader/owner on a private doc", async () => {
+    findDoc.mockResolvedValue({
+      id: "d1",
+      visibility: "private",
+      status: "approved",
+      uploaderId: "owner",
+      ownerId: "owner",
+      courseId: null,
+    } as never);
+    listSubs.mockResolvedValue(["owner", "other"]);
+    const out = await recipientsForDocumentActivity("d1", []);
+    expect(out).toEqual(["owner"]);
+  });
+
+  it("recipientsForDocumentActivity returns [] when the document is gone", async () => {
+    findDoc.mockResolvedValue(null);
+    listSubs.mockResolvedValue(["u1"]);
+    const out = await recipientsForDocumentActivity("d1", []);
+    expect(out).toEqual([]);
   });
 });
