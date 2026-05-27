@@ -93,57 +93,36 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
     <div className="space-y-2" data-testid="facet-chips">
       {sections
         .filter((s) => s.chips.length > 0)
-        .map((s) => {
-          // Status is shown for situational awareness only on the browse
-          // page — status filtering lives in the review queue, so the
-          // chips render as flat pills (no button semantics, no hover
-          // affordance) to avoid promising an interaction we don't honour.
-          const interactive = s.dim !== "status";
-          return (
-            <div key={s.dim} className="flex items-start gap-2 text-xs">
-              <span className="font-medium text-muted-foreground shrink-0 mt-0.5 w-16">
-                {s.title}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {s.chips.slice(0, 12).map((c) => {
-                  const isActive = interactive && active[s.dim] === c.value;
-                  const inner = (
+        .map((s) => (
+          <div key={s.dim} className="flex items-start gap-2 text-xs">
+            <span className="font-medium text-muted-foreground shrink-0 mt-0.5 w-16">
+              {s.title}
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {s.chips.slice(0, 12).map((c) => {
+                const isActive = active[s.dim] === c.value;
+                return (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => onPick(s.dim, c.value)}
+                    data-testid={`facet-${s.dim}-${c.value}`}
+                  >
                     <Badge
                       variant={isActive ? "default" : "outline"}
-                      className={
-                        interactive
-                          ? "capitalize cursor-pointer hover-elevate"
-                          : "capitalize"
-                      }
+                      className="capitalize cursor-pointer hover-elevate"
                     >
                       {c.label}
                       <span className="ml-1.5 text-[10px] opacity-70">
                         {c.count}
                       </span>
                     </Badge>
-                  );
-                  return interactive ? (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => onPick(s.dim, c.value)}
-                      data-testid={`facet-${s.dim}-${c.value}`}
-                    >
-                      {inner}
-                    </button>
-                  ) : (
-                    <span
-                      key={c.value}
-                      data-testid={`facet-${s.dim}-${c.value}`}
-                    >
-                      {inner}
-                    </span>
-                  );
-                })}
-              </div>
+                  </button>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
     </div>
   );
 }

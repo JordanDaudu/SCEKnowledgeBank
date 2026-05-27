@@ -62,6 +62,7 @@ export default function Browse() {
   const [materialType, setMaterialType] = useState<string>(initialParams.get("materialType") ?? "all");
   const [tagIds, setTagIds] = useState<string[]>(initialParams.getAll("tagIds"));
   const [uploaderId, setUploaderId] = useState<string>(initialParams.get("uploaderId") ?? "");
+  const [status, setStatus] = useState<string>(initialParams.get("status") ?? "");
   const [dateFrom, setDateFrom] = useState<string>(initialParams.get("dateFrom") ?? "");
   const [dateTo, setDateTo] = useState<string>(initialParams.get("dateTo") ?? "");
   const [sort, setSort] = useState<Sort>(((initialParams.get("sort") as Sort) || "newest") as Sort);
@@ -85,6 +86,7 @@ export default function Browse() {
     setMaterialType(p.get("materialType") ?? "all");
     setTagIds(p.getAll("tagIds"));
     setUploaderId(p.get("uploaderId") ?? "");
+    setStatus(p.get("status") ?? "");
     setDateFrom(p.get("dateFrom") ?? "");
     setDateTo(p.get("dateTo") ?? "");
     setSort(((p.get("sort") as Sort) || "newest") as Sort);
@@ -115,7 +117,7 @@ export default function Browse() {
     setPage(1);
   }, [
     debouncedQuery, debouncedLecturer, courseId, semester, academicYear,
-    categoryId, materialType, tagIdsKey, uploaderId, dateFrom, dateTo, sort,
+    categoryId, materialType, tagIdsKey, uploaderId, status, dateFrom, dateTo, sort,
   ]);
 
   // Rebuild the tagIds array from the canonical primitive key so
@@ -139,6 +141,7 @@ export default function Browse() {
       materialType: materialType !== "all" ? materialType : undefined,
       tagIds: tagIdsStable.length > 0 ? tagIdsStable : undefined,
       uploaderId: uploaderId || undefined,
+      status: status || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       sort: sort !== "newest" ? sort : undefined,
@@ -146,7 +149,7 @@ export default function Browse() {
     }),
     [
       debouncedQuery, courseId, debouncedLecturer, semester, academicYear,
-      categoryId, materialType, tagIdsStable, uploaderId, dateFrom, dateTo, sort, page,
+      categoryId, materialType, tagIdsStable, uploaderId, status, dateFrom, dateTo, sort, page,
     ],
   );
   useQueryStateSync(urlState);
@@ -168,6 +171,7 @@ export default function Browse() {
       materialType: materialType !== "all" ? materialType : undefined,
       tagIds: tagIdsStable.length > 0 ? tagIdsStable : undefined,
       uploaderId: uploaderId || undefined,
+      status: status || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       sort,
@@ -176,7 +180,7 @@ export default function Browse() {
     }),
     [
       debouncedQuery, courseId, debouncedLecturer, semester, academicYear,
-      categoryId, materialType, tagIdsStable, uploaderId, dateFrom, dateTo, sort, page,
+      categoryId, materialType, tagIdsStable, uploaderId, status, dateFrom, dateTo, sort, page,
     ],
   );
 
@@ -222,6 +226,7 @@ export default function Browse() {
     (materialType !== "all" ? 1 : 0) +
     tagIds.length +
     (uploaderId ? 1 : 0) +
+    (status ? 1 : 0) +
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0);
 
@@ -235,6 +240,7 @@ export default function Browse() {
     setMaterialType("all");
     setTagIds([]);
     setUploaderId("");
+    setStatus("");
     setDateFrom("");
     setDateTo("");
     setSort("newest");
@@ -315,6 +321,7 @@ export default function Browse() {
             courseId: courseId !== "all" ? courseId : undefined,
             materialType: materialType !== "all" ? materialType : undefined,
             semester: semester || undefined,
+            status: status || undefined,
             uploaderId: uploaderId || undefined,
           }}
           onPick={(dim: FacetDim, value: string) => {
@@ -334,9 +341,7 @@ export default function Browse() {
                 setUploaderId(uploaderId === value ? "" : value);
                 break;
               case "status":
-                // Status chips are rendered non-interactive by FacetChips
-                // (informational only) — this branch is unreachable but
-                // kept for switch exhaustiveness.
+                setStatus(status === value ? "" : value);
                 break;
             }
           }}
