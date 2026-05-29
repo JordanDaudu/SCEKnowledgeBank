@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../middlewares/auth";
 import * as collectionsService from "../services/collections.service";
 import * as studyProgressService from "../services/studyProgress.service";
+import * as recommendationsService from "../services/recommendations.service";
 
 const router: IRouter = Router();
 
@@ -145,6 +146,14 @@ router.put("/documents/:id/progress", requireAuth, async (req, res, next) => {
 router.get("/me/continue-studying", requireAuth, async (req, res, next) => {
   try {
     res.json(await studyProgressService.listInProgress(req.authUser!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/me/recommendations", requireAuth, async (req, res, next) => {
+  try {
+    res.json(await recommendationsService.getRecommendations(req.authUser!));
   } catch (err) {
     next(err);
   }

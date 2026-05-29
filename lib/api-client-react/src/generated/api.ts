@@ -6311,3 +6311,78 @@ export function useListContinueStudying<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Recommended documents for the current user (Phase 2 ranking)
+ */
+export const getListRecommendationsUrl = () => {
+  return `/api/me/recommendations`;
+};
+
+export const listRecommendations = async (
+  options?: RequestInit,
+): Promise<Document[]> => {
+  return customFetch<Document[]>(getListRecommendationsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListRecommendationsQueryKey = () => {
+  return [`/api/me/recommendations`] as const;
+};
+
+export const getListRecommendationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRecommendations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listRecommendations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListRecommendationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRecommendations>>
+  > = ({ signal }) => listRecommendations({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRecommendations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRecommendationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRecommendations>>
+>;
+export type ListRecommendationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Recommended documents for the current user (Phase 2 ranking)
+ */
+
+export function useListRecommendations<
+  TData = Awaited<ReturnType<typeof listRecommendations>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listRecommendations>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRecommendationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

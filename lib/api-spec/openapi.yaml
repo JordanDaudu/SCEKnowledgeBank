@@ -1246,6 +1246,17 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/Document" } }
+  /me/recommendations:
+    get:
+      operationId: listRecommendations
+      tags: [collections]
+      summary: Recommended documents for the current user (Phase 2 ranking)
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Document" } }
 
 components:
   schemas:

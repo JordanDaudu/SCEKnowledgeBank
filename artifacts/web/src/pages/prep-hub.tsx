@@ -10,6 +10,8 @@ import {
   getListMyFavoritesQueryKey,
   useListRecentDocuments,
   getListRecentDocumentsQueryKey,
+  useListRecommendations,
+  getListRecommendationsQueryKey,
   type Document,
   type StudyCollectionSummary,
 } from "@workspace/api-client-react";
@@ -43,6 +45,7 @@ import {
   Heart,
   Clock,
   FolderOpen,
+  Sparkles,
 } from "lucide-react";
 
 const KIND_LABEL: Record<string, string> = {
@@ -176,8 +179,12 @@ export default function PrepHub() {
   const { data: recent } = useListRecentDocuments(recentParams, {
     query: { queryKey: getListRecentDocumentsQueryKey(recentParams), staleTime: 30_000 },
   });
+  const { data: recommended } = useListRecommendations({
+    query: { queryKey: getListRecommendationsQueryKey(), staleTime: 60_000 },
+  });
 
   const hasQuickAccess =
+    (recommended?.length ?? 0) > 0 ||
     (continueDocs?.length ?? 0) > 0 ||
     (favorites?.length ?? 0) > 0 ||
     (recent?.length ?? 0) > 0;
@@ -202,6 +209,7 @@ export default function PrepHub() {
       {/* Quick Access */}
       {hasQuickAccess && (
         <section className="space-y-4" aria-label="Quick access">
+          <QuickLane title="Recommended for you" icon={Sparkles} docs={recommended} />
           <QuickLane title="Continue studying" icon={PlayCircle} docs={continueDocs} />
           <QuickLane title="Saved" icon={Heart} docs={favorites} />
           <QuickLane title="Recently viewed" icon={Clock} docs={recent} />

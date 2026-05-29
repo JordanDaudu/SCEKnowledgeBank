@@ -468,6 +468,52 @@ export async function listDocumentsRanked(
   return docs;
 }
 
+/**
+ * Refinement Phase 6d: recommendations. Top-scored, currently-active
+ * (published/approved) documents the user can see, optionally narrowed to a
+ * set of "interest" courses and excluding documents they've already engaged
+ * with. Ordered by the same base score used for relevance ranking, so
+ * recommendations reuse the Phase 2 engine rather than a parallel heuristic.
+ */
+export async function recommendDocuments(
+  visibilitySql: Prisma.Sql,
+  opts: { courseIds?: string[]; excludeIds?: string[]; limit: number },
+): Promise<DocumentRow[]> {
+  const parts: Prisma.Sql[] = [
+    Prisma.sql`d.deleted_at IS NULL`,
+    Prisma.sql`d.status IN ('published', 'approved')`,
+    visibilitySql,
+  ];
+  if (opts.courseIds && opts.courseIds.length > 0) {
+    parts.push(
+      Prisma.sql`d.course_id IN (${Prisma.join(
+        opts.courseIds.map((id) => Prisma.sql`${id}::uuid`),
+      )})`,
+    );
+  }
+  if (opts.excludeIds && opts.excludeIds.length > 0) {
+    parts.push(
+      Prisma.sql`d.id NOT IN (${Prisma.join(
+        opts.excludeIds.map((id) => Prisma.sql`${id}::uuid`),
+      )})`,
+    );
+  }
+  const where = Prisma.join(parts, " AND ");
+  const idRows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT d.id
+    FROM documents d
+    WHERE ${where}
+    ORDER BY ${baseScoreSql()} DESC, d.created_at DESC
+    LIMIT ${opts.limit}
+  `;
+  if (idRows.length === 0) return [];
+  const ids = idRows.map((r) => r.id);
+  const docs = await db.document.findMany({ where: { id: { in: ids } } });
+  const order = new Map(ids.map((id, i) => [id, i]));
+  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return docs;
+}
+
 export async function countSearchDocuments(
   q: string,
   filters: DocumentListFilters,
