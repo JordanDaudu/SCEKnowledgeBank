@@ -18,6 +18,7 @@ import type {
 
 import type {
   ActivityPage,
+  AddCollectionItemRequest,
   AdminAnalyticsOverview,
   ApiError,
   BulkDocumentActionRequest,
@@ -28,6 +29,7 @@ import type {
   CommentReaction,
   Course,
   CourseAnalytics,
+  CreateCollectionRequest,
   CreateCommentRequest,
   CreateRequestRequest,
   CurrentUser,
@@ -55,6 +57,7 @@ import type {
   RegisterRequest,
   RegisterResponse,
   RejectDocumentRequest,
+  ReorderCollectionRequest,
   SearchAutocomplete,
   SearchAutocompleteParams,
   SearchDocumentsFacetsParams,
@@ -62,11 +65,17 @@ import type {
   SearchFacets,
   SearchPage,
   SearchUsersParams,
+  SetItemNoteRequest,
+  SetProgressRequest,
   SignedTokenResponse,
   StorageQuota,
+  StudyCollectionDetail,
+  StudyCollectionSummary,
+  StudyProgressResponse,
   SuggestDocumentMetadataBody,
   SuggestMetadataResponse,
   Tag,
+  UpdateCollectionRequest,
   UpdateCommentRequest,
   UpdateDocumentRequest,
   UpdateRequestRequest,
@@ -5397,6 +5406,904 @@ export function useListActivity<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListActivityQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List the current user's study collections
+ */
+export const getListMyCollectionsUrl = () => {
+  return `/api/collections`;
+};
+
+export const listMyCollections = async (
+  options?: RequestInit,
+): Promise<StudyCollectionSummary[]> => {
+  return customFetch<StudyCollectionSummary[]>(getListMyCollectionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyCollectionsQueryKey = () => {
+  return [`/api/collections`] as const;
+};
+
+export const getListMyCollectionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyCollectionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyCollections>>
+  > = ({ signal }) => listMyCollections({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCollections>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyCollectionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyCollections>>
+>;
+export type ListMyCollectionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the current user's study collections
+ */
+
+export function useListMyCollections<
+  TData = Awaited<ReturnType<typeof listMyCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyCollectionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a study collection
+ */
+export const getCreateCollectionUrl = () => {
+  return `/api/collections`;
+};
+
+export const createCollection = async (
+  createCollectionRequest: CreateCollectionRequest,
+  options?: RequestInit,
+): Promise<StudyCollectionSummary> => {
+  return customFetch<StudyCollectionSummary>(getCreateCollectionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCollectionRequest),
+  });
+};
+
+export const getCreateCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCollection>>,
+    TError,
+    { data: BodyType<CreateCollectionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCollection>>,
+  TError,
+  { data: BodyType<CreateCollectionRequest> },
+  TContext
+> => {
+  const mutationKey = ["createCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCollection>>,
+    { data: BodyType<CreateCollectionRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCollection(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCollection>>
+>;
+export type CreateCollectionMutationBody = BodyType<CreateCollectionRequest>;
+export type CreateCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a study collection
+ */
+export const useCreateCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCollection>>,
+    TError,
+    { data: BodyType<CreateCollectionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCollection>>,
+  TError,
+  { data: BodyType<CreateCollectionRequest> },
+  TContext
+> => {
+  return useMutation(getCreateCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Get a collection with its ordered items
+ */
+export const getGetCollectionUrl = (id: string) => {
+  return `/api/collections/${id}`;
+};
+
+export const getCollection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getGetCollectionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCollectionQueryKey = (id: string) => {
+  return [`/api/collections/${id}`] as const;
+};
+
+export const getGetCollectionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCollection>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCollection>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCollectionQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCollection>>> = ({
+    signal,
+  }) => getCollection(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCollection>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCollectionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCollection>>
+>;
+export type GetCollectionQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a collection with its ordered items
+ */
+
+export function useGetCollection<
+  TData = Awaited<ReturnType<typeof getCollection>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getCollection>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCollectionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getUpdateCollectionUrl = (id: string) => {
+  return `/api/collections/${id}`;
+};
+
+export const updateCollection = async (
+  id: string,
+  updateCollectionRequest: UpdateCollectionRequest,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getUpdateCollectionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCollectionRequest),
+  });
+};
+
+export const getUpdateCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCollection>>,
+    TError,
+    { id: string; data: BodyType<UpdateCollectionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCollection>>,
+  TError,
+  { id: string; data: BodyType<UpdateCollectionRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCollection>>,
+    { id: string; data: BodyType<UpdateCollectionRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateCollection(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCollection>>
+>;
+export type UpdateCollectionMutationBody = BodyType<UpdateCollectionRequest>;
+export type UpdateCollectionMutationError = ErrorType<unknown>;
+
+export const useUpdateCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCollection>>,
+    TError,
+    { id: string; data: BodyType<UpdateCollectionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCollection>>,
+  TError,
+  { id: string; data: BodyType<UpdateCollectionRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateCollectionMutationOptions(options));
+};
+
+export const getDeleteCollectionUrl = (id: string) => {
+  return `/api/collections/${id}`;
+};
+
+export const deleteCollection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCollectionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["deleteCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCollection>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteCollection(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCollection>>
+>;
+
+export type DeleteCollectionMutationError = ErrorType<unknown>;
+
+export const useDeleteCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDeleteCollectionMutationOptions(options));
+};
+
+export const getAddCollectionItemUrl = (id: string) => {
+  return `/api/collections/${id}/items`;
+};
+
+export const addCollectionItem = async (
+  id: string,
+  addCollectionItemRequest: AddCollectionItemRequest,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getAddCollectionItemUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addCollectionItemRequest),
+  });
+};
+
+export const getAddCollectionItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addCollectionItem>>,
+    TError,
+    { id: string; data: BodyType<AddCollectionItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addCollectionItem>>,
+  TError,
+  { id: string; data: BodyType<AddCollectionItemRequest> },
+  TContext
+> => {
+  const mutationKey = ["addCollectionItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addCollectionItem>>,
+    { id: string; data: BodyType<AddCollectionItemRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addCollectionItem(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddCollectionItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addCollectionItem>>
+>;
+export type AddCollectionItemMutationBody = BodyType<AddCollectionItemRequest>;
+export type AddCollectionItemMutationError = ErrorType<unknown>;
+
+export const useAddCollectionItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addCollectionItem>>,
+    TError,
+    { id: string; data: BodyType<AddCollectionItemRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addCollectionItem>>,
+  TError,
+  { id: string; data: BodyType<AddCollectionItemRequest> },
+  TContext
+> => {
+  return useMutation(getAddCollectionItemMutationOptions(options));
+};
+
+export const getSetCollectionItemNoteUrl = (id: string, documentId: string) => {
+  return `/api/collections/${id}/items/${documentId}`;
+};
+
+export const setCollectionItemNote = async (
+  id: string,
+  documentId: string,
+  setItemNoteRequest: SetItemNoteRequest,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(
+    getSetCollectionItemNoteUrl(id, documentId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(setItemNoteRequest),
+    },
+  );
+};
+
+export const getSetCollectionItemNoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCollectionItemNote>>,
+    TError,
+    { id: string; documentId: string; data: BodyType<SetItemNoteRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setCollectionItemNote>>,
+  TError,
+  { id: string; documentId: string; data: BodyType<SetItemNoteRequest> },
+  TContext
+> => {
+  const mutationKey = ["setCollectionItemNote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setCollectionItemNote>>,
+    { id: string; documentId: string; data: BodyType<SetItemNoteRequest> }
+  > = (props) => {
+    const { id, documentId, data } = props ?? {};
+
+    return setCollectionItemNote(id, documentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetCollectionItemNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setCollectionItemNote>>
+>;
+export type SetCollectionItemNoteMutationBody = BodyType<SetItemNoteRequest>;
+export type SetCollectionItemNoteMutationError = ErrorType<unknown>;
+
+export const useSetCollectionItemNote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCollectionItemNote>>,
+    TError,
+    { id: string; documentId: string; data: BodyType<SetItemNoteRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setCollectionItemNote>>,
+  TError,
+  { id: string; documentId: string; data: BodyType<SetItemNoteRequest> },
+  TContext
+> => {
+  return useMutation(getSetCollectionItemNoteMutationOptions(options));
+};
+
+export const getRemoveCollectionItemUrl = (id: string, documentId: string) => {
+  return `/api/collections/${id}/items/${documentId}`;
+};
+
+export const removeCollectionItem = async (
+  id: string,
+  documentId: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(
+    getRemoveCollectionItemUrl(id, documentId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getRemoveCollectionItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeCollectionItem>>,
+    TError,
+    { id: string; documentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeCollectionItem>>,
+  TError,
+  { id: string; documentId: string },
+  TContext
+> => {
+  const mutationKey = ["removeCollectionItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeCollectionItem>>,
+    { id: string; documentId: string }
+  > = (props) => {
+    const { id, documentId } = props ?? {};
+
+    return removeCollectionItem(id, documentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveCollectionItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeCollectionItem>>
+>;
+
+export type RemoveCollectionItemMutationError = ErrorType<unknown>;
+
+export const useRemoveCollectionItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeCollectionItem>>,
+    TError,
+    { id: string; documentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeCollectionItem>>,
+  TError,
+  { id: string; documentId: string },
+  TContext
+> => {
+  return useMutation(getRemoveCollectionItemMutationOptions(options));
+};
+
+export const getReorderCollectionUrl = (id: string) => {
+  return `/api/collections/${id}/order`;
+};
+
+export const reorderCollection = async (
+  id: string,
+  reorderCollectionRequest: ReorderCollectionRequest,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getReorderCollectionUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderCollectionRequest),
+  });
+};
+
+export const getReorderCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderCollection>>,
+    TError,
+    { id: string; data: BodyType<ReorderCollectionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderCollection>>,
+  TError,
+  { id: string; data: BodyType<ReorderCollectionRequest> },
+  TContext
+> => {
+  const mutationKey = ["reorderCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderCollection>>,
+    { id: string; data: BodyType<ReorderCollectionRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return reorderCollection(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderCollection>>
+>;
+export type ReorderCollectionMutationBody = BodyType<ReorderCollectionRequest>;
+export type ReorderCollectionMutationError = ErrorType<unknown>;
+
+export const useReorderCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderCollection>>,
+    TError,
+    { id: string; data: BodyType<ReorderCollectionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderCollection>>,
+  TError,
+  { id: string; data: BodyType<ReorderCollectionRequest> },
+  TContext
+> => {
+  return useMutation(getReorderCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Set the current user's study progress on a document
+ */
+export const getSetDocumentProgressUrl = (id: string) => {
+  return `/api/documents/${id}/progress`;
+};
+
+export const setDocumentProgress = async (
+  id: string,
+  setProgressRequest: SetProgressRequest,
+  options?: RequestInit,
+): Promise<StudyProgressResponse> => {
+  return customFetch<StudyProgressResponse>(getSetDocumentProgressUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setProgressRequest),
+  });
+};
+
+export const getSetDocumentProgressMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setDocumentProgress>>,
+    TError,
+    { id: string; data: BodyType<SetProgressRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setDocumentProgress>>,
+  TError,
+  { id: string; data: BodyType<SetProgressRequest> },
+  TContext
+> => {
+  const mutationKey = ["setDocumentProgress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setDocumentProgress>>,
+    { id: string; data: BodyType<SetProgressRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return setDocumentProgress(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetDocumentProgressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setDocumentProgress>>
+>;
+export type SetDocumentProgressMutationBody = BodyType<SetProgressRequest>;
+export type SetDocumentProgressMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set the current user's study progress on a document
+ */
+export const useSetDocumentProgress = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setDocumentProgress>>,
+    TError,
+    { id: string; data: BodyType<SetProgressRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setDocumentProgress>>,
+  TError,
+  { id: string; data: BodyType<SetProgressRequest> },
+  TContext
+> => {
+  return useMutation(getSetDocumentProgressMutationOptions(options));
+};
+
+/**
+ * @summary Documents the current user is currently reviewing
+ */
+export const getListContinueStudyingUrl = () => {
+  return `/api/me/continue-studying`;
+};
+
+export const listContinueStudying = async (
+  options?: RequestInit,
+): Promise<Document[]> => {
+  return customFetch<Document[]>(getListContinueStudyingUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListContinueStudyingQueryKey = () => {
+  return [`/api/me/continue-studying`] as const;
+};
+
+export const getListContinueStudyingQueryOptions = <
+  TData = Awaited<ReturnType<typeof listContinueStudying>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listContinueStudying>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListContinueStudyingQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listContinueStudying>>
+  > = ({ signal }) => listContinueStudying({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listContinueStudying>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListContinueStudyingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listContinueStudying>>
+>;
+export type ListContinueStudyingQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Documents the current user is currently reviewing
+ */
+
+export function useListContinueStudying<
+  TData = Awaited<ReturnType<typeof listContinueStudying>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listContinueStudying>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListContinueStudyingQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

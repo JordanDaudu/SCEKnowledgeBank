@@ -82,6 +82,8 @@ model User {
   notificationsActed    Notification[]    @relation("NotificationActor")
   commentReactions      CommentReaction[] @relation("CommentReactionUser")
   documentFavorites     DocumentFavorite[]
+  studyCollections      StudyCollection[]
+  studyProgress         StudyProgress[]
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
   @@map("users")
@@ -137,6 +139,7 @@ model Course {
   documents   Document[]
   requests    MaterialRequest[]
   enrollments CourseEnrollment[]
+  studyCollections StudyCollection[]
 
   @@unique([code], map: "courses_code_unique")
   @@index([lecturerName], map: "courses_lecturer_name_idx")
@@ -246,6 +249,8 @@ model Document {
   views             MaterialViewHistory[]
   requestsFulfilled MaterialRequest[]     @relation("FulfillingDocument")
   favorites         DocumentFavorite[]
+  collectionItems   StudyCollectionItem[]
+  studyProgress     StudyProgress[]
 
   @@index([courseId], map: "documents_course_idx")
   @@index([categoryId], map: "documents_category_idx")
@@ -550,4 +555,72 @@ model Session {
 
   @@index([expire], map: "session_expire_idx")
   @@map("session")
+}
+
+// ─── Prep Hub: study collections & progress (Refinement Phase 6) ───
+//
+// A collection is a user-owned (or, for learning paths, lecturer/admin
+// curated) ordered grouping of existing documents. Items only reference
+// documents by FK — no document content is duplicated. Learning paths reuse
+// this model via `kind='learning_path'` + `isOfficial=true`.
+
+model StudyCollection {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId     String    @map("owner_id") @db.Uuid
+  title       String
+  description String    @default("")
+  // collection | exam_prep | revision | semester | learning_path
+  kind        String    @default("collection")
+  // true = curated learning path authored by a lecturer/admin (6d).
+  isOfficial  Boolean   @default(false) @map("is_official")
+  // Optional scoping (semester folders, official course paths).
+  courseId    String?   @map("course_id") @db.Uuid
+  // private | shared (sharing is a 6d feature; default private).
+  visibility  String    @default("private")
+  examDate    DateTime? @map("exam_date") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+  owner  User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  course Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  items  StudyCollectionItem[]
+
+  @@index([ownerId], map: "study_collections_owner_idx")
+  @@index([isOfficial, courseId], map: "study_collections_official_course_idx")
+  @@map("study_collections")
+}
+
+model StudyCollectionItem {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  documentId   String   @map("document_id") @db.Uuid
+  // Manual ordering within the collection (drag-to-reorder).
+  position     Int      @default(0)
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  collection StudyCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  document   Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, documentId], map: "study_collection_items_unique")
+  @@index([collectionId, position], map: "study_collection_items_position_idx")
+  @@map("study_collection_items")
+}
+
+model StudyProgress {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  // reviewing | completed
+  status     String   @default("reviewing")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId], map: "study_progress_unique")
+  @@index([userId], map: "study_progress_user_idx")
+  @@map("study_progress")
 }

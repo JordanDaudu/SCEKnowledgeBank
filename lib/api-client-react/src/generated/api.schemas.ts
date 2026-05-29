@@ -768,6 +768,131 @@ export interface ActivityPage {
   pageSize: number;
 }
 
+export type StudyCollectionSummaryKind =
+  (typeof StudyCollectionSummaryKind)[keyof typeof StudyCollectionSummaryKind];
+
+export const StudyCollectionSummaryKind = {
+  collection: "collection",
+  exam_prep: "exam_prep",
+  revision: "revision",
+  semester: "semester",
+  learning_path: "learning_path",
+} as const;
+
+export type StudyCollectionSummaryVisibility =
+  (typeof StudyCollectionSummaryVisibility)[keyof typeof StudyCollectionSummaryVisibility];
+
+export const StudyCollectionSummaryVisibility = {
+  private: "private",
+  shared: "shared",
+} as const;
+
+export interface StudyCollectionSummary {
+  id: string;
+  title: string;
+  description: string;
+  kind: StudyCollectionSummaryKind;
+  visibility: StudyCollectionSummaryVisibility;
+  examDate?: string;
+  itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StudyCollectionItemProgress =
+  (typeof StudyCollectionItemProgress)[keyof typeof StudyCollectionItemProgress];
+
+export const StudyCollectionItemProgress = {
+  reviewing: "reviewing",
+  completed: "completed",
+} as const;
+
+export interface StudyCollectionItem {
+  document: Document;
+  note?: string;
+  position: number;
+  progress?: StudyCollectionItemProgress;
+}
+
+export type StudyCollectionDetail = StudyCollectionSummary & {
+  items: StudyCollectionItem[];
+};
+
+export type CreateCollectionRequestKind =
+  (typeof CreateCollectionRequestKind)[keyof typeof CreateCollectionRequestKind];
+
+export const CreateCollectionRequestKind = {
+  collection: "collection",
+  exam_prep: "exam_prep",
+  revision: "revision",
+  semester: "semester",
+} as const;
+
+export interface CreateCollectionRequest {
+  /** @minLength 1 */
+  title: string;
+  description?: string;
+  kind?: CreateCollectionRequestKind;
+  courseId?: string;
+  examDate?: string;
+}
+
+export type UpdateCollectionRequestKind =
+  (typeof UpdateCollectionRequestKind)[keyof typeof UpdateCollectionRequestKind];
+
+export const UpdateCollectionRequestKind = {
+  collection: "collection",
+  exam_prep: "exam_prep",
+  revision: "revision",
+  semester: "semester",
+} as const;
+
+export interface UpdateCollectionRequest {
+  title?: string;
+  description?: string;
+  kind?: UpdateCollectionRequestKind;
+  examDate?: string;
+}
+
+export interface AddCollectionItemRequest {
+  documentId: string;
+  note?: string;
+}
+
+export interface SetItemNoteRequest {
+  note: string | null;
+}
+
+export interface ReorderCollectionRequest {
+  documentIds: string[];
+}
+
+export type SetProgressRequestStatus =
+  (typeof SetProgressRequestStatus)[keyof typeof SetProgressRequestStatus];
+
+export const SetProgressRequestStatus = {
+  reviewing: "reviewing",
+  completed: "completed",
+  none: "none",
+} as const;
+
+export interface SetProgressRequest {
+  status: SetProgressRequestStatus;
+}
+
+export type StudyProgressResponseStatus =
+  | (typeof StudyProgressResponseStatus)[keyof typeof StudyProgressResponseStatus]
+  | null;
+
+export const StudyProgressResponseStatus = {
+  reviewing: "reviewing",
+  completed: "completed",
+} as const;
+
+export interface StudyProgressResponse {
+  status?: StudyProgressResponseStatus;
+}
+
 export interface AnalyticsCourseInfo {
   id: string;
   code: string;

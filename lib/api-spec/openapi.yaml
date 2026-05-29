@@ -1098,6 +1098,155 @@ paths:
               schema: { $ref: "#/components/schemas/ActivityPage" }
         "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
+  /collections:
+    get:
+      operationId: listMyCollections
+      tags: [collections]
+      summary: List the current user's study collections
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
+    post:
+      operationId: createCollection
+      tags: [collections]
+      summary: Create a study collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCollectionRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionSummary" }
+  /collections/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getCollection
+      tags: [collections]
+      summary: Get a collection with its ordered items
+      responses:
+        "200":
+          description: Collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+    patch:
+      operationId: updateCollection
+      tags: [collections]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCollectionRequest" }
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+    delete:
+      operationId: deleteCollection
+      tags: [collections]
+      responses:
+        "204": { description: Deleted }
+  /collections/{id}/items:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: addCollectionItem
+      tags: [collections]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddCollectionItemRequest" }
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /collections/{id}/items/{documentId}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      - { in: path, name: documentId, required: true, schema: { type: string, format: uuid } }
+    patch:
+      operationId: setCollectionItemNote
+      tags: [collections]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetItemNoteRequest" }
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+    delete:
+      operationId: removeCollectionItem
+      tags: [collections]
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /collections/{id}/order:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: reorderCollection
+      tags: [collections]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReorderCollectionRequest" }
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /documents/{id}/progress:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: setDocumentProgress
+      tags: [collections]
+      summary: Set the current user's study progress on a document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetProgressRequest" }
+      responses:
+        "200":
+          description: Progress
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyProgressResponse" }
+  /me/continue-studying:
+    get:
+      operationId: listContinueStudying
+      tags: [collections]
+      summary: Documents the current user is currently reviewing
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Document" } }
+
 components:
   schemas:
     HealthStatus:
@@ -1988,6 +2137,80 @@ components:
         total: { type: integer }
         page: { type: integer }
         pageSize: { type: integer }
+
+    StudyCollectionSummary:
+      type: object
+      required: [id, title, description, kind, visibility, itemCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        kind: { type: string, enum: [collection, exam_prep, revision, semester, learning_path] }
+        visibility: { type: string, enum: [private, shared] }
+        examDate: { type: string, format: date-time }
+        itemCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    StudyCollectionItem:
+      type: object
+      required: [document, position]
+      properties:
+        document: { $ref: "#/components/schemas/Document" }
+        note: { type: string }
+        position: { type: integer }
+        progress: { type: string, enum: [reviewing, completed] }
+    StudyCollectionDetail:
+      allOf:
+        - $ref: "#/components/schemas/StudyCollectionSummary"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/StudyCollectionItem" }
+    CreateCollectionRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        kind: { type: string, enum: [collection, exam_prep, revision, semester] }
+        courseId: { type: string, format: uuid }
+        examDate: { type: string, format: date-time }
+    UpdateCollectionRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        kind: { type: string, enum: [collection, exam_prep, revision, semester] }
+        examDate: { type: string, format: date-time }
+    AddCollectionItemRequest:
+      type: object
+      required: [documentId]
+      properties:
+        documentId: { type: string, format: uuid }
+        note: { type: string }
+    SetItemNoteRequest:
+      type: object
+      required: [note]
+      properties:
+        note: { type: string, nullable: true }
+    ReorderCollectionRequest:
+      type: object
+      required: [documentIds]
+      properties:
+        documentIds:
+          type: array
+          items: { type: string, format: uuid }
+    SetProgressRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [reviewing, completed, none] }
+    StudyProgressResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [reviewing, completed], nullable: true }
 
     AnalyticsCourseInfo:
       type: object

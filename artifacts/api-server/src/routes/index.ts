@@ -12,6 +12,7 @@ import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
 import analyticsRouter from "./analytics";
 import activityRouter from "./activity";
+import collectionsRouter from "./collections";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(storageRouter);
 router.use(notificationsRouter);
 router.use(analyticsRouter);
 router.use(activityRouter);
+router.use(collectionsRouter);
 
 export default router;
