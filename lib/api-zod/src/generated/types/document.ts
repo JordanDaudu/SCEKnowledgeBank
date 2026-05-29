@@ -26,6 +26,7 @@ export interface Document {
   semester?: DocumentSemester;
   academicYear?: number;
   visibility: DocumentVisibility;
+  /** Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow. */
   status: DocumentStatus;
   uploader: UserSummary;
   createdAt: Date;
@@ -39,4 +40,13 @@ export interface Document {
   /** Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type. */
   fallbackIconType?: DocumentFallbackIconType;
   permissions: DocumentPermissions;
+  /** When the doc was most recently submitted for review. */
+  submittedForReviewAt?: Date;
+  /** When the doc was last approved or rejected. */
+  reviewedAt?: Date;
+  reviewer?: UserSummary;
+  /** Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review. */
+  reviewReason?: string;
+  /** True when the requesting user has favorited this document (Sprint-3 M6). Populated on detail responses and the `/me/favorites` list; may be absent on bulk list endpoints. */
+  isFavorited?: boolean;
 }

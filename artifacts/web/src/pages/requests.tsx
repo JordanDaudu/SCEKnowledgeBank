@@ -9,22 +9,55 @@ import {
   useGetCurrentUser
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUp, Plus, Clock, CheckCircle2, Link as LinkIcon } from "lucide-react";
+import { ArrowUp, Plus, Clock, CheckCircle2, Link as LinkIcon, Loader2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 import { Link } from "wouter";
+import { cn } from "@/lib/utils";
+
+/* ── Status visual config ────────────────────────────────────────────── */
+const STATUS_CFG: Record<string, {
+  label: string;
+  pill: string;
+  border: string;
+  icon?: typeof Clock;
+}> = {
+  open:        { label: "Open",        pill: "bg-sky-50 text-sky-700 border-sky-200",           border: "border-l-sky-400",     icon: undefined     },
+  in_progress: { label: "In Progress", pill: "bg-amber-50 text-amber-700 border-amber-200",     border: "border-l-amber-400",   icon: Loader2       },
+  fulfilled:   { label: "Fulfilled",   pill: "bg-emerald-50 text-emerald-700 border-emerald-200", border: "border-l-emerald-500", icon: CheckCircle2  },
+  closed:      { label: "Closed",      pill: "bg-slate-50 text-slate-500 border-slate-200",     border: "border-l-slate-300",   icon: XCircle       },
+};
+
+function StatusPill({ status }: { status: string }) {
+  const cfg = STATUS_CFG[status];
+  if (!cfg) return null;
+  const Icon = cfg.icon;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+        cfg.pill,
+      )}
+      data-testid={`status-pill-${status}`}
+    >
+      {Icon && <Icon className="h-3 w-3 shrink-0" />}
+      {cfg.label}
+    </span>
+  );
+}
 
 export default function Requests() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [statusTab, setStatusTab] = useState<"open" | "fulfilled" | "closed">("open");
+  const [statusTab, setStatusTab] = useState<
+    "open" | "in_progress" | "fulfilled" | "closed"
+  >("open");
   const [isCreating, setIsCreating] = useState(false);
   const [fulfillingId, setFulfillingId] = useState<string | null>(null);
   const [docUrl, setDocUrl] = useState("");
@@ -48,7 +81,6 @@ export default function Requests() {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle) return;
-
     createMutation.mutate({
       data: {
         title: newTitle,
@@ -80,12 +112,10 @@ export default function Requests() {
   };
 
   const handleFulfill = (id: string) => {
-    // Basic extraction of ID if they pasted a full URL
     let fulfillingDocumentId = docUrl;
     if (docUrl.includes("/documents/")) {
       fulfillingDocumentId = docUrl.split("/documents/")[1].split("/")[0];
     }
-    
     updateMutation.mutate({
       id,
       data: { status: "fulfilled", fulfillingDocumentId }
@@ -100,138 +130,229 @@ export default function Requests() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Material Requests</h1>
-          <p className="text-muted-foreground mt-1">Ask for missing notes or upvote existing requests.</p>
+          <p className="text-muted-foreground mt-1 text-sm">Ask for missing notes or upvote existing requests.</p>
         </div>
-        <Button onClick={() => setIsCreating(!isCreating)}>
+        <Button onClick={() => setIsCreating(!isCreating)} className="shrink-0">
           <Plus className="mr-2 h-4 w-4" /> New Request
         </Button>
       </div>
 
+      {/* Create form */}
       {isCreating && (
-        <Card className="border-primary bg-primary/5">
-          <CardHeader>
-            <CardTitle>Create Request</CardTitle>
+        <Card className="border-primary/30 bg-primary/3">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">New request</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="text-sm font-medium">Title *</label>
-                <Input 
-                  value={newTitle} 
-                  onChange={e => setNewTitle(e.target.value)} 
-                  placeholder="e.g. Midterm 2022 Solutions" 
+                <Input
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  placeholder="e.g. Midterm 2022 Solutions"
                   required
+                  className="mt-1"
                 />
               </div>
               <div>
                 <label className="text-sm font-medium">Course</label>
                 <Select value={newCourse} onValueChange={setNewCourse}>
-                  <SelectTrigger className="bg-background"><SelectValue placeholder="Optional course" /></SelectTrigger>
+                  <SelectTrigger className="bg-background mt-1">
+                    <SelectValue placeholder="Optional course" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
-                    {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.code}</SelectItem>)}
+                    {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <label className="text-sm font-medium">Details</label>
-                <Textarea 
-                  value={newDesc} 
-                  onChange={e => setNewDesc(e.target.value)} 
-                  placeholder="Any specific professor or year?" 
+                <Textarea
+                  value={newDesc}
+                  onChange={e => setNewDesc(e.target.value)}
+                  placeholder="Any specific semester or context?"
+                  className="mt-1"
                 />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>
-                <Button type="submit" disabled={!newTitle || createMutation.isPending}>Submit</Button>
+                <Button type="submit" disabled={!newTitle || createMutation.isPending}>
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Submit
+                </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
+      {/* Tabs */}
       <Tabs value={statusTab} onValueChange={(val) => setStatusTab(val as typeof statusTab)} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
-          <TabsTrigger value="open">Open</TabsTrigger>
-          <TabsTrigger value="fulfilled">Fulfilled</TabsTrigger>
-          <TabsTrigger value="closed">Closed</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 mb-5 h-auto">
+          <TabsTrigger value="open" data-testid="requests-tab-open" className="text-xs sm:text-sm py-2">
+            Open
+          </TabsTrigger>
+          <TabsTrigger value="in_progress" data-testid="requests-tab-in-progress" className="text-xs sm:text-sm py-2">
+            <span className="hidden sm:inline">In Progress</span>
+            <span className="sm:hidden">In&nbsp;Prog</span>
+          </TabsTrigger>
+          <TabsTrigger value="fulfilled" data-testid="requests-tab-fulfilled" className="text-xs sm:text-sm py-2">
+            Fulfilled
+          </TabsTrigger>
+          <TabsTrigger value="closed" data-testid="requests-tab-closed" className="text-xs sm:text-sm py-2">
+            Closed
+          </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value={statusTab} className="space-y-4 mt-0">
+
+        <TabsContent value={statusTab} className="space-y-3 mt-0">
           {isLoading ? (
-            <div className="text-center py-10"><Clock className="animate-spin h-6 w-6 mx-auto text-muted-foreground" /></div>
+            <div className="text-center py-10">
+              <Clock className="animate-spin h-6 w-6 mx-auto text-muted-foreground" />
+            </div>
           ) : requests?.length === 0 ? (
-            <div className="text-center py-20 bg-card rounded-xl border border-dashed">
-              <p className="text-muted-foreground">No {statusTab} requests found.</p>
+            <div className="text-center py-16 bg-card rounded-xl border border-dashed">
+              <p className="text-muted-foreground text-sm">No {statusTab.replace("_", " ")} requests.</p>
             </div>
           ) : (
-            requests?.map(req => (
-              <Card key={req.id} className="overflow-hidden">
-                <div className="flex flex-col sm:flex-row">
-                  {/* Vote Column */}
-                  <div className="bg-secondary/50 p-4 flex sm:flex-col items-center justify-center sm:justify-start gap-2 border-b sm:border-b-0 sm:border-r min-w-[80px]">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className={`h-8 w-8 rounded-full ${req.hasVoted ? 'bg-primary/20 text-primary hover:bg-primary/30' : 'hover:bg-secondary'}`}
-                      onClick={() => handleVote(req.id)}
-                      disabled={req.status !== 'open' || req.hasVoted || voteMutation.isPending}
-                      title={req.hasVoted ? "You have already voted" : "Upvote this request"}
-                    >
-                      <ArrowUp className="h-5 w-5" />
-                    </Button>
-                    <span className="font-bold text-lg">{req.voteCount}</span>
-                  </div>
-                  
-                  {/* Content Column */}
-                  <CardContent className="p-5 flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-serif font-semibold text-lg">{req.title}</h3>
-                      <div className="flex gap-2">
-                        {req.status === 'fulfilled' && <Badge className="bg-green-600"><CheckCircle2 className="mr-1 w-3 h-3"/> Fulfilled</Badge>}
-                        {req.status === 'closed' && <Badge variant="secondary">Closed</Badge>}
-                        {isLecturerOrAdmin && req.status === 'open' && fulfillingId !== req.id && (
-                          <Button variant="outline" size="sm" onClick={() => setFulfillingId(req.id)}>Fulfill</Button>
+            requests?.map(req => {
+              const statusCfg = STATUS_CFG[req.status] ?? STATUS_CFG.open;
+              return (
+                <Card
+                  key={req.id}
+                  className={cn(
+                    "overflow-hidden border-l-4 hover-elevate transition-all",
+                    statusCfg.border,
+                  )}
+                >
+                  <div className="flex flex-col sm:flex-row">
+                    {/* Vote column */}
+                    <div className="bg-secondary/30 px-4 py-3 flex sm:flex-col items-center justify-start sm:justify-center gap-3 border-b sm:border-b-0 sm:border-r border-border/50 min-w-[72px]">
+                      <button
+                        className={cn(
+                          "rounded-full h-8 w-8 flex items-center justify-center transition-colors",
+                          req.hasVoted
+                            ? "bg-primary/20 text-primary cursor-default"
+                            : req.status !== "open"
+                            ? "text-muted-foreground/40 cursor-not-allowed"
+                            : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                         )}
-                      </div>
+                        onClick={() => handleVote(req.id)}
+                        disabled={req.status !== "open" || req.hasVoted || voteMutation.isPending}
+                        aria-label={req.hasVoted ? "You have already voted" : "Upvote this request"}
+                        title={req.hasVoted ? "You have already voted" : "Upvote this request"}
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </button>
+                      <span className="font-bold text-base tabular-nums leading-none">{req.voteCount}</span>
                     </div>
-                    
-                    <p className="text-muted-foreground text-sm mb-4">{req.description}</p>
-                    
-                    {fulfillingId === req.id && (
-                      <div className="bg-secondary p-3 rounded-md flex gap-2 items-center mb-4">
-                        <Input 
-                          placeholder="Paste document ID or URL..." 
-                          value={docUrl} 
-                          onChange={e => setDocUrl(e.target.value)}
-                          className="bg-background"
-                        />
-                        <Button size="sm" onClick={() => handleFulfill(req.id)} disabled={!docUrl || updateMutation.isPending}>Submit</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setFulfillingId(null)}>Cancel</Button>
-                      </div>
-                    )}
 
-                    {req.fulfillingDocumentId && (
-                      <Link href={`/documents/${req.fulfillingDocumentId}`}>
-                        <div className="mb-4 inline-flex items-center gap-2 text-sm text-primary bg-primary/5 px-3 py-1.5 rounded-md hover:bg-primary/10 transition-colors">
-                          <LinkIcon className="h-4 w-4" /> View fulfilled document
+                    {/* Content column */}
+                    <CardContent className="p-4 sm:p-5 flex-1 min-w-0">
+                      <div className="flex flex-wrap justify-between items-start gap-2 mb-1.5">
+                        <h3 className="font-serif font-semibold text-[1rem] leading-snug">{req.title}</h3>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                          {/* Static status pill */}
+                          <StatusPill status={req.status} data-testid={`status-pill-${req.id}`} />
+
+                          {/* Status change select — only for author/reviewer on mutable statuses */}
+                          {(isLecturerOrAdmin || req.requestedBy.id === user?.id) &&
+                            (req.status === "open" || req.status === "in_progress") && (
+                              <Select
+                                value={req.status}
+                                onValueChange={(next) => {
+                                  if (next === req.status) return;
+                                  if (next === "fulfilled") {
+                                    setFulfillingId(req.id);
+                                    return;
+                                  }
+                                  updateMutation.mutate(
+                                    { id: req.id, data: { status: next as "open" | "in_progress" | "closed" } },
+                                    {
+                                      onSuccess: () => {
+                                        toast({ title: `Marked as ${next.replace("_", " ")}` });
+                                        queryClient.invalidateQueries({
+                                          queryKey: getListRequestsQueryKey({ status: statusTab }),
+                                        });
+                                      },
+                                      onError: (err) => {
+                                        const data = (err as { data?: { error?: { message?: string } } })?.data;
+                                        toast({
+                                          variant: "destructive",
+                                          title: "Could not update status",
+                                          description: data?.error?.message || (err as Error)?.message,
+                                        });
+                                      },
+                                    },
+                                  );
+                                }}
+                              >
+                                <SelectTrigger
+                                  className="h-7 w-[130px] text-xs bg-background"
+                                  data-testid={`status-select-${req.id}`}
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="open">Open</SelectItem>
+                                  <SelectItem value="in_progress">In Progress</SelectItem>
+                                  <SelectItem value="fulfilled">Fulfilled…</SelectItem>
+                                  <SelectItem value="closed">Closed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                         </div>
-                      </Link>
-                    )}
-                    
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground mt-auto pt-2 border-t border-border/50">
-                      {req.course && <Badge variant="outline" className="font-mono bg-background">{req.course.code}</Badge>}
-                      <span>Requested by {req.requestedBy.displayName}</span>
-                      <span>{formatDateTime(req.createdAt)}</span>
-                    </div>
-                  </CardContent>
-                </div>
-              </Card>
-            ))
+                      </div>
+
+                      {req.description && (
+                        <p className="text-sm text-muted-foreground mb-3 leading-relaxed">{req.description}</p>
+                      )}
+
+                      {/* Fulfill form */}
+                      {fulfillingId === req.id && (
+                        <div className="bg-secondary/50 p-3 rounded-md flex gap-2 items-center mb-3 border border-border/60">
+                          <Input
+                            placeholder="Paste document ID or URL…"
+                            value={docUrl}
+                            onChange={e => setDocUrl(e.target.value)}
+                            className="bg-background text-sm h-8"
+                          />
+                          <Button size="sm" onClick={() => handleFulfill(req.id)} disabled={!docUrl || updateMutation.isPending}>
+                            Confirm
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setFulfillingId(null)}>Cancel</Button>
+                        </div>
+                      )}
+
+                      {req.fulfillingDocumentId && (
+                        <Link href={`/documents/${req.fulfillingDocumentId}`}>
+                          <div className="mb-3 inline-flex items-center gap-1.5 text-sm text-primary bg-primary/6 px-3 py-1.5 rounded-md hover:bg-primary/10 transition-colors border border-primary/15">
+                            <LinkIcon className="h-3.5 w-3.5" /> View fulfilled document
+                          </div>
+                        </Link>
+                      )}
+
+                      {/* Metadata footer */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pt-2 border-t border-border/40">
+                        {req.course && (
+                          <span className="course-tag inline-flex items-center rounded border px-2 py-0.5 text-xs">
+                            {req.course.code}
+                          </span>
+                        )}
+                        <span>by {req.requestedBy.displayName}</span>
+                        <span className="tabular-nums">{formatDateTime(req.createdAt)}</span>
+                      </div>
+                    </CardContent>
+                  </div>
+                </Card>
+              );
+            })
           )}
         </TabsContent>
       </Tabs>

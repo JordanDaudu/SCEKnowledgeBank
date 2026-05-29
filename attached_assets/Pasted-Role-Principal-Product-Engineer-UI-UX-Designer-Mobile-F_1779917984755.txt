@@ -1,0 +1,424 @@
+Role: Principal Product Engineer, UI/UX Designer, Mobile Frontend Engineer, and Demo Readiness Lead
+
+Context:
+This is the current state of the Knowledge Bank / רותם ניהול פרויקטים project after the latest Sprint 3 and UI polish changes.
+
+The app is functionally complete. There is no Sprint 4. We are now doing final demo/productization polish only.
+
+The UI is already cleaner and more organized than before. Home, Requests, Analytics, Review Queue, and Admin are mostly acceptable for demo. However, some pages still feel too bland, plain, or test-like, especially:
+
+* Browse Library
+* Upload Materials
+* Login
+
+I want a focused visual polish pass that improves these pages while keeping the current professional academic identity.
+
+Important constraints:
+
+* Do NOT redesign the whole application.
+* Do NOT change app architecture.
+* Do NOT add backend product scope.
+* Do NOT introduce new large dependencies.
+* Do NOT break existing functionality, tests, routes, OpenAPI, or Sprint 3 behavior.
+* Keep the existing dark green brand identity.
+* Keep the app calm, academic, professional, and suitable for a student project demo.
+* Do not make it childish, cyber, neon, flashy, or overly colorful.
+* Prefer small safe component/CSS improvements.
+* Keep mobile compatibility in mind.
+
+Current design direction:
+Use restrained color and hierarchy:
+
+* Dark forest green = primary brand and main actions
+* Soft mint/sage = academic/document accents
+* Soft blue = discovery/search/open states
+* Soft amber = pending/review/attention states
+* Soft emerald = fulfilled/approved/success
+* Muted red = destructive/rejected only
+* Warm cream/neutral backgrounds = page and section separation
+
+Primary focus allocation:
+
+* Browse page: 40%
+* Upload page: 35%
+* Login page: 20%
+* Small consistency fixes elsewhere: 5%
+
+Relevant files to inspect first:
+
+* `artifacts/web/src/index.css`
+* `artifacts/web/src/pages/browse.tsx`
+* `artifacts/web/src/components/browse/DocumentCards.tsx`
+* `artifacts/web/src/components/browse/BrowseFilters.tsx`
+* `artifacts/web/src/components/browse/FacetChips.tsx`
+* `artifacts/web/src/components/browse/RecentlyViewedStrip.tsx`
+* `artifacts/web/src/components/browse/BrowseStates.tsx`
+* `artifacts/web/src/pages/upload.tsx`
+* `artifacts/web/src/pages/login.tsx`
+* `artifacts/web/src/pages/requests.tsx`
+* `artifacts/web/src/pages/review-queue.tsx`
+* `artifacts/web/src/pages/admin-users.tsx`
+* `artifacts/web/src/pages/admin-analytics.tsx`
+* `artifacts/api-server/src/scripts/seed-demo.ts`
+* `README.md`
+* `DEMO.md` if present
+* `replit.md`
+
+Before coding, respond briefly with:
+
+1. What is currently weak in Browse
+2. What is currently weak in Upload
+3. What is currently weak in Login
+4. The exact visual changes you plan to make
+5. The files/components you expect to edit
+
+Then implement the changes.
+
+Part A — Shared visual polish foundation
+
+1. Add small semantic UI helpers without over-engineering
+
+* If useful, add reusable class patterns or tiny helper components for:
+
+  * course tags
+  * material type tags
+  * status badges
+  * document card hover states
+  * section panels
+  * icon tiles
+* Prefer reusing current components and Tailwind classes.
+* Avoid a large design-system refactor.
+
+2. Improve badge consistency
+   Ensure badges are visually consistent across Browse, Requests, Upload, Review, Admin, and Analytics.
+
+Status color direction:
+
+* Open = soft blue / blue-gray
+* In Progress = amber
+* Fulfilled = emerald
+* Closed = slate
+* Draft = blue-gray
+* Pending Review = amber
+* Published / Approved = quiet green
+* Rejected = muted red
+* Disabled = slate
+* Active = quiet green
+
+Course tags:
+
+* Use a consistent sage/green-tinted style.
+* Course codes should be easy to scan.
+* Slightly stronger than they are now, but not loud.
+
+Material type tags:
+
+* Use warm neutral styling.
+* Keep secondary to course/status.
+
+Part B — Browse Library polish
+
+The Browse page should feel like a real academic document discovery/search experience, not just a set of plain filters and repeated cards.
+
+Required improvements:
+
+1. Page header
+
+* Improve spacing and hierarchy.
+* Add a subtle contextual line or small visual accent.
+* Keep the title “Browse Library”.
+* Subtitle should clearly explain discovery/search.
+
+2. Recently viewed strip
+
+* Make it look like a useful horizontal discovery strip.
+* Add slightly better card/chip styling.
+* Ensure it does not look like plain buttons.
+* Keep horizontal overflow behavior usable on mobile.
+
+3. Search and filter panel
+
+* Make the search/filter area feel like a proper discovery panel.
+* Search input should be visually prominent.
+* Filter button should show active count clearly.
+* Sort dropdown and view toggle should feel intentional and aligned.
+* Avoid making the area too tall.
+
+4. Facets and active filters
+
+* Current filters look like many small plain buttons.
+* Improve visual grouping for:
+
+  * Course
+  * Type
+  * Semester
+  * Status
+  * Uploader
+* Add better section labels.
+* Active chips should be visually distinct.
+* Counts should remain visible but not dominate.
+* Chips should wrap cleanly on mobile.
+
+5. Document cards
+   Improve document cards in Browse and any shared usage:
+
+* Add subtle hover elevation and border transition.
+* Add a small icon tile or top/left accent.
+* Improve title hierarchy.
+* Improve metadata layout.
+* Make course tag more recognizable.
+* Make material type tag clearer.
+* Show status badge when status is not normal/published.
+* Include date/uploader/status if already available from existing API data.
+* Do not add new backend fields.
+* Keep cards from feeling empty, but avoid clutter.
+
+6. Results area and pagination
+
+* Make result count and refresh state more intentional.
+* Improve pagination styling.
+* Make grid/list toggle feel more polished.
+* Empty/no-results states should be friendly and helpful.
+
+7. Demo data issue
+   The Browse screenshot still shows many `smoke-*` document titles.
+   Do NOT remove smoke testing.
+   But make sure demo presentation data is clean:
+
+* Either ensure smoke-created records are cleaned after Playwright smoke tests,
+* or make the demo seed/reset remove old smoke records,
+* or document/run a demo reset command that returns the app to clean demo data.
+  The Browse page for demo should show realistic academic document titles, not mostly smoke-test names.
+
+Part C — Upload Materials polish
+
+The Upload page works, but it still feels like a plain form. Make it feel like a guided academic upload workflow.
+
+Required improvements:
+
+1. Add step structure
+   Use clear visual sections:
+
+* 1) Upload files
+* 2. Add metadata
+* 3. Review and submit
+
+Do this visually only. Do not change backend behavior.
+
+2. Storage quota card
+
+* Make it look like a small useful status widget.
+* Add an icon tile or subtle accent.
+* Improve progress bar labeling.
+* Keep current quota behavior.
+
+3. Student approval notice
+
+* Make the approval notice visually clear but not alarming.
+* Use amber styling.
+* Explain simply:
+  “Student uploads are saved as draft and can be submitted for review before they appear publicly.”
+* Do not change existing review logic.
+
+4. Drag-and-drop area
+
+* Add subtle background and stronger hover/focus state.
+* Improve icon treatment.
+* Make supported file types and size limit easier to read.
+* Keep drag/drop and click-to-browse behavior unchanged.
+* Preserve validation and test selectors.
+
+5. Metadata form
+
+* Improve spacing and grouping.
+* Required fields should be visually clear.
+* Keep course/material type/category/visibility/semester/year behavior unchanged.
+* Make student course selection feel guided.
+* Helper text should be short and useful.
+
+6. Suggested metadata
+
+* Make suggested title/tags/category feel like a helpful assistant panel.
+* Suggestion chips should feel clickable.
+* Keep current suggestion apply logic.
+* Do not imply one-click behavior where none exists.
+
+7. Tags
+
+* Make tags look like selectable chips instead of plain small buttons.
+* Selected/unselected state should be clear.
+* Keep current tag behavior.
+
+8. Bottom actions
+
+* Primary upload button should be visually stronger.
+* Cancel should remain secondary.
+* Disabled state should be clear.
+* Success state should still give clear next steps if already implemented.
+
+9. Mobile
+
+* On mobile, form inputs should stack cleanly.
+* Dropzone should not be too tall.
+* Buttons should be full-width or comfortable.
+* No horizontal overflow.
+
+Part D — Login page polish
+
+The Login page is clean but should feel more branded, premium, and welcoming.
+
+Required improvements:
+
+1. Background
+   Add a subtle academic/product background:
+
+* soft green/cream gradient,
+* large abstract curved shape,
+* faint paper/document cards,
+* subtle grid/paper texture,
+* or soft blurred decorative circles.
+
+Keep it very subtle and not distracting.
+
+2. Login card
+
+* Improve card shadow, border, and spacing.
+* Make it feel premium but still simple.
+* Keep current quick login functionality.
+
+3. Logo and heading
+
+* Improve logo/icon presentation.
+* Keep Knowledge Bank branding.
+* Add a small trust/context line if it fits:
+  “Academic materials, requests, and course knowledge in one place.”
+
+4. Quick login cards
+
+* Make Student / Lecturer / Admin quick-login options feel interactive.
+* Improve hover/focus state.
+* Keep demo login behavior unchanged.
+* Make layout work well on mobile.
+
+5. Form inputs and button
+
+* Improve focus states.
+* Primary Sign In button should feel stronger.
+* Keep validation and error handling unchanged.
+* Keep create-account link visible.
+
+Part E — Secondary consistency pass
+
+Only apply small safe improvements elsewhere.
+
+1. Review Queue
+   Current page can feel empty when there is only one item.
+
+* Add a slightly better header/subtitle.
+* Improve pending item card styling.
+* Add an empty state that feels polished.
+* Keep approve/reject behavior unchanged.
+
+2. Admin Users
+
+* Improve table readability.
+* Improve role/status badges.
+* Improve row spacing and hover.
+* Do not change admin behavior.
+
+3. Analytics
+
+* Keep mostly as-is.
+* Ensure metric cards and chart containers match updated card/badge style.
+* Long or garbled titles should truncate gracefully.
+* If demo seed contains corrupted/garbled titles, clean them in the demo seed.
+
+4. Requests
+
+* Keep mostly as-is because it already improved.
+* Ensure request status badges and course tags match the shared visual language.
+* Make sure demo requests stay realistic and are not polluted by repeated smoke requests.
+
+5. Home
+
+* Keep mostly as-is.
+* Only polish if needed to match updated card/tag styles.
+
+Part F — Mobile compatibility
+
+Verify and improve responsiveness for:
+
+* 375px
+* 390px
+* 430px
+* 768px
+* desktop
+
+Required mobile behavior:
+
+* Header/nav does not overflow.
+* Notification bell remains accessible.
+* Cards stack cleanly.
+* Browse filters/chips wrap or collapse cleanly.
+* Requests do not require horizontal scrolling.
+* Upload form inputs are full width.
+* Login card fits viewport.
+* Tables either remain readable or scroll only when unavoidable.
+* Modals/dropdowns do not render off-screen.
+* Touch targets are comfortable.
+* Icon-only buttons have `aria-label`.
+
+Part G — Documentation and validation
+
+Update documentation only where needed:
+
+* `README.md` if demo instructions or UI/demo notes changed.
+* `DEMO.md` if present or create it if missing and useful.
+* `replit.md` with a short final UI polish summary and validation result.
+
+Run validation:
+
+* `pnpm install --frozen-lockfile`
+* `pnpm run typecheck`
+* `pnpm -r --if-present run test`
+* `pnpm --filter @workspace/api-server run seed:demo`
+* `pnpm --filter @workspace/api-server run seed:demo:verify`
+* `pnpm regression`
+* `pnpm regression:local`
+* `pnpm regression:gcs`
+
+Manual browser verification:
+Desktop:
+
+* Login
+* Home
+* Browse
+* Upload
+* Requests
+* Review Queue
+* Admin Users
+* Analytics
+* Document detail
+
+Mobile:
+
+* 375px Login
+* 390px Browse
+* 430px Upload
+* 768px Analytics
+* Mobile nav and notification bell
+
+Acceptance criteria:
+
+* Browse feels like a polished document discovery page.
+* Upload feels like a guided upload/review workflow.
+* Login feels branded and demo-ready.
+* UI stays academic, calm, and professional.
+* No full redesign.
+* No backend feature scope added.
+* No broken existing functionality.
+* Demo data is not polluted by repeated smoke records.
+* Smoke-created records are cleaned, isolated, or reset before demo.
+* Mobile layouts are usable.
+* README/DEMO/replit docs are accurate.
+* All tests and regression gates pass.

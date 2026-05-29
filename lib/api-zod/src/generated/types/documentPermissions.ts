@@ -15,4 +15,8 @@ export interface DocumentPermissions {
   canDelete: boolean;
   canDownload: boolean;
   canComment: boolean;
+  /** True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader/owner or can edit). */
+  canSubmitForReview: boolean;
+  /** True when the user can approve/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course). */
+  canReview: boolean;
 }

@@ -1,14 +1,17 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
   useListCourses,
   useListCategories,
   useListTags,
   useGetMyStorageQuota,
+  useGetCurrentUser,
   getGetMyStorageQuotaQueryKey,
   getListDocumentsQueryKey,
   getListRecentDocumentsQueryKey,
+  suggestDocumentMetadata,
   type Document as ApiDocument,
   type UploadResult,
+  type SuggestMetadataResponse,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -17,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock, RotateCcw } from "lucide-react";
+import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, Clock, RotateCcw, Sparkles, AlertTriangle, HardDrive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { apiEndpoints } from "@/lib/api-url";
@@ -145,12 +148,80 @@ export default function Upload() {
   const [semester, setSemester] = useState<Semester>("");
   const [academicYear, setAcademicYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [title, setTitle] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
 
-  const { data: courses } = useListCourses();
+  const { data: user } = useGetCurrentUser();
+  const { data: allCourses } = useListCourses();
   const { data: categories } = useListCategories();
   const { data: availableTags } = useListTags();
   const { data: quota } = useGetMyStorageQuota();
+
+  // Sprint-3 completion: a "student" here means a user with NEITHER
+  // the lecturer nor admin role — those are the uploaders gated to
+  // enrolled courses + the review workflow on the server. We
+  // recompute every render off the cached /auth/me so a role change
+  // (e.g. admin elevation in another tab) takes effect on next fetch.
+  const isStudentUploader = !!user && !user.roles.includes("admin") && !user.roles.includes("lecturer");
+  const [autoSubmitForReview, setAutoSubmitForReview] = useState(true);
+
+  // For students, only show courses they're enrolled in. For
+  // lecturers/admins, show everything (server-side `canUploadToCourse`
+  // is the authoritative gate; this is just a UX filter so students
+  // don't pick a course they can't actually upload to).
+  const courses = useMemo(() => {
+    if (!allCourses) return undefined;
+    if (!isStudentUploader || !user) return allCourses;
+    const enrolledIds = new Set(user.enrollments.map((e) => e.courseId));
+    return allCourses.filter((c) => enrolledIds.has(c.id));
+  }, [allCourses, isStudentUploader, user]);
+
+  // Sprint-3 M4: smart-metadata suggestion. We fetch suggestions for
+  // the *first* still-queued file in the batch — the only file whose
+  // title/duplicate result is meaningful when the user is uploading
+  // many at once. The fetch is keyed by the file identity (name+size
+  // proxy) so re-renders don't refetch, and we abort an in-flight
+  // request when the primary file changes underfoot.
+  const [suggestion, setSuggestion] = useState<SuggestMetadataResponse | null>(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const primaryItem = useMemo(
+    () => items.find((i) => i.status === "queued" && !i.error),
+    [items],
+  );
+  const primaryKey = primaryItem
+    ? `${primaryItem.file.name}|${primaryItem.file.size}|${primaryItem.id}`
+    : "";
+
+  useEffect(() => {
+    if (!primaryItem) {
+      setSuggestion(null);
+      return;
+    }
+    const controller = new AbortController();
+    setSuggestLoading(true);
+    suggestDocumentMetadata(
+      { file: primaryItem.file },
+      { signal: controller.signal, credentials: "include" },
+    )
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        setSuggestion(res);
+      })
+      .catch(() => {
+        // Suggestions are best-effort — a failed extract shouldn't
+        // block the upload UI. Just clear the panel.
+        if (!controller.signal.aborted) setSuggestion(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSuggestLoading(false);
+      });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryKey]);
+
+  // Whether the batch is small enough for a single-doc title suggestion
+  // to make sense — we never apply a "title" across multiple files.
+  const isSingleFileBatch = items.filter((i) => i.status !== "failed").length === 1;
 
   const addFiles = (files: File[]) => {
     const next: QueueItem[] = files.map((file) => {
@@ -309,6 +380,14 @@ export default function Upload() {
       visibility,
       semester: semester || undefined,
       academicYear: academicYear || undefined,
+      // Title applies only when uploading a single file (the server
+      // honours `title` as `titleOverride` only for 1-file batches).
+      title: isSingleFileBatch && title.trim() ? title.trim() : undefined,
+      // Sprint-3 completion: only send autoSubmit when the uploader
+      // is a student — for lecturers/admins the legacy publish path
+      // is preserved.
+      autoSubmitForReview:
+        isStudentUploader && autoSubmitForReview ? "true" : undefined,
     };
 
     const toUpload = items.filter((i) => i.status === "queued");
@@ -408,50 +487,81 @@ export default function Upload() {
 
       {quota && (
         <Card data-testid="storage-quota-strip">
-          <CardContent className="py-4 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">Storage</span>
-              <span className="text-muted-foreground">
-                <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
-                {" of "}
-                <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
-                {" used — "}
-                <span data-testid="quota-remaining">{formatBytes(quota.remainingBytes)}</span>
-                {" remaining"}
-              </span>
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-primary/8 text-primary shrink-0 mt-0.5">
+                <HardDrive className="h-4 w-4" />
+              </div>
+              <div className="flex-1 space-y-2 min-w-0">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Storage quota</span>
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
+                    {" / "}
+                    <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
+                    {" · "}
+                    <span data-testid="quota-remaining" className="text-primary/80 font-medium">{formatBytes(quota.remainingBytes)}</span>
+                    {" free"}
+                  </span>
+                </div>
+                <Progress
+                  value={
+                    quota.quotaBytes > 0
+                      ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
+                      : 0
+                  }
+                  className="h-1.5"
+                />
+              </div>
             </div>
-            <Progress
-              value={
-                quota.quotaBytes > 0
-                  ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
-                  : 0
-              }
-              className="h-2"
-            />
           </CardContent>
         </Card>
+      )}
+
+      {isStudentUploader && (
+        <div
+          className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm"
+          data-testid="upload-student-notice"
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <span className="font-medium">Student uploads require lecturer or admin approval before they appear publicly.</span>{" "}
+            <span className="text-muted-foreground">
+              You can only upload to courses you are enrolled in. After upload, a reviewer will approve or reject — you'll see the status (and any rejection reason) on the document page.
+            </span>
+          </div>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle>Files</CardTitle>
-            <CardDescription>
-              Drag & drop or select files to upload. PDF, DOCX, PPTX, XLSX, images and more — up to {MAX_UPLOAD_MB}MB each.
-            </CardDescription>
+            <div className="flex items-center gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+                1
+              </span>
+              <div>
+                <CardTitle>Select Files</CardTitle>
+                <CardDescription className="mt-0.5">
+                  Drag & drop or click to browse. PDF, DOCX, PPTX, XLSX, images — up to {MAX_UPLOAD_MB}MB each.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div
-              className="border-2 border-dashed border-primary/20 rounded-xl p-10 text-center hover:bg-primary/5 transition-colors cursor-pointer"
+              className="border-2 border-dashed border-primary/30 rounded-xl p-8 text-center hover:border-primary/50 hover:bg-primary/5 active:bg-primary/8 transition-all cursor-pointer group"
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               data-testid="upload-dropzone"
             >
-              <UploadCloud className="h-10 w-10 text-primary mx-auto mb-4" />
-              <p className="font-medium">Click to browse or drag files here</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Each file is queued and uploaded with its own progress.
+              <div className="mx-auto mb-4 h-14 w-14 rounded-xl bg-primary/8 flex items-center justify-center group-hover:bg-primary/12 transition-colors">
+                <UploadCloud className="h-7 w-7 text-primary" />
+              </div>
+              <p className="font-semibold text-foreground">Click to browse or drag files here</p>
+              <p className="text-sm text-muted-foreground mt-1.5">
+                PDF, DOCX, PPTX, XLSX, PNG, JPG, ZIP · up to {MAX_UPLOAD_MB}MB per file
               </p>
               <input
                 type="file"
@@ -461,6 +571,29 @@ export default function Upload() {
                 onChange={handleFileSelect}
               />
             </div>
+
+            {suggestion?.duplicate && (
+              <div
+                className="mt-6 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm"
+                data-testid="upload-duplicate-banner"
+              >
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <span className="font-medium">Possible duplicate.</span>{" "}
+                  An identical file is already in the bank:{" "}
+                  <a
+                    href={`/documents/${suggestion.duplicate.documentId}`}
+                    className="underline font-medium"
+                    data-testid="upload-duplicate-link"
+                  >
+                    {suggestion.duplicate.title}
+                  </a>{" "}
+                  <span className="text-muted-foreground">
+                    by {suggestion.duplicate.uploaderDisplayName}.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {failedCount > 0 && (
               <div className="mt-6 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
@@ -604,8 +737,15 @@ export default function Upload() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Metadata</CardTitle>
-            <CardDescription>Applied to all files in this batch.</CardDescription>
+            <div className="flex items-center gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+                2
+              </span>
+              <div>
+                <CardTitle>Add Metadata</CardTitle>
+                <CardDescription className="mt-0.5">Applied to all files in this batch. Required fields are marked *.</CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -675,48 +815,209 @@ export default function Upload() {
                   placeholder="e.g. 2024"
                 />
               </div>
+              {isSingleFileBatch && (
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium" htmlFor="upload-title-input">Title</label>
+                  <Input
+                    id="upload-title-input"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Defaults to the filename if blank"
+                    maxLength={300}
+                    data-testid="upload-title-input"
+                  />
+                </div>
+              )}
             </div>
+
+            {isStudentUploader && (
+              <div
+                className="flex items-start gap-2 rounded-md border bg-secondary/40 px-3 py-2"
+                data-testid="upload-autosubmit-row"
+              >
+                <input
+                  id="upload-autosubmit"
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={autoSubmitForReview}
+                  onChange={(e) => setAutoSubmitForReview(e.target.checked)}
+                  data-testid="upload-autosubmit"
+                />
+                <label htmlFor="upload-autosubmit" className="text-sm flex-1 cursor-pointer">
+                  <span className="font-medium">Submit for review immediately after upload</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    Recommended. Uncheck only if you want to keep the document as a draft and submit it later from its page.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {suggestion &&
+              ((suggestion.tags && suggestion.tags.length > 0) ||
+                suggestion.category ||
+                (isSingleFileBatch && suggestion.title) ||
+                (suggestion.keywords && suggestion.keywords.length > 0)) && (
+                <div
+                  className="space-y-3 rounded-md border border-primary/20 bg-primary/5 p-3"
+                  data-testid="upload-suggestions"
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Suggestions
+                    {suggestLoading && (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  {isSingleFileBatch && suggestion.title && (
+                    <div className="text-sm flex items-center gap-2 flex-wrap">
+                      <span className="text-muted-foreground">Title: </span>
+                      <span className="font-medium" data-testid="suggestion-title">
+                        {suggestion.title}
+                      </span>
+                      {suggestion.titleSource && (
+                        <Badge
+                          variant="outline"
+                          className={
+                            suggestion.titleSource === "metadata"
+                              ? "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 font-normal text-[10px]"
+                              : "border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400 font-normal text-[10px]"
+                          }
+                          data-testid="suggestion-title-confidence"
+                          title={
+                            suggestion.titleSource === "metadata"
+                              ? "Read from the file's embedded title — high confidence."
+                              : "Derived from the filename — please double-check."
+                          }
+                        >
+                          {suggestion.titleSource === "metadata"
+                            ? "from file metadata"
+                            : "from filename"}
+                        </Badge>
+                      )}
+                      <Button
+                        type="button"
+                        variant={title === suggestion.title ? "default" : "outline"}
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setTitle(suggestion.title!)}
+                        data-testid="suggestion-title-apply"
+                      >
+                        {title === suggestion.title ? "Applied" : "Apply"}
+                      </Button>
+                    </div>
+                  )}
+                  {suggestion.category && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Category: </span>
+                      <Badge
+                        variant={
+                          categoryId === suggestion.category.id
+                            ? "default"
+                            : "outline"
+                        }
+                        className="cursor-pointer"
+                        onClick={() =>
+                          setCategoryId(suggestion.category!.id)
+                        }
+                        data-testid="suggestion-category"
+                      >
+                        {suggestion.category.name}
+                      </Badge>
+                    </div>
+                  )}
+                  {suggestion.tags && suggestion.tags.length > 0 && (
+                    <div className="text-sm space-y-1">
+                      <span className="text-muted-foreground">Tags:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestion.tags.map((t) => (
+                          <Badge
+                            key={t.id}
+                            variant={
+                              selectedTags.includes(t.id) ? "default" : "outline"
+                            }
+                            className="cursor-pointer"
+                            onClick={() => toggleTag(t.id)}
+                            data-testid="suggestion-tag"
+                          >
+                            + {t.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {suggestion.keywords && suggestion.keywords.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Keywords: {suggestion.keywords.slice(0, 8).join(", ")}
+                    </div>
+                  )}
+                </div>
+              )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Tags</label>
               <div className="flex flex-wrap gap-2">
-                {availableTags?.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant={selectedTags.includes(tag.id) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => toggleTag(tag.id)}
-                  >
-                    {tag.name}
-                  </Badge>
-                ))}
+                {availableTags?.map((tag) => {
+                  const active = selectedTags.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer hover-elevate ${
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary/40 hover:bg-primary/5"
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => setLocation("/")} disabled={isUploading}>
-            Cancel
-          </Button>
-          {isUploading && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={cancelAll}
-              data-testid="upload-cancel-all"
-            >
-              Cancel uploads
+        <div className="space-y-4 border-t pt-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+              3
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Review & Upload</p>
+              <p className="text-xs text-muted-foreground">
+                {pendingCount === 0
+                  ? "Add files above to continue"
+                  : `${pendingCount} file${pendingCount === 1 ? "" : "s"} ready to upload`}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setLocation("/")} disabled={isUploading}>
+              Cancel
             </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={pendingCount === 0 || !courseId || !materialType || isUploading}
-            data-testid="upload-submit"
-          >
-            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Upload {pendingCount} {pendingCount === 1 ? "File" : "Files"}
-          </Button>
+            {isUploading && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancelAll}
+                data-testid="upload-cancel-all"
+              >
+                Cancel uploads
+              </Button>
+            )}
+            <Button
+              type="submit"
+              size="lg"
+              disabled={pendingCount === 0 || !courseId || !materialType || isUploading}
+              data-testid="upload-submit"
+              className="sm:min-w-[180px]"
+            >
+              {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isUploading ? "Uploading…" : `Upload ${pendingCount} ${pendingCount === 1 ? "File" : "Files"}`}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

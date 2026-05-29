@@ -8,6 +8,12 @@ import {
   useGetCurrentUser,
   getGetDocumentQueryKey,
   getGetDocumentPreviewTokenQueryKey,
+  useSubmitDocumentForReview,
+  useApproveDocument,
+  useRejectDocument,
+  useFavoriteDocument,
+  useUnfavoriteDocument,
+  getListMyFavoritesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -17,6 +23,7 @@ import { apiUrl } from "@/lib/api-url";
 import PreviewPanel from "@/components/document-detail/PreviewPanel";
 import MetadataPanel from "@/components/document-detail/MetadataPanel";
 import EditMetadataModal from "@/components/document-detail/EditMetadataModal";
+import { RejectDialog } from "@/components/document-detail/RejectDialog";
 import CommentsThread from "@/components/document-detail/CommentsThread";
 import VersionsPanel from "@/components/document-detail/VersionsPanel";
 import {
@@ -93,6 +100,93 @@ export default function DocumentDetail() {
   const deleteDocMutation = useDeleteDocument();
 
   const [editOpen, setEditOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+
+  // Sprint-3 M2 review workflow mutations. All three invalidate the
+  // doc query on success so the badge/permissions flip in place
+  // (server is authoritative — flags like canSubmitForReview/canReview
+  // are recomputed by `assembleDocuments` against the new status).
+  const submitReviewMutation = useSubmitDocumentForReview();
+  const approveMutation = useApproveDocument();
+  const rejectMutation = useRejectDocument();
+
+  // Sprint-3 M6 — favorites also subscribe the viewer to new comments
+  // on this doc (notification type `document.activity`). Server is
+  // source of truth for `isFavorited`; we invalidate the doc query so
+  // the next render reflects the change.
+  const favoriteMutation = useFavoriteDocument();
+  const unfavoriteMutation = useUnfavoriteDocument();
+  const isFavoritePending =
+    favoriteMutation.isPending || unfavoriteMutation.isPending;
+  const handleToggleFavorite = () => {
+    if (!doc) return;
+    const action = doc.isFavorited ? unfavoriteMutation : favoriteMutation;
+    action.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListMyFavoritesQueryKey() });
+          toast({
+            title: doc.isFavorited ? "Removed from favorites" : "Added to favorites",
+          });
+        },
+        onError: () =>
+          toast({ variant: "destructive", title: "Could not update favorite" }),
+      },
+    );
+  };
+  const isReviewMutating =
+    submitReviewMutation.isPending ||
+    approveMutation.isPending ||
+    rejectMutation.isPending;
+
+  const invalidateDoc = () =>
+    queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(id) });
+
+  const handleSubmitForReview = () => {
+    submitReviewMutation.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          invalidateDoc();
+          toast({ title: "Submitted for review" });
+        },
+        onError: () =>
+          toast({
+            variant: "destructive",
+            title: "Could not submit for review",
+          }),
+      },
+    );
+  };
+  const handleApprove = () => {
+    approveMutation.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          invalidateDoc();
+          toast({ title: "Document approved" });
+        },
+        onError: () =>
+          toast({ variant: "destructive", title: "Could not approve" }),
+      },
+    );
+  };
+  const handleReject = (reason: string) => {
+    rejectMutation.mutate(
+      { id, data: { reason } },
+      {
+        onSuccess: () => {
+          invalidateDoc();
+          setRejectOpen(false);
+          toast({ title: "Document rejected" });
+        },
+        onError: () =>
+          toast({ variant: "destructive", title: "Could not reject" }),
+      },
+    );
+  };
 
   // Sprint-2 audit: gate UI off the server-issued permission flags
   // rather than a role/uploader heuristic. The server is the source of
@@ -166,6 +260,26 @@ export default function DocumentDetail() {
 
       {/* Right Column: Metadata & Comments */}
       <div className="space-y-6">
+        <button
+          type="button"
+          onClick={handleToggleFavorite}
+          disabled={isFavoritePending}
+          aria-pressed={!!doc.isFavorited}
+          data-testid="favorite-toggle"
+          className={
+            "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors " +
+            (doc.isFavorited
+              ? "bg-primary/10 border-primary/40 text-primary"
+              : "bg-background hover:bg-accent")
+          }
+        >
+          <span aria-hidden>{doc.isFavorited ? "★" : "☆"}</span>
+          <span>
+            {doc.isFavorited
+              ? "Following — you'll be notified of new comments"
+              : "Follow this document"}
+          </span>
+        </button>
         <MetadataPanel
           doc={doc}
           canEdit={canEdit}
@@ -176,6 +290,10 @@ export default function DocumentDetail() {
           onDownload={handleDownload}
           isStatusUpdating={updateDocMutation.isPending}
           isDeleting={deleteDocMutation.isPending}
+          onSubmitForReview={handleSubmitForReview}
+          onApprove={handleApprove}
+          onReject={() => setRejectOpen(true)}
+          isReviewMutating={isReviewMutating}
         />
 
         <VersionsPanel documentId={id} canManage={canEdit} />
@@ -195,6 +313,13 @@ export default function DocumentDetail() {
           doc={doc}
         />
       )}
+
+      <RejectDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        onConfirm={handleReject}
+        isSubmitting={rejectMutation.isPending}
+      />
     </div>
   );
 }

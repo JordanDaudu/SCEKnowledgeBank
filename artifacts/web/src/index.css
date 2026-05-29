@@ -130,3 +130,40 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* ── Subtle lift on interactive surfaces ─────────────────────────── */
+  .hover-elevate {
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+  .hover-elevate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.09), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  }
+
+  /* ── Course code tag — sage/green-tinted ─────────────────────────── */
+  .course-tag {
+    background-color: hsl(150 22% 88%);
+    color: hsl(155 30% 24%);
+    border-color: hsl(150 18% 78%);
+    font-family: var(--app-font-mono);
+    font-weight: 500;
+  }
+  .dark .course-tag {
+    background-color: hsl(155 20% 20%);
+    color: hsl(150 25% 72%);
+    border-color: hsl(155 18% 28%);
+  }
+
+  /* ── Material type tag — warm neutral ────────────────────────────── */
+  .material-tag {
+    background-color: hsl(35 22% 90%);
+    color: hsl(30 15% 38%);
+    border-color: hsl(35 18% 82%);
+  }
+  .dark .material-tag {
+    background-color: hsl(30 12% 22%);
+    color: hsl(35 18% 68%);
+    border-color: hsl(30 12% 30%);
+  }
+}

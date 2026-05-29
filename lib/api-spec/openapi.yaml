@@ -15,6 +15,8 @@ tags:
   - name: requests
   - name: taxonomy
   - name: users
+  - name: notifications
+  - name: analytics
 
 paths:
   /healthz:
@@ -118,9 +120,8 @@ paths:
     get:
       operationId: listDocuments
       tags: [documents]
-      summary: List documents with search, filters, sort, pagination
+      summary: List documents with filters, sort, pagination (use /v2/documents/search for full-text)
       parameters:
-        - { in: query, name: q, schema: { type: string } }
         - { in: query, name: courseId, schema: { type: string, format: uuid } }
         - { in: query, name: courseCode, schema: { type: string } }
         - { in: query, name: lecturerName, schema: { type: string } }
@@ -185,6 +186,16 @@ paths:
                 # Optional title override; otherwise derived from filename
                 title: { type: string }
                 description: { type: string }
+                # Sprint-3 M2: when "draft", the doc lands in `draft`
+                # and the uploader can submit it for review. Default
+                # is `published` (legacy upload-and-publish). Students
+                # are always forced to `draft` regardless of input.
+                status: { type: string, enum: [draft, published] }
+                # Sprint-3 completion: when true, every successfully
+                # uploaded doc is immediately routed through
+                # `submitForReview` (audited + uploader notified on
+                # approve/reject). Used by the student UI default.
+                autoSubmitForReview: { type: boolean }
       responses:
         "201":
           description: Per-file results (partial success possible)
@@ -208,22 +219,129 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/Document" }
 
-  /documents/suggestions:
+  # ─── v2 search surface (Sprint-3 M3, only search surface as of M7) ─
+  # The legacy `/documents/suggestions` endpoint and the `q` parameter
+  # on `/documents` were retired in M7 — these v2 paths are the only
+  # full-text / autocomplete entry points.
+  /v2/documents/search:
     get:
-      operationId: documentSuggestions
+      operationId: searchDocumentsV2
       tags: [documents]
-      summary: Search suggestions for autocomplete
+      summary: Rank-aware document search with snippet highlighting
       parameters:
-        - { in: query, name: q, required: true, schema: { type: string, minLength: 1 } }
-        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 8 } }
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: courseId, schema: { type: string, format: uuid } }
+        - { in: query, name: courseCode, schema: { type: string } }
+        - { in: query, name: lecturerName, schema: { type: string } }
+        - { in: query, name: semester, schema: { type: string, enum: [fall, spring, summer] } }
+        - { in: query, name: academicYear, schema: { type: integer } }
+        - { in: query, name: materialType, schema: { type: string } }
+        - { in: query, name: categoryId, schema: { type: string, format: uuid } }
+        - in: query
+          name: tagIds
+          style: form
+          explode: true
+          schema: { type: array, items: { type: string, format: uuid } }
+        - { in: query, name: uploaderId, schema: { type: string, format: uuid } }
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: dateFrom, schema: { type: string, format: date } }
+        - { in: query, name: dateTo, schema: { type: string, format: date } }
+        - { in: query, name: sort, schema: { type: string, enum: [newest, oldest, title, popularity], default: newest } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         "200":
-          description: Suggestions
+          description: Page of ranked search hits
           content:
             application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/DocumentSuggestion" }
+              schema: { $ref: "#/components/schemas/SearchPage" }
+
+  /v2/documents/search/facets:
+    get:
+      operationId: searchDocumentsFacets
+      tags: [documents]
+      summary: Facet counts for the current search filters
+      parameters:
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: courseId, schema: { type: string, format: uuid } }
+        - { in: query, name: courseCode, schema: { type: string } }
+        - { in: query, name: lecturerName, schema: { type: string } }
+        - { in: query, name: semester, schema: { type: string, enum: [fall, spring, summer] } }
+        - { in: query, name: academicYear, schema: { type: integer } }
+        - { in: query, name: materialType, schema: { type: string } }
+        - { in: query, name: categoryId, schema: { type: string, format: uuid } }
+        - in: query
+          name: tagIds
+          style: form
+          explode: true
+          schema: { type: array, items: { type: string, format: uuid } }
+        - { in: query, name: uploaderId, schema: { type: string, format: uuid } }
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: dateFrom, schema: { type: string, format: date } }
+        - { in: query, name: dateTo, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Per-dimension facet counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchFacets" }
+
+  # ─── Sprint-3 M4: smart-metadata helpers ─────────────────────────
+  /v2/documents/duplicate-check:
+    get:
+      operationId: checkDuplicateDocument
+      tags: [documents]
+      summary: Look up an existing visible document with the same sha256 checksum.
+      parameters:
+        - in: query
+          name: checksum
+          required: true
+          schema: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
+      responses:
+        "200":
+          description: Duplicate (or null when none visible to the caller).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DuplicateCheckResponse" }
+
+  /v2/documents/suggest-metadata:
+    post:
+      operationId: suggestDocumentMetadata
+      tags: [documents]
+      summary: >-
+        Run extractor + intelligence on a single file and return
+        suggested title, tags, category, language, keywords plus a
+        duplicate banner if applicable. Does NOT persist anything.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Suggestion bundle for the upload form.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuggestMetadataResponse" }
+
+  /v2/documents/autocomplete:
+    get:
+      operationId: searchAutocomplete
+      tags: [documents]
+      summary: Tag / course / uploader autocomplete for the search bar
+      parameters:
+        - { in: query, name: q, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 20, default: 5 } }
+      responses:
+        "200":
+          description: Grouped autocomplete hits
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchAutocomplete" }
 
   /documents/{id}:
     get:
@@ -265,6 +383,29 @@ paths:
         - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
       responses:
         "204": { description: Deleted }
+
+  /documents/bulk:
+    post:
+      operationId: bulkDocumentAction
+      tags: [documents]
+      summary: Apply a bulk action to multiple documents
+      description: >-
+        Run delete / add-tag / assign-category across a set of documents.
+        Each id is processed through the same audited single-document
+        path; a per-id result list reports partial success.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkDocumentActionRequest" }
+      responses:
+        "200":
+          description: Per-document results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BulkDocumentActionResult" }
+        "400": { description: Invalid request, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
   /documents/{id}/thumbnail:
     get:
@@ -475,12 +616,86 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /comments/{commentId}/reactions/{kind}:
+    post:
+      operationId: addCommentReaction
+      tags: [comments]
+      parameters:
+        - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: kind, required: true, schema: { type: string, enum: [like, love, insightful, celebrate, thanks, question] } }
+      responses:
+        "200":
+          description: Updated reaction summary for this comment
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CommentReaction" }
+        "400": { description: Bad request, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    delete:
+      operationId: removeCommentReaction
+      tags: [comments]
+      parameters:
+        - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: kind, required: true, schema: { type: string, enum: [like, love, insightful, celebrate, thanks, question] } }
+      responses:
+        "200":
+          description: Updated reaction summary for this comment
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CommentReaction" }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/favorite:
+    post:
+      operationId: favoriteDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Favorited
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FavoriteStatus" }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+    delete:
+      operationId: unfavoriteDocument
+      tags: [documents]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Unfavorited
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FavoriteStatus" }
+
+  /me/favorites:
+    get:
+      operationId: listMyFavorites
+      tags: [documents]
+      responses:
+        "200":
+          description: Documents the current user is following
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Document" }
+
   /requests:
     get:
       operationId: listRequests
       tags: [requests]
       parameters:
-        - { in: query, name: status, schema: { type: string, enum: [open, fulfilled, closed] } }
+        - { in: query, name: status, schema: { type: string, enum: [open, in_progress, fulfilled, closed] } }
         - { in: query, name: courseId, schema: { type: string, format: uuid } }
       responses:
         "200":
@@ -690,6 +905,198 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/UserSummary" }
 
+  /documents/pending-review:
+    get:
+      operationId: listPendingReviewDocuments
+      tags: [documents]
+      summary: Review queue — pending documents the caller can act on
+      description: >-
+        Admins see every doc in `pending_review`. Lecturers see only
+        pending docs in courses they teach. Anyone else gets 403.
+        Ordered oldest-submission first (FIFO drain).
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Pending review page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentPage" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Review workflow disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/submit-for-review:
+    post:
+      operationId: submitDocumentForReview
+      tags: [documents]
+      summary: Move a draft/rejected document into `pending_review`
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { description: Invalid transition, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not allowed, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/approve:
+    post:
+      operationId: approveDocument
+      tags: [documents]
+      summary: Approve a document currently in `pending_review`
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { description: Invalid transition, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/{id}/reject:
+    post:
+      operationId: rejectDocument
+      tags: [documents]
+      summary: Reject a document currently in `pending_review`
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RejectDocumentRequest" }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { description: Invalid transition or missing reason, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List the current user's notifications (newest first)
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: unreadOnly, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Notification" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /notifications/unread-count:
+    get:
+      operationId: getNotificationUnreadCount
+      tags: [notifications]
+      summary: Lightweight unread count for the bell badge (polled)
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationUnreadCount" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a single notification as read
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Marked read }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark every unread notification for the current user as read
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationMarkAllResponse" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /admin/analytics/overview:
+    get:
+      operationId: getAdminAnalyticsOverview
+      tags: [analytics]
+      summary: Admin-only workspace analytics overview
+      description: >-
+        Workspace-wide totals plus leaderboards (top viewed, top
+        downloaded, most active uploaders) and a 14-day daily upload
+        series. Results are served from a short-lived in-memory cache.
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAnalyticsOverview" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /courses/{courseId}/analytics:
+    get:
+      operationId: getCourseAnalytics
+      tags: [analytics]
+      summary: Per-course analytics for the course's lecturers (or admins)
+      parameters:
+        - { in: path, name: courseId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Course analytics
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseAnalytics" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "404": { description: Course not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /activity:
+    get:
+      operationId: listActivity
+      tags: [activity]
+      summary: Role-scoped activity feed over the audit trail
+      description: >-
+        Reads the existing audit log. Admins see all activity; lecturers
+        see their own actions plus document actions in courses they teach;
+        everyone else sees only their own actions.
+      parameters:
+        - { in: query, name: page, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: entityType, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActivityPage" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
 components:
   schemas:
     HealthStatus:
@@ -719,7 +1126,7 @@ components:
 
     CurrentUser:
       type: object
-      required: [id, email, displayName, roles, primaryRole]
+      required: [id, email, displayName, roles, primaryRole, enrollments]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
@@ -728,6 +1135,18 @@ components:
         roles:
           type: array
           items: { type: string }
+        # Sprint-3 completion: course enrollments are surfaced on
+        # /auth/me so the web client can filter the upload course
+        # picker for students (enrolled-only) without a second
+        # round-trip. `roleInCourse` is "student" or "lecturer".
+        enrollments:
+          type: array
+          items:
+            type: object
+            required: [courseId, roleInCourse]
+            properties:
+              courseId: { type: string, format: uuid }
+              roleInCourse: { type: string }
 
     UserSummary:
       type: object
@@ -833,7 +1252,13 @@ components:
         semester: { type: string, enum: [fall, spring, summer] }
         academicYear: { type: integer }
         visibility: { type: string, enum: [public, restricted, private] }
-        status: { type: string, enum: [draft, published, archived] }
+        status:
+          type: string
+          enum: [draft, published, archived, pending_review, approved, rejected]
+          description: >-
+            Lifecycle status. `draft|published|archived` are the
+            legacy values; `pending_review|approved|rejected` come
+            from the Sprint-3 review workflow.
         uploader: { $ref: "#/components/schemas/UserSummary" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -857,6 +1282,27 @@ components:
             available. Derived from the latest file's MIME type.
         permissions:
           $ref: "#/components/schemas/DocumentPermissions"
+        submittedForReviewAt:
+          type: string
+          format: date-time
+          description: When the doc was most recently submitted for review.
+        reviewedAt:
+          type: string
+          format: date-time
+          description: When the doc was last approved or rejected.
+        reviewer:
+          $ref: "#/components/schemas/UserSummary"
+        reviewReason:
+          type: string
+          description: >-
+            Rejection rationale. Present only when status='rejected'.
+            Cleared on the next submit-for-review.
+        isFavorited:
+          type: boolean
+          description: >-
+            True when the requesting user has favorited this document
+            (Sprint-3 M6). Populated on detail responses and the
+            `/me/favorites` list; may be absent on bulk list endpoints.
 
     DocumentPermissions:
       type: object
@@ -866,13 +1312,32 @@ components:
         (rather than role/uploader heuristics) to gate UI affordances
         — they encode the same course-aware logic the API enforces on
         write paths.
-      required: [canView, canEdit, canDelete, canDownload, canComment]
+      required:
+        - canView
+        - canEdit
+        - canDelete
+        - canDownload
+        - canComment
+        - canSubmitForReview
+        - canReview
       properties:
         canView: { type: boolean }
         canEdit: { type: boolean }
         canDelete: { type: boolean }
         canDownload: { type: boolean }
         canComment: { type: boolean }
+        canSubmitForReview:
+          type: boolean
+          description: >-
+            True when the user can move this doc into `pending_review`
+            (status is currently `draft` or `rejected`, and they are
+            the uploader/owner or can edit).
+        canReview:
+          type: boolean
+          description: >-
+            True when the user can approve/reject this doc (status is
+            currently `pending_review`, and they are an admin or a
+            lecturer for the doc's course).
 
     DocumentDetail:
       allOf:
@@ -912,15 +1377,64 @@ components:
         hasExtractedText:
           type: boolean
           description: True when extracted text exists for full-text search (task #28).
+        language:
+          type: string
+          description: >-
+            ISO-639-1 short code (en/es/fr/de/it/pt) detected from the
+            extracted text. Omitted when the classifier could not reach
+            its confidence threshold (Sprint-3 M4).
+        keywords:
+          type: array
+          items: { type: string }
+          description: >-
+            Top content terms by frequency after stopword filtering,
+            most frequent first. Empty/omitted when extraction had no
+            usable text (Sprint-3 M4).
 
-    DocumentSuggestion:
+    DuplicateCheckResponse:
       type: object
-      required: [id, title]
+      required: [duplicate]
       properties:
-        id: { type: string, format: uuid }
+        duplicate:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DuplicateDocument"
+
+    DuplicateDocument:
+      type: object
+      required: [documentId, title, uploaderDisplayName, uploadedAt]
+      properties:
+        documentId: { type: string, format: uuid }
         title: { type: string }
-        courseCode: { type: string }
-        materialType: { type: string }
+        uploaderDisplayName: { type: string }
+        uploadedAt: { type: string, format: date-time }
+
+    SuggestMetadataResponse:
+      type: object
+      required: [keywords, tags]
+      properties:
+        title: { type: string }
+        titleSource: { type: string, enum: [metadata, filename] }
+        language: { type: string }
+        keywords:
+          type: array
+          items: { type: string }
+        tags:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        category:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        duplicate:
+          $ref: "#/components/schemas/DuplicateDocument"
 
     DocumentPage:
       type: object
@@ -932,6 +1446,115 @@ components:
         total: { type: integer }
         page: { type: integer }
         pageSize: { type: integer }
+
+    SearchHit:
+      allOf:
+        - $ref: "#/components/schemas/Document"
+        - type: object
+          properties:
+            headline:
+              type: string
+              description: >-
+                Snippet from `ts_headline` with sentinel markers
+                `[[KBMARK]]…[[/KBMARK]]` around matches. Clients MUST
+                HTML-escape the string before swapping the sentinels
+                for `<mark>` tags — the underlying haystack may
+                contain user-supplied characters that are unsafe to
+                render as raw HTML.
+
+    SearchPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/SearchHit" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    SearchFacetCourse:
+      type: object
+      required: [id, code, title, count]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        count: { type: integer }
+
+    SearchFacetValue:
+      type: object
+      required: [value, count]
+      properties:
+        value: { type: string }
+        count: { type: integer }
+
+    SearchFacetUploader:
+      type: object
+      required: [id, displayName, count]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        count: { type: integer }
+
+    SearchFacets:
+      type: object
+      required: [course, materialType, semester, status, uploader]
+      properties:
+        course:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetCourse" }
+        materialType:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetValue" }
+        semester:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetValue" }
+        status:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetValue" }
+        uploader:
+          type: array
+          items: { $ref: "#/components/schemas/SearchFacetUploader" }
+
+    AutocompleteTagHit:
+      type: object
+      required: [id, name, count]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        count: { type: integer }
+
+    AutocompleteCourseHit:
+      type: object
+      required: [id, code, title, count]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        count: { type: integer }
+
+    AutocompleteUploaderHit:
+      type: object
+      required: [id, displayName, count]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        count: { type: integer }
+
+    SearchAutocomplete:
+      type: object
+      required: [tags, courses, uploaders]
+      properties:
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/AutocompleteTagHit" }
+        courses:
+          type: array
+          items: { $ref: "#/components/schemas/AutocompleteCourseHit" }
+        uploaders:
+          type: array
+          items: { $ref: "#/components/schemas/AutocompleteUploaderHit" }
 
     UpdateDocumentRequest:
       type: object
@@ -948,6 +1571,19 @@ components:
         tagIds:
           type: array
           items: { type: string, format: uuid }
+
+    RejectDocumentRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: >-
+            Rejection rationale. Trimmed; must be non-empty and ≤500
+            chars. Stored on the doc and pushed to the uploader as the
+            notification body.
 
     UploadResult:
       type: object
@@ -1041,7 +1677,7 @@ components:
 
     Comment:
       type: object
-      required: [id, documentId, body, author, createdAt, replies, mentions]
+      required: [id, documentId, body, author, createdAt, replies, mentions, reactions]
       properties:
         id: { type: string, format: uuid }
         documentId: { type: string, format: uuid }
@@ -1062,6 +1698,27 @@ components:
             write — they remain plain text in `body` but produce no
             entry here.
           items: { $ref: "#/components/schemas/UserSummary" }
+        reactions:
+          type: array
+          description: >-
+            Per-kind reaction summary. Empty list when no one has
+            reacted. `viewerReacted` is true when the requesting user
+            has the reaction of that kind on this comment.
+          items: { $ref: "#/components/schemas/CommentReaction" }
+
+    CommentReaction:
+      type: object
+      required: [kind, count, viewerReacted]
+      properties:
+        kind: { type: string, enum: [like, love, insightful, celebrate, thanks, question] }
+        count: { type: integer, minimum: 0 }
+        viewerReacted: { type: boolean }
+
+    FavoriteStatus:
+      type: object
+      required: [favorited]
+      properties:
+        favorited: { type: boolean }
 
     CreateCommentRequest:
       type: object
@@ -1084,7 +1741,7 @@ components:
         id: { type: string, format: uuid }
         title: { type: string }
         description: { type: string }
-        status: { type: string, enum: [open, fulfilled, closed] }
+        status: { type: string, enum: [open, in_progress, fulfilled, closed] }
         course: { $ref: "#/components/schemas/Course" }
         requestedBy: { $ref: "#/components/schemas/UserSummary" }
         voteCount: { type: integer }
@@ -1103,7 +1760,255 @@ components:
     UpdateRequestRequest:
       type: object
       properties:
-        status: { type: string, enum: [open, fulfilled, closed] }
+        status: { type: string, enum: [open, in_progress, fulfilled, closed] }
         fulfillingDocumentId: { type: string, format: uuid }
         title: { type: string }
         description: { type: string }
+
+    Notification:
+      type: object
+      required: [id, type, subjectType, subjectId, body, readAt, createdAt, actor, url]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, description: "Producer-defined kind, e.g. comment.mention, comment.reply" }
+        subjectType: { type: string }
+        subjectId: { type: string }
+        body: { type: string }
+        url: { type: string, nullable: true }
+        readAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        actor:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/UserSummary" }]
+
+    NotificationUnreadCount:
+      type: object
+      required: [unread]
+      properties:
+        unread: { type: integer, minimum: 0 }
+
+    NotificationMarkAllResponse:
+      type: object
+      required: [updated]
+      properties:
+        updated: { type: integer, minimum: 0 }
+
+
+    AnalyticsTopDocument:
+      type: object
+      required: [documentId, title, courseCode, count]
+      properties:
+        documentId: { type: string, format: uuid }
+        title: { type: string }
+        courseCode: { type: string, nullable: true }
+        count: { type: integer, minimum: 0 }
+
+    AnalyticsActiveUploader:
+      type: object
+      required: [userId, displayName, uploadCount]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        uploadCount: { type: integer, minimum: 0 }
+
+    AnalyticsDailyCount:
+      type: object
+      required: [day, count]
+      properties:
+        day: { type: string, description: "YYYY-MM-DD" }
+        count: { type: integer, minimum: 0 }
+
+    AnalyticsOverviewTotals:
+      type: object
+      required:
+        - totalDocuments
+        - totalUsers
+        - totalComments
+        - pendingReviewCount
+        - viewsThisWeek
+        - viewsPriorWeek
+        - downloadsThisWeek
+        - downloadsPriorWeek
+        - uploadsThisWeek
+      properties:
+        totalDocuments:      { type: integer, minimum: 0 }
+        totalUsers:          { type: integer, minimum: 0 }
+        totalComments:       { type: integer, minimum: 0 }
+        pendingReviewCount:  { type: integer, minimum: 0 }
+        viewsThisWeek:       { type: integer, minimum: 0 }
+        viewsPriorWeek:      { type: integer, minimum: 0 }
+        downloadsThisWeek:   { type: integer, minimum: 0 }
+        downloadsPriorWeek:  { type: integer, minimum: 0 }
+        uploadsThisWeek:     { type: integer, minimum: 0 }
+
+    AnalyticsCourseTotals:
+      type: object
+      required:
+        - totalDocuments
+        - pendingReviewCount
+        - totalComments
+        - viewsThisWeek
+        - viewsPriorWeek
+        - downloadsThisWeek
+        - downloadsPriorWeek
+        - uploadsThisWeek
+      properties:
+        totalDocuments:      { type: integer, minimum: 0 }
+        pendingReviewCount:  { type: integer, minimum: 0 }
+        totalComments:       { type: integer, minimum: 0 }
+        viewsThisWeek:       { type: integer, minimum: 0 }
+        viewsPriorWeek:      { type: integer, minimum: 0 }
+        downloadsThisWeek:   { type: integer, minimum: 0 }
+        downloadsPriorWeek:  { type: integer, minimum: 0 }
+        uploadsThisWeek:     { type: integer, minimum: 0 }
+
+    AdminAnalyticsOverview:
+      type: object
+      required:
+        - totals
+        - topDocumentsByViews
+        - topDocumentsByDownloads
+        - activeUploaders
+        - uploadsLast14Days
+        - topCategories
+        - duplicateGroups
+        - generatedAt
+      properties:
+        totals: { $ref: "#/components/schemas/AnalyticsOverviewTotals" }
+        topDocumentsByViews:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        topDocumentsByDownloads:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        activeUploaders:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsActiveUploader" }
+        uploadsLast14Days:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsDailyCount" }
+        topCategories:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopCategory" }
+        duplicateGroups:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsDuplicateGroup" }
+        generatedAt: { type: string, format: date-time }
+
+    AnalyticsTopCategory:
+      type: object
+      required: [categoryId, name, documentCount]
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string }
+        documentCount: { type: integer }
+
+    AnalyticsDuplicateGroup:
+      type: object
+      required: [checksum, count, sampleTitle, sampleDocumentId]
+      properties:
+        checksum: { type: string }
+        count: { type: integer }
+        sampleTitle: { type: string }
+        sampleDocumentId: { type: string, format: uuid }
+
+    BulkDocumentActionRequest:
+      type: object
+      required: [action, ids]
+      properties:
+        action: { type: string, enum: [delete, add_tag, assign_category] }
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: string, format: uuid }
+        tagId: { type: string, format: uuid, nullable: true }
+        categoryId: { type: string, format: uuid, nullable: true }
+
+    BulkDocumentActionResultEntry:
+      type: object
+      required: [id, success]
+      properties:
+        id: { type: string, format: uuid }
+        success: { type: boolean }
+        error: { type: string }
+
+    BulkDocumentActionResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/BulkDocumentActionResultEntry" }
+
+    ActivityEntry:
+      type: object
+      required: [id, action, entityType, entityId, actor, target, metadata, createdAt]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: string }
+        actor:
+          nullable: true
+          type: object
+          required: [id, displayName]
+          properties:
+            id: { type: string, format: uuid }
+            displayName: { type: string }
+        target:
+          nullable: true
+          type: object
+          required: [title]
+          properties:
+            title: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
+
+    ActivityPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ActivityEntry" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+    AnalyticsCourseInfo:
+      type: object
+      required: [id, code, title]
+      properties:
+        id:    { type: string, format: uuid }
+        code:  { type: string }
+        title: { type: string }
+
+    CourseAnalytics:
+      type: object
+      required:
+        - course
+        - totals
+        - topDocumentsByViews
+        - topDocumentsByDownloads
+        - activeUploaders
+        - uploadsLast14Days
+        - generatedAt
+      properties:
+        course: { $ref: "#/components/schemas/AnalyticsCourseInfo" }
+        totals: { $ref: "#/components/schemas/AnalyticsCourseTotals" }
+        topDocumentsByViews:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        topDocumentsByDownloads:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopDocument" }
+        activeUploaders:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsActiveUploader" }
+        uploadsLast14Days:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsDailyCount" }
+        generatedAt: { type: string, format: date-time }

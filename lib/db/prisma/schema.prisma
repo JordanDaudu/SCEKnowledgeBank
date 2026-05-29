@@ -68,6 +68,7 @@ model User {
   documentsOwned    Document[]            @relation("DocumentOwner")
   documentsCreated  Document[]            @relation("DocumentCreator")
   documentsUpdated  Document[]            @relation("DocumentUpdater")
+  documentsReviewed Document[]            @relation("DocumentReviewer")
   documentFilesUploaded DocumentFile[]    @relation("DocumentFileUploadedBy")
   coursesLectured   Course[]
   comments          Comment[]
@@ -77,6 +78,10 @@ model User {
   viewHistory       MaterialViewHistory[]
   auditLogs         AuditLog[]
   courseEnrollments CourseEnrollment[]
+  notificationsReceived Notification[]    @relation("NotificationRecipient")
+  notificationsActed    Notification[]    @relation("NotificationActor")
+  commentReactions      CommentReaction[] @relation("CommentReactionUser")
+  documentFavorites     DocumentFavorite[]
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
   @@map("users")
@@ -203,17 +208,34 @@ model Document {
   createdBy        String?   @map("created_by") @db.Uuid
   updatedBy        String?   @map("updated_by") @db.Uuid
 
+  // ─── Review / approval workflow (Sprint-3 M2) ─────────────────
+  // Status values used by the workflow (additive to the existing
+  // `draft|published|archived` set): `pending_review`, `approved`,
+  // `rejected`. Transitions:
+  //   draft|rejected → pending_review  (submitForReview)
+  //   pending_review → approved|rejected  (approve / reject)
+  // `reviewedBy` / `reviewedAt` are stamped by approve+reject.
+  // `reviewReason` is the rejection rationale (cleared on approve).
+  // `submittedForReviewAt` records the most recent submission, so
+  // reviewer queues can order by oldest-first.
+  reviewedBy            String?   @map("reviewed_by") @db.Uuid
+  reviewedAt            DateTime? @map("reviewed_at") @db.Timestamptz()
+  reviewReason          String?   @map("review_reason")
+  submittedForReviewAt  DateTime? @map("submitted_for_review_at") @db.Timestamptz()
+
   course            Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
   category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   uploader          User                  @relation("DocumentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
   owner             User                  @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   creator           User?                 @relation("DocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   updater           User?                 @relation("DocumentUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+  reviewer          User?                 @relation("DocumentReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
   files             DocumentFile[]
   tags              DocumentTag[]
   comments          Comment[]
   views             MaterialViewHistory[]
   requestsFulfilled MaterialRequest[]     @relation("FulfillingDocument")
+  favorites         DocumentFavorite[]
 
   @@index([courseId], map: "documents_course_idx")
   @@index([categoryId], map: "documents_category_idx")
@@ -221,6 +243,9 @@ model Document {
   @@index([semester, academicYear], map: "documents_semester_year_idx")
   @@index([uploaderId], map: "documents_uploader_idx")
   @@index([createdAt], map: "documents_created_at_idx")
+  // Review queue: list pending_review docs (optionally scoped by
+  // course for lecturers) ordered oldest-first.
+  @@index([status, courseId, submittedForReviewAt], map: "documents_status_course_submitted_idx")
   @@map("documents")
 }
 
@@ -267,6 +292,16 @@ model DocumentFile {
   imageHeight       Int?    @map("image_height")
   thumbnailPath     String? @map("thumbnail_path")
   thumbnailMimeType String? @map("thumbnail_mime_type")
+
+  // ─── Smart metadata (Sprint-3 M4) ─────────────────────────────
+  // Best-effort post-processors derived from `extractedText`:
+  //   • language — ISO-639-1 short code (en/es/fr/de/...). NULL when
+  //     the classifier could not reach the confidence threshold.
+  //   • keywords — top tokens by frequency after stopword/length
+  //     filtering. Empty array means no extracted text or every
+  //     candidate was filtered out.
+  language String?
+  keywords String[] @default([])
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   uploadedBy User?  @relation("DocumentFileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
@@ -320,11 +355,53 @@ model Comment {
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
   mentions CommentMention[]
+  reactions CommentReaction[]
 
   @@index([documentId, createdAt], map: "comments_document_created_idx")
   @@index([parentId], map: "comments_parent_idx")
   @@index([authorId], map: "comments_author_idx")
   @@map("comments")
+}
+
+// ─── Reactions (Sprint-3 M6) ──────────────────────────────────────
+// One row per (comment, user, kind). The unique key keeps a user from
+// stacking the same kind on the same comment; different kinds are
+// allowed (a user can react ":like" and ":thanks" to the same comment).
+
+model CommentReaction {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  kind      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation("CommentReactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, kind], map: "comment_reactions_comment_user_kind_unique")
+  @@index([commentId], map: "comment_reactions_comment_idx")
+  @@index([userId], map: "comment_reactions_user_idx")
+  @@map("comment_reactions")
+}
+
+// ─── Favorites (Sprint-3 M6) ──────────────────────────────────────
+// User-scoped per-document subscription. Doubles as the "Following"
+// list and as the notification subscription set for document activity
+// (new comments, etc.).
+
+model DocumentFavorite {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId], map: "document_favorites_user_document_unique")
+  @@index([documentId], map: "document_favorites_document_idx")
+  @@index([userId, createdAt(sort: Desc)], map: "document_favorites_user_created_idx")
+  @@map("document_favorites")
 }
 
 model CommentMention {
@@ -395,6 +472,60 @@ model AuditLog {
   @@index([entityType, entityId, createdAt], map: "audit_logs_entity_idx")
   @@index([actorUserId], map: "audit_logs_actor_idx")
   @@map("audit_logs")
+}
+
+// ─── Notifications (Sprint-3 M1) ──────────────────────────────────
+//
+// Polling-only in-app notification bus. Producers (comment mentions,
+// replies, future approvals/follows) call `notify(...)` which inserts
+// here; the unique key (recipient_id, type, subject_type, subject_id)
+// dedupes so the same producer event cannot create two rows for the
+// same recipient.
+
+model Notification {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipientId String    @map("recipient_id") @db.Uuid
+  // Optional — system-generated notifications have no actor.
+  actorId     String?   @map("actor_id") @db.Uuid
+  // Producer-defined kind, e.g. `comment.mention`, `comment.reply`.
+  type        String
+  // What the notification refers to. Stored as text (not uuid) so
+  // non-uuid subjects (composite keys, future external refs) work
+  // without a schema change.
+  subjectType String    @map("subject_type")
+  subjectId   String    @map("subject_id")
+  body        String    @default("")
+  // Optional deep-link path within the web app (e.g.
+  // `/documents/<id>#comment-<cid>`).
+  url         String?
+  readAt      DateTime? @map("read_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  recipient User  @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  // Per-(recipient, type, subject) dedup: the same producer event
+  // cannot create two rows for the same recipient on the same
+  // subject. `type` is part of the key so that distinct review
+  // outcomes on a single document (e.g. `document.rejected` then,
+  // after a resubmit, `document.approved`) both reach the uploader —
+  // a type-less key would silently suppress the second.
+  // Cross-type collisions on the same subject (e.g. mention vs reply
+  // on the same comment) stay the producer's responsibility: the
+  // comment producer enforces type precedence (reply > mention)
+  // before calling `notify(...)`.
+  @@unique([recipientId, type, subjectType, subjectId], map: "notifications_recipient_type_subject_unique")
+  // Two complementary indexes:
+  //   • `_unread_idx` keeps `read_at` in the middle so the
+  //     unread-count + unread-only feed (`WHERE recipient_id = ?
+  //     AND read_at IS NULL ORDER BY created_at DESC`) is a clean
+  //     index scan.
+  //   • `_feed_idx` covers the default list query (no read_at
+  //     predicate, just `WHERE recipient_id = ? ORDER BY
+  //     created_at DESC LIMIT N`) without an extra sort step.
+  @@index([recipientId, readAt, createdAt(sort: Desc)], map: "notifications_recipient_unread_idx")
+  @@index([recipientId, createdAt(sort: Desc)], map: "notifications_recipient_feed_idx")
+  @@map("notifications")
 }
 
 // ─── Sessions (connect-pg-simple shape) ───────────────────────────

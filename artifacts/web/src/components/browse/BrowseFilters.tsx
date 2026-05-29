@@ -326,16 +326,16 @@ function ActiveChipsContainer(p: ChipsProps) {
 
 function FilterChip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
   return (
-    <Badge variant="secondary" className="gap-1 pr-1">
+    <span className="inline-flex items-center gap-1 pr-1 pl-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
       <span>{children}</span>
       <button
         type="button"
         onClick={onClear}
-        className="rounded-sm hover:bg-background/60 p-0.5"
+        className="rounded-full hover:bg-primary/20 p-0.5 transition-colors"
         aria-label="Remove filter"
       >
         <X className="h-3 w-3" />
       </button>
-    </Badge>
+    </span>
   );
 }

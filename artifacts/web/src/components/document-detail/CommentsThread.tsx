@@ -17,11 +17,16 @@ import { MessageSquare, Trash2, Reply, Edit, Hash, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 import MentionPicker from "./MentionPicker";
+import ReactionRow from "./ReactionRow";
 
 interface Props {
   documentId: string;
   commentCount: number;
   isPdf: boolean;
+}
+
+interface CommentNodeExtras {
+  documentId: string;
 }
 
 interface CurrentUser {
@@ -54,7 +59,7 @@ interface CommentNodeProps {
  * is bounded by a left-border indent that caps after a few levels so
  * very deep threads still read comfortably.
  */
-function CommentNode(props: CommentNodeProps) {
+function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
   const {
     comment,
     depth,
@@ -201,7 +206,14 @@ function CommentNode(props: CommentNodeProps) {
             </div>
           </div>
         ) : (
-          <p className="text-sm pl-8 whitespace-pre-wrap">{comment.body}</p>
+          <>
+            <p className="text-sm pl-8 whitespace-pre-wrap">{comment.body}</p>
+            <ReactionRow
+              commentId={comment.id}
+              documentId={props.documentId}
+              reactions={comment.reactions ?? []}
+            />
+          </>
         )}
       </div>
       {comment.replies && comment.replies.length > 0 && (
@@ -401,6 +413,7 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
               key={c.id}
               comment={c}
               depth={0}
+              documentId={documentId}
               isPdf={isPdf}
               user={user}
               editingCommentId={editingCommentId}

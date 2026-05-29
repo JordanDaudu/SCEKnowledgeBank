@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface DocumentSuggestion {
-  id: string;
+export interface DuplicateDocument {
+  documentId: string;
   title: string;
-  courseCode?: string;
-  materialType?: string;
+  uploaderDisplayName: string;
+  uploadedAt: Date;
 }

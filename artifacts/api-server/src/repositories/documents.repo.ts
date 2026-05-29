@@ -21,6 +21,12 @@ export interface DocumentRow {
   deletedAt: Date | null;
   createdBy: string | null;
   updatedBy: string | null;
+  // Sprint-3 M2 reviewer columns. NULL on every existing row; only
+  // populated once a doc enters the review workflow.
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  reviewReason: string | null;
+  submittedForReviewAt: Date | null;
 }
 
 export type DocumentInsert = Prisma.DocumentUncheckedCreateInput;
@@ -48,6 +54,12 @@ export interface DocumentFileRow {
   imageHeight: number | null;
   thumbnailPath: string | null;
   thumbnailMimeType: string | null;
+  // Smart-metadata (Sprint-3 M4) — best-effort post-processors over
+  // extractedText. `language` is an ISO-639-1 code; `keywords` is a
+  // ranked list (most frequent first). Empty when extraction had
+  // nothing to chew on.
+  language: string | null;
+  keywords: string[];
 }
 
 export interface DocumentFileInsert {
@@ -72,6 +84,9 @@ export interface DocumentFileInsert {
   imageHeight?: number | null;
   thumbnailPath?: string | null;
   thumbnailMimeType?: string | null;
+  // Smart-metadata (Sprint-3 M4).
+  language?: string | null;
+  keywords?: string[];
 }
 
 export type DocumentSort = "newest" | "oldest" | "title" | "popularity";
@@ -85,6 +100,10 @@ export interface DocumentListFilters {
   dateFrom?: Date;
   dateTo?: Date;
   q?: string;
+  /** Sprint-3 M3: scope by uploader. */
+  uploaderId?: string;
+  /** Sprint-3 M3: scope by workflow status (`published`/`pending`/...). */
+  status?: string;
   /** Pre-resolved course ids to restrict to (e.g. after courseCode/lecturerName lookup). */
   restrictCourseIds?: string[];
   /** Pre-resolved document ids to restrict to (e.g. after tag lookup). */
@@ -119,6 +138,8 @@ function fromFileRow(r: {
   imageHeight: number | null;
   thumbnailPath: string | null;
   thumbnailMimeType: string | null;
+  language: string | null;
+  keywords: string[];
 }): DocumentFileRow {
   return { ...r, sizeBytes: Number(r.sizeBytes) };
 }
@@ -131,6 +152,8 @@ function buildBaseWhere(
   if (filters.categoryId) and.push({ categoryId: filters.categoryId });
   if (filters.materialType) and.push({ materialType: filters.materialType });
   if (filters.semester) and.push({ semester: filters.semester });
+  if (filters.uploaderId) and.push({ uploaderId: filters.uploaderId });
+  if (filters.status) and.push({ status: filters.status });
   if (filters.academicYear != null)
     and.push({ academicYear: filters.academicYear });
   if (filters.dateFrom || filters.dateTo) {
@@ -242,6 +265,10 @@ function buildFilterFragmentsSql(filters: DocumentListFilters): Prisma.Sql[] {
     parts.push(Prisma.sql`d.material_type = ${filters.materialType}`);
   if (filters.semester)
     parts.push(Prisma.sql`d.semester = ${filters.semester}`);
+  if (filters.uploaderId)
+    parts.push(Prisma.sql`d.uploader_id = ${filters.uploaderId}::uuid`);
+  if (filters.status)
+    parts.push(Prisma.sql`d.status = ${filters.status}`);
   if (filters.academicYear != null)
     parts.push(Prisma.sql`d.academic_year = ${filters.academicYear}`);
   if (filters.dateFrom)
@@ -338,6 +365,209 @@ export async function searchDocumentsRanked(
   const order = new Map(ids.map((id, i) => [id, i]));
   docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return docs;
+}
+
+// ─── M3: snippet-aware FTS + facets + autocomplete ───────────────
+//
+// `searchDocumentsRankedWithSnippets` mirrors `searchDocumentsRanked`
+// but additionally returns a per-document `headline` rendered by
+// Postgres `ts_headline()`. The fragment markers are sentinel strings
+// (not `<mark>`) so the frontend can html-escape the haystack first
+// and then swap the sentinels for real tags — avoids HTML injection
+// from arbitrary `search_text` content.
+
+export const SNIPPET_MARK_OPEN = "[[KBMARK]]";
+export const SNIPPET_MARK_CLOSE = "[[/KBMARK]]";
+const HEADLINE_OPTIONS =
+  "StartSel=[[KBMARK]],StopSel=[[/KBMARK]],MaxFragments=2,MaxWords=12,MinWords=4,ShortWord=2,HighlightAll=FALSE";
+
+export async function searchDocumentsRankedWithSnippets(
+  q: string,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+  options: { sort: DocumentSort; page: number; pageSize: number },
+): Promise<{ rows: DocumentRow[]; headlines: Map<string, string> }> {
+  const where = Prisma.join(
+    [
+      ...buildFilterFragmentsSql(filters),
+      visibilitySql,
+      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+    ],
+    " AND ",
+  );
+  const tieBreaker =
+    options.sort === "oldest"
+      ? Prisma.sql`d.created_at ASC`
+      : options.sort === "title"
+        ? Prisma.sql`d.title ASC`
+        : Prisma.sql`d.created_at DESC`;
+  const offset = (options.page - 1) * options.pageSize;
+  const idRows = await db.$queryRaw<
+    Array<{ id: string; headline: string | null }>
+  >`
+    SELECT d.id,
+           ts_headline('english',
+             coalesce(d.search_text, d.title || ' ' || coalesce(d.description, '')),
+             plainto_tsquery('english', ${q}),
+             ${HEADLINE_OPTIONS}
+           ) AS headline
+    FROM documents d
+    WHERE ${where}
+    ORDER BY ts_rank(d.search_vector, plainto_tsquery('english', ${q})) DESC,
+             ${tieBreaker}
+    LIMIT ${options.pageSize} OFFSET ${offset}
+  `;
+  if (idRows.length === 0) return { rows: [], headlines: new Map() };
+  const ids = idRows.map((r) => r.id);
+  const headlines = new Map<string, string>();
+  for (const r of idRows) {
+    if (r.headline) headlines.set(r.id, r.headline);
+  }
+  const docs = await db.document.findMany({ where: { id: { in: ids } } });
+  const order = new Map(ids.map((id, i) => [id, i]));
+  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return { rows: docs, headlines };
+}
+
+export interface FacetCount {
+  value: string;
+  count: number;
+}
+
+export interface FacetCounts {
+  courseId: FacetCount[];
+  materialType: FacetCount[];
+  semester: FacetCount[];
+  status: FacetCount[];
+  uploaderId: FacetCount[];
+}
+
+/**
+ * Compute per-dimension facet counts for the current filtered result
+ * set. Uses raw SQL because (a) when `q` is present we already need
+ * raw SQL for the tsquery match and (b) we want a single shared WHERE
+ * fragment across every dimension. Each dimension runs as its own
+ * GROUP BY query against the documents table.
+ *
+ * Counts INCLUDE the active filter for the dimension itself — this is
+ * the "current result set" definition called out in the task spec.
+ * Switching to "drill-down" facets (exclude active value from its own
+ * count) is a follow-up.
+ */
+export async function computeFacetCounts(
+  q: string | undefined,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+): Promise<FacetCounts> {
+  const whereParts = [...buildFilterFragmentsSql(filters), visibilitySql];
+  if (q) {
+    whereParts.push(
+      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+    );
+  }
+  const where = Prisma.join(whereParts, " AND ");
+
+  const groupBy = async (col: Prisma.Sql) => {
+    const rows = await db.$queryRaw<Array<{ value: string | null; count: bigint }>>`
+      SELECT ${col} AS value, count(*)::bigint AS count
+      FROM documents d
+      WHERE ${where}
+      GROUP BY ${col}
+      ORDER BY count(*) DESC
+      LIMIT 50
+    `;
+    return rows
+      .filter((r): r is { value: string; count: bigint } => r.value !== null)
+      .map((r) => ({ value: r.value, count: Number(r.count) }));
+  };
+
+  const [courseId, materialType, semester, status, uploaderId] =
+    await Promise.all([
+      groupBy(Prisma.sql`d.course_id::text`),
+      groupBy(Prisma.sql`d.material_type`),
+      groupBy(Prisma.sql`d.semester`),
+      groupBy(Prisma.sql`d.status`),
+      groupBy(Prisma.sql`d.uploader_id::text`),
+    ]);
+
+  return { courseId, materialType, semester, status, uploaderId };
+}
+
+export interface AutocompleteHits {
+  tags: Array<{ id: string; name: string; count: number }>;
+  courses: Array<{ id: string; code: string; title: string; count: number }>;
+  uploaders: Array<{ id: string; displayName: string; count: number }>;
+}
+
+/**
+ * Low-latency autocomplete over the three entities the search UI
+ * filters by. Each group is scoped to entities that appear on at
+ * least one document the caller is allowed to see (so we don't leak
+ * tag/course/uploader names that only attach to invisible docs).
+ *
+ * Uses ILIKE on prefix-padded patterns with the existing trigram
+ * indexes (`tags`, `courses`, `users`) where present, and falls back
+ * to a sequential scan otherwise — limits keep the cost bounded.
+ */
+export async function findAutocomplete(
+  prefix: string,
+  limit: number,
+  visibilitySql: Prisma.Sql,
+): Promise<AutocompleteHits> {
+  const pat = `%${prefix}%`;
+  const prefixPat = `${prefix}%`;
+  const [tags, courses, uploaders] = await Promise.all([
+    db.$queryRaw<Array<{ id: string; name: string; count: bigint }>>`
+      SELECT t.id, t.name, count(DISTINCT d.id)::bigint AS count
+      FROM tags t
+      JOIN document_tags dt ON dt.tag_id = t.id
+      JOIN documents d ON d.id = dt.document_id AND d.deleted_at IS NULL
+      WHERE t.name ILIKE ${pat}
+        AND ${visibilitySql}
+      GROUP BY t.id, t.name
+      ORDER BY (t.name ILIKE ${prefixPat}) DESC, count DESC, t.name ASC
+      LIMIT ${limit}
+    `,
+    db.$queryRaw<
+      Array<{ id: string; code: string; title: string; count: bigint }>
+    >`
+      SELECT c.id, c.code, c.title, count(d.id)::bigint AS count
+      FROM courses c
+      JOIN documents d ON d.course_id = c.id AND d.deleted_at IS NULL
+      WHERE (c.code ILIKE ${pat} OR c.title ILIKE ${pat} OR coalesce(c.lecturer_name, '') ILIKE ${pat})
+        AND ${visibilitySql}
+      GROUP BY c.id, c.code, c.title
+      ORDER BY (c.code ILIKE ${prefixPat} OR c.title ILIKE ${prefixPat}) DESC,
+               count DESC, c.code ASC
+      LIMIT ${limit}
+    `,
+    db.$queryRaw<
+      Array<{ id: string; display_name: string; count: bigint }>
+    >`
+      SELECT u.id, u.display_name, count(d.id)::bigint AS count
+      FROM users u
+      JOIN documents d ON d.uploader_id = u.id AND d.deleted_at IS NULL
+      WHERE u.display_name ILIKE ${pat}
+        AND ${visibilitySql}
+      GROUP BY u.id, u.display_name
+      ORDER BY (u.display_name ILIKE ${prefixPat}) DESC, count DESC, u.display_name ASC
+      LIMIT ${limit}
+    `,
+  ]);
+  return {
+    tags: tags.map((t) => ({ id: t.id, name: t.name, count: Number(t.count) })),
+    courses: courses.map((c) => ({
+      id: c.id,
+      code: c.code,
+      title: c.title,
+      count: Number(c.count),
+    })),
+    uploaders: uploaders.map((u) => ({
+      id: u.id,
+      displayName: u.display_name,
+      count: Number(u.count),
+    })),
+  };
 }
 
 export interface SuggestionRow {
@@ -452,6 +682,28 @@ export async function updateDocumentById(
   patch: Prisma.DocumentUncheckedUpdateInput,
 ): Promise<void> {
   await db.document.update({ where: { id }, data: patch });
+}
+
+/**
+ * Compare-and-swap update used by the review workflow (Sprint-3 M2).
+ * Returns the number of rows affected — `0` means the precondition
+ * (`expectedStatus`) did not match, i.e. another reviewer beat us to
+ * the transition. Callers turn `0` into a 409/400 instead of silently
+ * applying duplicate side effects (audit/notify).
+ *
+ * We use `updateMany` rather than `update` because `update` throws on
+ * zero matches; `updateMany` returns a count we can branch on.
+ */
+export async function updateDocumentByIdIfStatus(
+  id: string,
+  expectedStatus: string,
+  patch: Prisma.DocumentUncheckedUpdateInput,
+): Promise<number> {
+  const res = await db.document.updateMany({
+    where: { id, status: expectedStatus, deletedAt: null },
+    data: patch,
+  });
+  return res.count;
 }
 
 export async function softDeleteDocument(
@@ -715,6 +967,74 @@ export async function findAliveFileByUploaderAndChecksum(
 }
 
 /**
+ * Sprint-3 M4: dedup lookup that is *not* scoped to the uploader.
+ * Returns every alive document that has at least one file with the
+ * given checksum, with the metadata the suggest-metadata service
+ * needs to render a banner. Visibility filtering is the caller's
+ * responsibility (the service layer applies `permissions.canView`).
+ *
+ * Deduplicated by `documentId` — a document with multiple version
+ * rows all matching the checksum still surfaces once.
+ */
+export interface DuplicateCandidateRow {
+  documentId: string;
+  documentTitle: string;
+  uploaderId: string;
+  ownerId: string;
+  uploaderDisplayName: string;
+  uploadedAt: Date;
+  // Real visibility/status/courseId from the document row so the
+  // caller's `permissions.canView` decision sees true values — not
+  // a hardcoded public/published default that would leak the
+  // existence of a private or in-review duplicate to other users.
+  visibility: string;
+  status: string;
+  courseId: string | null;
+}
+
+export async function findAliveDocumentsByChecksum(
+  checksum: string,
+): Promise<DuplicateCandidateRow[]> {
+  const rows = await db.documentFile.findMany({
+    where: { checksum, document: { deletedAt: null } },
+    select: {
+      uploadedAt: true,
+      document: {
+        select: {
+          id: true,
+          title: true,
+          uploaderId: true,
+          ownerId: true,
+          visibility: true,
+          status: true,
+          courseId: true,
+          uploader: { select: { displayName: true } },
+        },
+      },
+    },
+    orderBy: { uploadedAt: "asc" },
+  });
+  const seen = new Set<string>();
+  const out: DuplicateCandidateRow[] = [];
+  for (const r of rows) {
+    if (seen.has(r.document.id)) continue;
+    seen.add(r.document.id);
+    out.push({
+      documentId: r.document.id,
+      documentTitle: r.document.title,
+      uploaderId: r.document.uploaderId,
+      ownerId: r.document.ownerId,
+      uploaderDisplayName: r.document.uploader.displayName,
+      uploadedAt: r.uploadedAt,
+      visibility: r.document.visibility,
+      status: r.document.status,
+      courseId: r.document.courseId,
+    });
+  }
+  return out;
+}
+
+/**
  * Atomically:
  *   1. insert the Document row,
  *   2. insert its DocumentFile,
@@ -748,6 +1068,59 @@ export async function insertDocumentWithFileAndQuota(args: {
       data: { usedBytes: { increment: BigInt(sizeBytes) } },
     });
     return doc;
+  });
+}
+
+// ─── Review queue (Sprint-3 M2) ───────────────────────────────────
+// Listing pending docs is its own helper because the queue's filter
+// is a different shape from `DocumentListFilters` — it never honours
+// the visibility predicate (reviewers must see their queue) and it
+// always restricts to status='pending_review'. Course scoping is
+// applied at the caller (admin: all; lecturer: only taught courses).
+
+export interface PendingReviewFilter {
+  /** When set, restrict to docs in these courseIds; ignored for admin. */
+  courseIds?: string[];
+}
+
+function buildPendingReviewWhere(
+  f: PendingReviewFilter,
+): Prisma.DocumentWhereInput {
+  const and: Prisma.DocumentWhereInput[] = [
+    { deletedAt: null },
+    { status: "pending_review" },
+  ];
+  if (f.courseIds !== undefined) {
+    and.push(
+      f.courseIds.length > 0
+        ? { courseId: { in: f.courseIds } }
+        : { id: { in: [] } },
+    );
+  }
+  return { AND: and };
+}
+
+export async function countPendingReview(
+  f: PendingReviewFilter,
+): Promise<number> {
+  return db.document.count({ where: buildPendingReviewWhere(f) });
+}
+
+export async function listPendingReview(
+  f: PendingReviewFilter,
+  options: { page: number; pageSize: number },
+): Promise<DocumentRow[]> {
+  return db.document.findMany({
+    where: buildPendingReviewWhere(f),
+    // Oldest submitted first so reviewers drain FIFO. Fall back to
+    // createdAt for docs that pre-date the column (NULL sorts last
+    // with `nulls: "last"`, which Postgres + Prisma support).
+    orderBy: [
+      { submittedForReviewAt: { sort: "asc", nulls: "last" } },
+      { createdAt: "asc" },
+    ],
+    take: options.pageSize,
+    skip: (options.page - 1) * options.pageSize,
   });
 }
 
@@ -790,6 +1163,16 @@ export async function addDocumentTags(
     data: tagIds.map((tagId) => ({ documentId, tagId })),
     skipDuplicates: true,
   });
+}
+
+export async function getDocumentTagIds(
+  documentId: string,
+): Promise<string[]> {
+  const rows = await db.documentTag.findMany({
+    where: { documentId },
+    select: { tagId: true },
+  });
+  return rows.map((r) => r.tagId);
 }
 
 export async function findDocumentIdsByTagIds(

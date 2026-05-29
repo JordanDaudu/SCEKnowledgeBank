@@ -6,6 +6,7 @@
  */
 import { db } from "@workspace/db";
 import * as documentsService from "../services/documents.service";
+import * as searchService from "../services/search.service";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
 const DEMO_EMAILS = [
@@ -56,6 +57,14 @@ const DEMO_REQUEST_TITLES = [
   "Need Data Structures previous exams",
   "Please add risk register sample",
   "Need summary for Knowledge Base Architecture",
+  "Old IS310 exam papers",
+];
+
+const DEMO_REVIEW_DOC_TITLES = [
+  "Noa's Draft Study Notes — CS101",
+  "Noa's CS101 Exam Summary — Pending Review",
+  "Amir's CS101 Lab Report — Rejected",
+  "Amir's IS310 Sprint Notes — Approved",
 ];
 
 interface Check {
@@ -247,7 +256,7 @@ const checks: Check[] = [
     },
   },
   {
-    name: "demo: all 8 demo material requests exist",
+    name: "demo: all 9 demo material requests exist",
     run: async () => {
       const found = await db.materialRequest.findMany({
         where: { title: { in: DEMO_REQUEST_TITLES } },
@@ -257,6 +266,70 @@ const checks: Check[] = [
         (t) => !found.some((f) => f.title === t),
       );
       return missing.length === 0 ? true : `missing: ${missing.join(", ")}`;
+    },
+  },
+  {
+    name: "demo: review-workflow docs exist (draft, pending, rejected, approved)",
+    run: async () => {
+      const found = await db.document.findMany({
+        where: { title: { in: DEMO_REVIEW_DOC_TITLES } },
+        select: { title: true, status: true, reviewReason: true },
+      });
+      if (found.length < DEMO_REVIEW_DOC_TITLES.length) {
+        const missing = DEMO_REVIEW_DOC_TITLES.filter(
+          (t) => !found.some((f) => f.title === t),
+        );
+        return `missing: ${missing.join(", ")}`;
+      }
+      const draft = found.find((d) => d.title.includes("Draft"));
+      if (draft?.status !== "draft") return `draft status=${draft?.status}`;
+      const pending = found.find((d) => d.title.includes("Pending"));
+      if (pending?.status !== "pending_review") return `pending status=${pending?.status}`;
+      const rejected = found.find((d) => d.title.includes("Rejected"));
+      if (rejected?.status !== "rejected") return `rejected status=${rejected?.status}`;
+      if (!rejected?.reviewReason) return "rejected doc missing reviewReason";
+      const approved = found.find((d) => d.title.includes("Approved"));
+      if (approved?.status !== "approved") return `approved status=${approved?.status}`;
+      return true;
+    },
+  },
+  {
+    name: "demo: favorites seeded for noa + amir + yael",
+    run: async () => {
+      const users = await db.user.findMany({
+        where: {
+          email: {
+            in: [
+              "noa.student@knowledgebank.demo",
+              "amir.student@knowledgebank.demo",
+              "yael.student@knowledgebank.demo",
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      const userIds = users.map((u) => u.id);
+      const n = await db.documentFavorite.count({
+        where: { userId: { in: userIds } },
+      });
+      return n >= 5 ? true : `got ${n} favorites`;
+    },
+  },
+  {
+    name: "demo: comment reactions seeded",
+    run: async () => {
+      const n = await db.commentReaction.count();
+      return n >= 1 ? true : `got ${n} reactions`;
+    },
+  },
+  {
+    name: "demo: closed request exists",
+    run: async () => {
+      const r = await db.materialRequest.findFirst({
+        where: { title: "Old IS310 exam papers" },
+      });
+      if (!r) return "closed request missing";
+      return r.status === "closed" ? true : `status=${r.status}`;
     },
   },
   {
@@ -342,10 +415,10 @@ const checks: Check[] = [
       // (`1. Refine backlog`). It is not in any DEMO_DOC_TITLES nor
       // in any course code / tag, so a hit here proves the FTS
       // pipeline indexed `document_files.extracted_text`.
-      const res = await documentsService.listDocuments(
-        { q: "Refine", page: 1, pageSize: 10 } as Parameters<
-          typeof documentsService.listDocuments
-        >[0],
+      // Sprint-3 M7 retired the in-list `q` FTS branch — full-text
+      // search now lives exclusively on the v2 search service.
+      const res = await searchService.searchDocuments(
+        { q: "Refine", sort: "newest", page: 1, pageSize: 10 },
         authed,
       );
       const hit = res.items.find(

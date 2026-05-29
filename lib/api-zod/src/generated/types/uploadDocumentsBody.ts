@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { UploadDocumentsBodySemester } from "./uploadDocumentsBodySemester";
+import type { UploadDocumentsBodyStatus } from "./uploadDocumentsBodyStatus";
 import type { UploadDocumentsBodyVisibility } from "./uploadDocumentsBodyVisibility";
 
 export type UploadDocumentsBody = {
@@ -19,4 +20,6 @@ export type UploadDocumentsBody = {
   tagIds?: string[];
   title?: string;
   description?: string;
+  status?: UploadDocumentsBodyStatus;
+  autoSubmitForReview?: boolean;
 };

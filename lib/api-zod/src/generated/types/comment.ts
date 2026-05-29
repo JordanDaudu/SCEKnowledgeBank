@@ -5,6 +5,7 @@
  * Knowledge Bank API
  * OpenAPI spec version: 0.2.0
  */
+import type { CommentReaction } from "./commentReaction";
 import type { UserSummary } from "./userSummary";
 
 export interface Comment {
@@ -19,4 +20,6 @@ export interface Comment {
   replies: Comment[];
   /** Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here. */
   mentions: UserSummary[];
+  /** Per-kind reaction summary. Empty list when no one has reacted. `viewerReacted` is true when the requesting user has the reaction of that kind on this comment. */
+  reactions: CommentReaction[];
 }

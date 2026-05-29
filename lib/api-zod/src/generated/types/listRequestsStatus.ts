@@ -11,6 +11,7 @@ export type ListRequestsStatus =
 
 export const ListRequestsStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;

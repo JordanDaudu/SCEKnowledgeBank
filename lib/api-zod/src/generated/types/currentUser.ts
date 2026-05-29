@@ -5,6 +5,7 @@
  * Knowledge Bank API
  * OpenAPI spec version: 0.2.0
  */
+import type { CurrentUserEnrollmentsItem } from "./currentUserEnrollmentsItem";
 
 export interface CurrentUser {
   id: string;
@@ -12,4 +13,5 @@ export interface CurrentUser {
   displayName: string;
   primaryRole: string;
   roles: string[];
+  enrollments: CurrentUserEnrollmentsItem[];
 }

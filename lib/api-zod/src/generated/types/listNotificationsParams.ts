@@ -6,14 +6,11 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export type DocumentSuggestionsParams = {
-  /**
-   * @minLength 1
-   */
-  q: string;
+export type ListNotificationsParams = {
   /**
    * @minimum 1
-   * @maximum 20
+   * @maximum 100
    */
   limit?: number;
+  unreadOnly?: boolean;
 };

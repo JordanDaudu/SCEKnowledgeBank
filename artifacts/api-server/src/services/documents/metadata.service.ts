@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { logger } from "../../lib/logger";
+import { detectLanguage, extractKeywords } from "./intelligence.service";
 
 // `pdf-parse` pulls in pdf.js display code at import time, which
 // references browser globals like `DOMMatrix`. We only need it inside
@@ -26,6 +27,13 @@ export interface ExtractedMetadata {
   imageHeight?: number;
   /** Raw thumbnail bytes; caller is responsible for writing them to storage. */
   thumbnail?: { body: Buffer; mimeType: string };
+  // ── Smart-metadata post-processors (Sprint-3 M4) ──────────────
+  // Populated by `runPostProcessors` after the per-MIME extractor
+  // returns. Both depend solely on `extractedText`, so a file whose
+  // extractor only produced page-count or image-dims will leave them
+  // undefined — the keyword/language columns will simply be NULL.
+  language?: string;
+  keywords?: string[];
 }
 
 export const EMPTY_METADATA: ExtractedMetadata = {};
@@ -136,6 +144,44 @@ function extractText(buf: Buffer): ExtractedMetadata {
   return { extractedText: truncateText(text) };
 }
 
+// ─── Post-processor chain (Sprint-3 M4) ───────────────────────────
+//
+// Pluggable transforms that run *after* the per-MIME extractor. They
+// only depend on the cross-format `extractedText` field, so adding a
+// new processor doesn't require touching every extractor above.
+// Failures are swallowed individually — one bad post-processor must
+// not blank out the page-count or thumbnail the extractor produced.
+
+type PostProcessor = (input: ExtractedMetadata) => Partial<ExtractedMetadata>;
+
+const POST_PROCESSORS: PostProcessor[] = [
+  (m) => {
+    if (!m.extractedText) return {};
+    const lang = detectLanguage(m.extractedText);
+    return lang ? { language: lang } : {};
+  },
+  (m) => {
+    if (!m.extractedText) return {};
+    const kws = extractKeywords(m.extractedText);
+    return kws.length > 0 ? { keywords: kws } : {};
+  },
+];
+
+function runPostProcessors(m: ExtractedMetadata): ExtractedMetadata {
+  let out = m;
+  for (const p of POST_PROCESSORS) {
+    try {
+      out = { ...out, ...p(out) };
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "metadata post-processor failed; skipping",
+      );
+    }
+  }
+  return out;
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────
 
 /**
@@ -153,37 +199,38 @@ export async function extractMetadata(args: {
 }): Promise<ExtractedMetadata> {
   const { buffer, mimeType, filename } = args;
   const timeoutMs = args.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  let base: ExtractedMetadata;
   try {
     if (mimeType === "application/pdf") {
-      return await withTimeout(extractPdf(buffer), timeoutMs, "pdf extract");
-    }
-    if (mimeType.startsWith("image/")) {
-      return await withTimeout(
+      base = await withTimeout(extractPdf(buffer), timeoutMs, "pdf extract");
+    } else if (mimeType.startsWith("image/")) {
+      base = await withTimeout(
         extractImage(buffer, mimeType),
         timeoutMs,
         "image extract",
       );
-    }
-    if (
+    } else if (
       mimeType === "text/plain" ||
       mimeType === "text/markdown" ||
       mimeType === "text/csv"
     ) {
       // No external work, but still bound it just in case Buffer is enormous.
-      return await withTimeout(
+      base = await withTimeout(
         Promise.resolve(extractText(buffer)),
         timeoutMs,
         "text extract",
       );
+    } else {
+      base = EMPTY_METADATA;
     }
-    return EMPTY_METADATA;
   } catch (err) {
     logger.warn(
       { err: err instanceof Error ? err.message : String(err), mimeType, filename },
       "metadata extraction failed; falling back to empty metadata",
     );
-    return EMPTY_METADATA;
+    base = EMPTY_METADATA;
   }
+  return runPostProcessors(base);
 }
 
 // ─── Fallback-icon mapping ────────────────────────────────────────

@@ -11,7 +11,12 @@ import Browse from "@/pages/browse";
 import DocumentDetail from "@/pages/document-detail";
 import Upload from "@/pages/upload";
 import Requests from "@/pages/requests";
+import Notifications from "@/pages/notifications";
+import Activity from "@/pages/activity";
 import AdminUsers from "@/pages/admin-users";
+import AdminAnalytics from "@/pages/admin-analytics";
+import CourseAnalytics from "@/pages/course-analytics";
+import ReviewQueue from "@/pages/review-queue";
 
 import { Layout } from "@/components/layout";
 import { AuthGuard } from "@/components/auth-guard";
@@ -66,7 +71,13 @@ function Router() {
       </Route>
 
       <Route path="/upload">
-        <AuthGuard requireRole="lecturer">
+        {/* Sprint-3 completion: Upload is reachable for every
+            authenticated user. The page itself reads the current
+            user's roles + enrollments to render the right form, and
+            the server (`canUpload` / `canUploadToCourse` /
+            `uploadDocuments`) is the authoritative gate — a student
+            with zero enrollments will still get a 403 from the API. */}
+        <AuthGuard>
           <Layout>
             <Upload />
           </Layout>
@@ -81,10 +92,50 @@ function Router() {
         </AuthGuard>
       </Route>
 
+      <Route path="/notifications">
+        <AuthGuard>
+          <Layout>
+            <Notifications />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/activity">
+        <AuthGuard>
+          <Layout>
+            <Activity />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/review-queue">
+        <AuthGuard requireRole="lecturer">
+          <Layout>
+            <ReviewQueue />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
       <Route path="/admin/users">
         <AuthGuard requireRole="admin">
           <Layout>
             <AdminUsers />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/admin/analytics">
+        <AuthGuard requireRole="admin">
+          <Layout>
+            <AdminAnalytics />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/courses/:courseId/analytics">
+        <AuthGuard requireRole="lecturer">
+          <Layout>
+            <CourseAnalytics />
           </Layout>
         </AuthGuard>
       </Route>

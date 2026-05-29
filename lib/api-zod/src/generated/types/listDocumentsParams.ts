@@ -9,7 +9,6 @@ import type { ListDocumentsSemester } from "./listDocumentsSemester";
 import type { ListDocumentsSort } from "./listDocumentsSort";
 
 export type ListDocumentsParams = {
-  q?: string;
   courseId?: string;
   courseCode?: string;
   lecturerName?: string;

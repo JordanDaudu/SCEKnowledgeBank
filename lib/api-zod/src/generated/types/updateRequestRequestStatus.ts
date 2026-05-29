@@ -11,6 +11,7 @@ export type UpdateRequestRequestStatus =
 
 export const UpdateRequestRequestStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;

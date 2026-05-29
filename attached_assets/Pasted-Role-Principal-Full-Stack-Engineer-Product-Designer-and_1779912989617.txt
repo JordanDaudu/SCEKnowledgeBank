@@ -1,0 +1,294 @@
+Role: Principal Full-Stack Engineer, Product Designer, and Documentation Lead
+
+Context:
+Sprint 3 is now functionally complete and the closure patch passed validation:
+
+* raw-SQL visibility now hides draft/pending_review/rejected consistently,
+* notification dedup now uses recipient + type + subjectType + subjectId,
+* student uploads are routed through the review workflow,
+* regression:local and regression:gcs passed,
+* 277/277 tests passed.
+
+Task:
+Perform a final Sprint 3 polish pass focused only on:
+
+1. stale docs/comments cleanup,
+2. full README refresh,
+3. small UI/UX enhancement pass.
+
+Do NOT add large new product features.
+Do NOT introduce new schema changes unless absolutely necessary.
+Do NOT break the completed Sprint 3 behavior or tests.
+
+Part A — Closeout cleanup
+
+1. Update stale docs/comments
+
+* Update any stale documentation or comments that say review-hidden statuses are only `pending_review` and `rejected`.
+* They must now consistently say:
+
+  * `draft`
+  * `pending_review`
+  * `rejected`
+* Check these likely files:
+
+  * `replit.md`
+  * `artifacts/api-server/src/services/documents.service.ts`
+  * `artifacts/api-server/src/services/comments.service.ts`
+  * notification repo/service comments
+  * search visibility comments
+* Ensure notification dedup documentation consistently says:
+
+  * dedup key is `recipientId + type + subjectType + subjectId`
+* Remove or update any obsolete wording about subject-only dedup.
+
+2. Clean stale build artifacts
+
+* Check whether `dist/` or generated build output is accidentally committed or stale.
+* If it is ignored/untracked, leave it alone.
+* If committed and stale, rebuild it or remove it according to the project’s existing convention.
+* Do not change runtime behavior.
+
+3. Strengthen the weak autocomplete visibility test
+   There is a known weak spot in the autocomplete test: uploader autocomplete may still pass because the uploader also owns a published document.
+   Add or improve a test so that:
+
+* a user/uploader/tag/course value that exists only on a `draft` document does not appear in autocomplete for an unauthorized user,
+* the uploader can still see it,
+* the course lecturer can still see it,
+* unrelated users cannot.
+
+Part B — Full README update
+
+Completely refresh the root `README.md` so it accurately describes the current Sprint 3 application.
+
+The README should include:
+
+1. Project title and short description
+
+* Knowledge Bank / academic materials platform.
+* Standalone web app for uploading, searching, reviewing, discussing, requesting, and tracking academic course materials.
+
+2. Current feature overview
+   Include clear sections for:
+
+* Authentication and role-based access
+* Document upload and storage
+* Student upload review workflow
+* Lecturer/admin approval queue
+* Search v2 with facets, autocomplete, snippets, and ranking
+* Smart metadata suggestions
+* Duplicate detection
+* In-app notifications
+* Comments, mentions, replies, and reactions
+* Favorites/following
+* Request board and request statuses
+* Analytics dashboard
+* Audit/security/regression gate
+
+3. Roles and permissions
+   Document the main roles:
+
+* student
+* lecturer
+* admin
+
+Explain at a high level:
+
+* students upload only to enrolled courses,
+* student uploads go through review before public visibility,
+* lecturers review only their courses,
+* admins can review/manage globally,
+* hidden statuses are draft/pending_review/rejected unless uploader/reviewer/admin is allowed.
+
+4. Tech stack
+   Document the real stack used in this repo:
+
+* pnpm workspace
+* API server
+* web frontend
+* Prisma/Postgres
+* Playwright
+* Vitest or current test runner
+* OpenAPI/codegen if applicable
+* local/GCS storage driver support
+
+5. Repository structure
+   Add a simple tree-style explanation of the main folders:
+
+* `artifacts/api-server`
+* `artifacts/web`
+* `lib/db/prisma`
+* generated API/client packages if present
+* test/e2e locations
+* docs/config files
+
+6. Environment setup
+   Document:
+
+* required Node/pnpm version if known
+* database requirements
+* required env variables or where to find them
+* storage driver options:
+
+  * `STORAGE_DRIVER=local`
+  * `STORAGE_DRIVER=gcs`
+* any Replit-specific notes
+
+7. Common commands
+   Include exact commands for:
+
+* install
+* typecheck
+* run all tests
+* seed demo data
+* verify seed data
+* run API/web locally
+* run Playwright smoke
+* run regression gate
+* run local/GCS regression matrix
+* generate Prisma client/migrations
+* run OpenAPI/codegen if applicable
+
+8. Test baseline
+   Record the current validated baseline:
+
+* 277/277 tests green
+* seed verify 18/18
+* regression:local green
+* regression:gcs green
+* Playwright smoke 2/2 per storage leg
+  Mention that the numbers should be updated whenever test count changes.
+
+9. Sprint 3 completion summary
+   Add a compact Sprint 3 changelog:
+
+* M0 regression gate
+* M1 notifications
+* M2 review workflow
+* M3 enhanced search
+* M4 metadata intelligence
+* M5 analytics
+* M6 collaboration polish
+* M7 hardening/docs
+
+10. Known limitations / future work
+    Keep this honest and short:
+
+* no websockets/email notifications yet
+* no OCR for scanned PDFs
+* no semantic/vector search
+* no advanced approval quorum
+* no scheduled analytics exports
+
+Part C — UI/UX polish pass
+
+Use the provided screenshot as the visual reference for the current home screen.
+
+Important visible concerns from the screenshot:
+
+* Student top nav appears to show Home, Browse, Requests, but not Upload.
+* The notification bell is not visible.
+* The hero area is clean but too tall and sparse.
+* Document cards are functional but visually flat.
+* The student homepage could better surface review/following/personal activity.
+
+Required UI checks/fixes:
+
+1. Verify student Upload nav visibility
+
+* Since Sprint 3 now allows enrolled students to upload, the Upload nav item should be visible to students who can upload to at least one enrolled course.
+* If the intended rule is “only enrolled students see Upload,” implement that clearly.
+* If the current student has enrollments, the screenshot suggests a possible bug because Upload is missing.
+* Make sure `/upload` route access and nav visibility are consistent.
+
+2. Verify notification bell visibility
+
+* Sprint 3 M1 requires a notification bell with unread badge.
+* The bell should appear in the top nav for authenticated users.
+* If hidden by layout/responsive CSS, fix it.
+* Ensure unread polling still works and existing notification tests still pass.
+
+3. Improve home page information architecture
+   Without adding large new features, improve the homepage layout:
+
+* reduce excessive hero height,
+* make search more prominent and polished,
+* add a compact “Quick actions” row for role-appropriate actions:
+
+  * Browse
+  * Upload
+  * Requests
+  * Review Queue for lecturers/admins
+  * Analytics for lecturers/admins
+* For students, add a small “My learning activity” or “My documents” area if existing endpoints already support it:
+
+  * pending review
+  * rejected uploads
+  * favorites/following
+  * recently viewed
+    Do not create new backend endpoints just for this polish pass unless a simple existing endpoint is already available.
+
+4. Polish document cards
+   Improve cards across Home/Browse/Search where shared components exist:
+
+* clearer title typography,
+* better spacing,
+* consistent course badge,
+* show status badge when relevant,
+* show material type and updated date in a cleaner layout,
+* show subtle hover/focus states,
+* ensure cards are keyboard-accessible and clickable areas are clear.
+
+5. Improve empty/loading/error states
+   Add or improve lightweight states:
+
+* no continue reading items,
+* no latest additions,
+* no search results,
+* no notifications,
+* no pending review documents,
+* upload permission denied.
+  Keep wording user-friendly and role-aware.
+
+6. Keep the design consistent
+
+* Do not introduce a totally new design system.
+* Reuse existing UI components, colors, typography, spacing tokens/classes.
+* Keep the current academic/clean style, but make it feel more finished.
+* Ensure mobile/responsive layout still works.
+
+Part D — Validation
+
+Run the full validation after changes:
+
+* pnpm install --frozen-lockfile
+* pnpm run typecheck
+* pnpm -r --if-present run test
+* pnpm --filter @workspace/api-server run seed:demo
+* pnpm --filter @workspace/api-server run seed:demo:verify
+* pnpm regression
+* pnpm regression:local
+* pnpm regression:gcs
+
+Also manually verify these UI flows in the browser:
+
+* student sees notification bell,
+* enrolled student sees Upload nav and can reach `/upload`,
+* student upload can auto-submit for review,
+* lecturer sees review queue,
+* approval makes document public,
+* rejected document shows reason to uploader,
+* v2 search does not leak draft/pending/rejected docs,
+* home page still works for student, lecturer, and admin.
+
+Acceptance criteria:
+
+* README is fully updated and accurate.
+* Stale docs/comments are fixed.
+* Autocomplete visibility test is strengthened.
+* Student Upload nav and notification bell are verified/fixed.
+* UI feels more polished but no major feature scope is added.
+* All 277+ tests pass.
+* regression:local and regression:gcs pass.
+* `replit.md` is updated with the final validation result and any changed test count.

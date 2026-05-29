@@ -1,0 +1,397 @@
+Role: Principal Product Engineer, UI/UX Designer, Mobile Frontend Engineer, and Demo Readiness Lead
+
+Context:
+Sprint 3 is complete. There is no Sprint 4. The Knowledge Bank project now needs a final productization pass focused on:
+
+* GUI/UX enhancement,
+* mobile compatibility,
+* demo readiness,
+* final README/replit.md accuracy,
+* final validation.
+
+Important:
+Do NOT add large new backend features.
+Do NOT introduce new product scope.
+Do NOT change database schema unless absolutely necessary for a bug fix.
+Do NOT break completed Sprint 2/Sprint 3 functionality.
+This is a final polish and demo-preparation phase.
+
+Current product:
+Knowledge Bank is a standalone academic materials platform with:
+
+* authentication and role-based access,
+* student/lecturer/admin roles,
+* document upload,
+* student upload review workflow,
+* lecturer/admin approval queue,
+* search v2 with facets/autocomplete/snippets/ranking,
+* smart metadata suggestions,
+* duplicate detection,
+* comments, mentions, replies, reactions,
+* notifications,
+* favorites/following,
+* request board with statuses,
+* analytics,
+* regression gate for local and GCS storage.
+
+Main objective:
+Make the application feel complete, polished, responsive, and demo-ready.
+
+Part A — UI/UX Enhancement
+
+Use the current app style as the base. Do not replace the whole design system. Improve it.
+
+1. Global layout and navigation
+
+* Ensure authenticated users have a clear top navigation.
+* Student users should see role-appropriate actions:
+
+  * Home
+  * Browse/Search
+  * Upload, if enrolled in at least one course
+  * Requests
+  * Following/Favorites if available
+  * Notifications bell
+* Lecturer/admin users should see:
+
+  * Home
+  * Browse/Search
+  * Upload
+  * Review Queue
+  * Requests
+  * Analytics
+  * Notifications bell
+* Ensure the notification bell is visible for all authenticated users.
+* Ensure unread badge works visually and does not break layout.
+* Add active route styling consistently.
+* Make logout/profile area clean and responsive.
+
+2. Home page polish
+   Improve the home page so it feels like a finished dashboard, not only a landing page.
+
+For all roles:
+
+* Reduce excessive hero height.
+* Make the main search bar visually stronger and easier to use.
+* Add a compact “Quick actions” row with role-based actions.
+* Improve spacing between sections.
+* Improve section headers and visual hierarchy.
+
+For students:
+
+* Highlight:
+
+  * Continue Reading
+  * Latest Additions
+  * My Uploads / Pending Review / Rejected uploads if existing endpoints support it
+  * Following/Favorites if available
+  * Requests
+* Make it clear that students can upload materials for review if enrolled.
+
+For lecturers/admins:
+
+* Highlight:
+
+  * Pending Review queue
+  * Recent uploads
+  * Requests needing attention
+  * Analytics shortcut
+  * Latest activity if existing endpoints support it
+
+Do not create new backend endpoints unless a very small existing query can be reused safely.
+
+3. Document cards
+   Polish document cards used on Home/Browse/Search:
+
+* clearer title hierarchy,
+* consistent course badge,
+* material type badge or label,
+* status badge when relevant,
+* updated/uploaded date,
+* uploader if available,
+* better spacing,
+* hover/focus state,
+* clickable card area is obvious,
+* keyboard accessibility is preserved.
+
+4. Search/Browse page
+   Improve search UX:
+
+* Search input should be prominent.
+* Facets should be visually clear.
+* Facet chips should be easy to remove.
+* Autocomplete dropdown should be polished and keyboard-friendly.
+* Search snippets should be readable.
+* Empty state should explain what to try next.
+* Loading state should not jump the page.
+
+5. Upload page
+   Polish upload UX:
+
+* Make drag-and-drop area visually clear.
+* Make student review notice clear but not alarming.
+* Course selection should be obvious.
+* Auto-submit-for-review checkbox should be explained.
+* Suggested title/tags/category should be easy to apply.
+* Duplicate warning should be visually noticeable.
+* Upload success should give clear next steps:
+
+  * view document,
+  * submit for review if not already submitted,
+  * upload another file.
+
+6. Review queue
+   Polish lecturer/admin review flow:
+
+* Pending review cards/table should be easy to scan.
+* Status and course should be clear.
+* Approve/reject buttons should be visible and safe.
+* Reject reason modal should be clean and mobile-friendly.
+* Empty state should say there are no documents waiting for review.
+
+7. Notifications
+   Polish notifications UI:
+
+* Bell visible in nav.
+* Dropdown should work on desktop.
+* On mobile, dropdown should not overflow the viewport.
+* Notification rows should show:
+
+  * type/message,
+  * timestamp,
+  * read/unread state,
+  * deep link.
+* Empty state should be friendly.
+* Mark-one-read and mark-all-read should remain functional.
+
+8. Request board
+   Polish request board:
+
+* Status pills for open / in-progress / fulfilled / closed.
+* Upvote button should be visually clear.
+* Author status transitions should be obvious if allowed.
+* Empty and loading states should be clean.
+* Mobile layout should not require horizontal scrolling.
+
+9. Analytics
+   Polish analytics pages:
+
+* Cards/tiles should be consistent.
+* Charts/lists should be readable.
+* Permission-denied state should be friendly.
+* Mobile layout should stack cleanly.
+
+Part B — Mobile Compatibility
+
+Make the app responsive and usable on mobile widths.
+
+Target breakpoints:
+
+* mobile: 320px–480px
+* large phone: 481px–640px
+* tablet: 641px–900px
+* desktop: 901px+
+
+Required mobile behavior:
+
+1. Navigation
+
+* Top nav should not overflow.
+* Use a hamburger/menu drawer or compact mobile nav if needed.
+* Brand/logo should remain visible.
+* User/profile/logout area should be accessible.
+* Notification bell should remain accessible.
+* Active route should still be clear.
+
+2. Layout
+
+* Hero section should not consume the entire mobile screen.
+* Cards should stack vertically.
+* Tables should either:
+
+  * become cards, or
+  * scroll horizontally only when unavoidable.
+* Forms should use full-width inputs on mobile.
+* Modals should fit the viewport and be scrollable if needed.
+* Dropdowns should not render off-screen.
+
+3. Touch usability
+
+* Buttons and clickable targets should be at least comfortable touch size.
+* Avoid tiny icon-only buttons without labels/tooltips where possible.
+* Ensure status chips and action buttons do not overlap.
+
+4. Important mobile screens to test manually
+   Check at 375px, 390px, 430px, 768px, and desktop:
+
+* Login
+* Home
+* Browse/Search
+* Document detail
+* Upload
+* Review Queue
+* Notifications dropdown/page
+* Requests
+* Analytics
+* Following/Favorites
+* Admin/lecturer-specific pages
+
+5. Accessibility basics
+
+* Keep visible focus states.
+* Ensure buttons have accessible labels.
+* Ensure icon-only buttons have `aria-label`.
+* Ensure color contrast remains readable.
+* Ensure forms have labels or accessible names.
+* Do not trap keyboard focus incorrectly in modals/dropdowns.
+
+Part C — Demo Preparation
+
+Create a polished demo-ready experience.
+
+1. Demo data
+   Review the existing demo seed.
+   Ensure it contains realistic data for:
+
+* one student user,
+* one lecturer user,
+* one admin user,
+* multiple courses,
+* enrolled student-course relationships,
+* published documents,
+* draft document,
+* pending review document,
+* rejected document with reason,
+* approved document,
+* comments with mentions/replies,
+* reactions,
+* notifications,
+* favorites/following,
+* requests with different statuses,
+* analytics-relevant activity.
+
+Do not over-seed huge amounts of data. Keep it realistic and easy to demo.
+
+2. Demo accounts
+   Document demo accounts clearly in README and/or replit.md:
+
+* role
+* email/username
+* password
+* what each account is useful for demonstrating
+
+If passwords already exist in seed, document them. If not, use the current project convention.
+
+3. Demo walkthrough
+   Add a `DEMO.md` file or a clear section in README called “Demo Walkthrough”.
+
+It should include a step-by-step script:
+
+Student demo:
+
+* log in as student,
+* browse/search documents,
+* open document detail,
+* comment or react,
+* favorite/follow document,
+* create or upvote request,
+* upload a document to an enrolled course,
+* auto-submit for review,
+* check pending status,
+* view notifications.
+
+Lecturer demo:
+
+* log in as lecturer,
+* open review queue,
+* approve/reject student upload,
+* view course analytics,
+* respond to requests,
+* see notifications.
+
+Admin demo:
+
+* log in as admin,
+* view global analytics,
+* browse all materials,
+* verify approval/search/visibility behavior,
+* view system-wide capabilities.
+
+4. Demo safety
+
+* Make sure demo seed can be rerun idempotently.
+* Make sure demo accounts are easy to reset.
+* Make sure no broken links appear on the main demo path.
+* Make sure empty states are polished if demo data is missing.
+
+Part D — README and Documentation
+
+Fully update README so the project looks final.
+
+README must include:
+
+1. Project name and description
+2. Feature overview
+3. Roles and permissions
+4. Sprint 3 final feature summary
+5. Tech stack
+6. Repository structure
+7. Environment setup
+8. Local development commands
+9. Demo data and demo accounts
+10. Demo walkthrough
+11. Testing and regression commands
+12. Current validation baseline
+13. Storage drivers: local and GCS
+14. Known limitations
+15. Future improvement ideas, clearly marked as optional/future only
+
+Also update `replit.md` with:
+
+* final polish pass summary,
+* UI/mobile improvements made,
+* demo readiness notes,
+* final validation results,
+* updated test count if changed,
+* regression:local and regression:gcs result.
+
+Part E — Final Validation
+
+Run:
+
+* pnpm install --frozen-lockfile
+* pnpm run typecheck
+* pnpm -r --if-present run test
+* pnpm --filter @workspace/api-server run seed:demo
+* pnpm --filter @workspace/api-server run seed:demo:verify
+* pnpm regression
+* pnpm regression:local
+* pnpm regression:gcs
+
+Also manually verify in browser:
+
+Desktop:
+
+* student flow
+* lecturer flow
+* admin flow
+
+Mobile:
+
+* 375px student home/search/upload/detail
+* 390px notifications and nav
+* 430px request board
+* 768px review queue and analytics
+* desktop still looks good
+
+Acceptance criteria:
+
+* UI is visibly more polished.
+* App is mobile-compatible across the main flows.
+* Student Upload and notification bell are visible and usable.
+* Demo accounts and demo walkthrough are documented.
+* README is final and accurate.
+* No major backend feature scope added.
+* All tests pass.
+* regression:local and regression:gcs pass.
+* The app is ready for final presentation/demo.

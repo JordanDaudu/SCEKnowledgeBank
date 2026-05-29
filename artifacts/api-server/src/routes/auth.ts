@@ -42,6 +42,7 @@ router.post("/register", async (req, res, next) => {
           displayName: result.user.displayName,
           primaryRole: result.user.primaryRole,
           roles: result.user.roles,
+          enrollments: result.user.enrollments,
         },
       });
       return;
@@ -71,6 +72,7 @@ router.post("/login", async (req, res, next) => {
       displayName: user.displayName,
       primaryRole: user.primaryRole,
       roles: user.roles,
+      enrollments: user.enrollments,
     });
   } catch (err) {
     next(err);
@@ -95,6 +97,11 @@ router.get("/me", requireAuth, (req, res) => {
     displayName: u.displayName,
     primaryRole: u.primaryRole,
     roles: u.roles,
+    // Sprint-3 completion: expose enrollments so the web client can
+    // filter the upload course-picker for students (enrolled-only)
+    // and so the layout can scope navigation without an extra round
+    // trip.
+    enrollments: u.enrollments,
   });
 });
 

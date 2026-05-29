@@ -23,6 +23,30 @@ export interface DocumentForPermission {
   ownerId: string;
   visibility: string;
   courseId: string | null;
+  /**
+   * Sprint-3 M2: optional so existing callers that build the shape
+   * without a status (tests, ad-hoc inputs) keep compiling. When
+   * absent, status-aware checks (visibility of `pending_review` /
+   * `rejected` docs) treat the doc as visible-by-status — i.e. they
+   * preserve pre-M2 behaviour.
+   */
+  status?: string;
+}
+
+/**
+ * Statuses produced by the review workflow that are NOT publicly
+ * visible. Uploaders and reviewers (admin / course lecturer) can
+ * still see them; everyone else gets a 404-equivalent.
+ */
+// Sprint-3 completion: `draft` joins the review-hidden set. A draft is
+// a not-yet-submitted document; it must NEVER be visible to the public
+// just because the uploader picked `visibility=public`. The uploader,
+// owner, and reviewers (admin / lecturer-of-course) still see it so
+// the M2 submit/approve flow keeps working. Closes the "student uploads
+// a public draft, never submits, doc is visible without review" bypass.
+const REVIEW_HIDDEN_STATUSES = ["draft", "pending_review", "rejected"] as const;
+function isReviewHidden(status: string | undefined): boolean {
+  return !!status && (REVIEW_HIDDEN_STATUSES as readonly string[]).includes(status);
 }
 
 export function isAdmin(u: AuthenticatedUser | undefined | null): boolean {
@@ -67,6 +91,19 @@ export function canView(
   user: AuthenticatedUser,
 ): boolean {
   if (isAdmin(user)) return true;
+  // Sprint-3 M2: documents in the review workflow that haven't been
+  // approved are visible only to the uploader/owner and reviewers
+  // (lecturer-for-course). Everyone else gets blocked here before the
+  // visibility predicate runs.
+  if (isReviewHidden(doc.status)) {
+    if (doc.uploaderId === user.id || doc.ownerId === user.id) {
+      // fall through to the visibility check below
+    } else if (canReview(doc, user)) {
+      return true;
+    } else {
+      return false;
+    }
+  }
   if (doc.visibility === "public") return true;
   if (doc.visibility === "restricted") {
     if (!doc.courseId) return false;
@@ -76,6 +113,37 @@ export function canView(
     return doc.uploaderId === user.id || doc.ownerId === user.id;
   }
   return false;
+}
+
+/**
+ * Sprint-3 M2: who can approve/reject a doc in `pending_review`?
+ *
+ * - admin: yes.
+ * - course-scoped doc: lecturer teaching that course.
+ * - course-less doc: only an admin (no obvious lecturer scope).
+ */
+export function canReview(
+  doc: DocumentForPermission,
+  user: AuthenticatedUser,
+): boolean {
+  if (isAdmin(user)) return true;
+  if (!hasRole(user, "lecturer")) return false;
+  if (!doc.courseId) return false;
+  return isLecturerForCourse(user, doc.courseId);
+}
+
+/**
+ * Sprint-3 M2: who can submit-for-review on this doc?
+ * Uploaders/owners (their own work) and anyone who can edit the
+ * metadata (admin / course lecturer).
+ */
+export function canSubmitForReview(
+  doc: DocumentForPermission,
+  user: AuthenticatedUser,
+): boolean {
+  if (doc.uploaderId === user.id) return true;
+  if (doc.ownerId === user.id) return true;
+  return canEdit(doc, user);
 }
 
 /**
@@ -165,9 +233,24 @@ export function canManageVersions(
   return canEdit(doc, user);
 }
 
-/** Can the user upload new documents at all? */
+/**
+ * Can the user upload new documents at all?
+ *
+ * Sprint-3 completion: students are eligible uploaders, but every
+ * student upload is gated to enrolled courses and forced through the
+ * M2 review workflow (see `canUploadToCourse` + `uploadDocuments`).
+ * The per-course / per-status checks remain the authoritative gate;
+ * this is only the "do you have ANY upload path at all" filter.
+ */
 export function canUpload(user: AuthenticatedUser): boolean {
-  return isAdmin(user) || hasRole(user, "lecturer");
+  if (isAdmin(user) || hasRole(user, "lecturer")) return true;
+  // Students may upload only when they have at least one enrolled
+  // course to target — otherwise there is nowhere they could legally
+  // upload to, and `canUploadToCourse` would reject every attempt.
+  if (hasRole(user, "student") && enrolledCourseIds(user).length > 0) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -179,17 +262,25 @@ export function canUpload(user: AuthenticatedUser): boolean {
  * - Course-less uploads (e.g. cross-course resources) require admin OR a
  *   user who already has any lecturer enrollment — a plain "lecturer"
  *   role alone is not enough.
- * - Students cannot upload.
+ * - Students can upload ONLY when a courseId is supplied AND they are
+ *   enrolled (any role) in that course. Course-less student uploads are
+ *   never allowed — the review workflow needs a course to route to.
  */
 export function canUploadToCourse(
   user: AuthenticatedUser,
   courseId: string | null | undefined,
 ): boolean {
   if (isAdmin(user)) return true;
-  if (!hasRole(user, "lecturer")) return false;
-  if (courseId) return isLecturerForCourse(user, courseId);
-  // No course → must teach at least one course to upload cross-course material.
-  return lecturerCourseIds(user).length > 0;
+  if (hasRole(user, "lecturer")) {
+    if (courseId) return isLecturerForCourse(user, courseId);
+    // No course → must teach at least one course to upload cross-course material.
+    return lecturerCourseIds(user).length > 0;
+  }
+  if (hasRole(user, "student")) {
+    if (!courseId) return false;
+    return enrolledCourseIds(user).includes(courseId);
+  }
+  return false;
 }
 
 /**
@@ -244,7 +335,7 @@ export function visibleDocumentFilter(
       ? { visibility: "restricted", courseId: { in: enrolled } }
       : // No enrollments → no restricted docs are visible.
         { id: { in: [] } };
-  return {
+  const visibility: Prisma.DocumentWhereInput = {
     OR: [
       { visibility: "public" },
       restrictedClause,
@@ -254,6 +345,25 @@ export function visibleDocumentFilter(
       },
     ],
   };
+  // Sprint-3 M2 + completion: hide every review-hidden status —
+  // `draft`, `pending_review`, `rejected` — from non-reviewers who
+  // aren't the uploader/owner. Lecturers who teach the doc's course
+  // (i.e. potential reviewers) continue to see them so they can find
+  // work in the queue and on the doc's own page. The exact same set
+  // is enforced in `visibleDocumentFilterSql` for the v2 raw-SQL
+  // path; both branches share `REVIEW_HIDDEN_STATUSES`.
+  const lecturerCourses = lecturerCourseIds(user);
+  const statusOK: Prisma.DocumentWhereInput = {
+    OR: [
+      { status: { notIn: [...REVIEW_HIDDEN_STATUSES] } },
+      { uploaderId: user.id },
+      { ownerId: user.id },
+      ...(lecturerCourses.length > 0
+        ? [{ courseId: { in: lecturerCourses } } as Prisma.DocumentWhereInput]
+        : []),
+    ],
+  };
+  return { AND: [visibility, statusOK] };
 }
 
 /**
@@ -272,10 +382,33 @@ export function visibleDocumentFilterSql(user: AuthenticatedUser): Prisma.Sql {
         enrolled.map((id) => PrismaNs.sql`${id}::uuid`),
       )})`
     : PrismaNs.sql`FALSE`;
+  const lecturerCourses = lecturerCourseIds(user);
+  const lecturerCourseClause = lecturerCourses.length
+    ? PrismaNs.sql`d.course_id IN (${PrismaNs.join(
+        lecturerCourses.map((id) => PrismaNs.sql`${id}::uuid`),
+      )})`
+    : PrismaNs.sql`FALSE`;
+  // Status clause MUST stay in lockstep with `visibleDocumentFilter`
+  // (the Prisma twin). Both branches feed v2 search / facets /
+  // autocomplete + the documents list; if one hides `draft` and the
+  // other doesn't, the raw-SQL surface leaks unreviewed material to
+  // non-owners. Use the shared `REVIEW_HIDDEN_STATUSES` constant to
+  // keep that invariant durable.
+  const hiddenStatuses = PrismaNs.join(
+    REVIEW_HIDDEN_STATUSES.map((s) => PrismaNs.sql`${s}`),
+  );
   return PrismaNs.sql`(
-    d.visibility = 'public'
-    OR (d.visibility = 'restricted' AND d.course_id IS NOT NULL AND ${restrictedClause})
-    OR (d.visibility = 'private' AND (d.uploader_id = ${user.id}::uuid OR d.owner_id = ${user.id}::uuid))
+    (
+      d.visibility = 'public'
+      OR (d.visibility = 'restricted' AND d.course_id IS NOT NULL AND ${restrictedClause})
+      OR (d.visibility = 'private' AND (d.uploader_id = ${user.id}::uuid OR d.owner_id = ${user.id}::uuid))
+    )
+    AND (
+      d.status NOT IN (${hiddenStatuses})
+      OR d.uploader_id = ${user.id}::uuid
+      OR d.owner_id = ${user.id}::uuid
+      OR ${lecturerCourseClause}
+    )
   )`;
 }
 

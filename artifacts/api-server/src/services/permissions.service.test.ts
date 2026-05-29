@@ -289,10 +289,22 @@ describe("permissions.canModerateCommentOnDocument", () => {
 });
 
 describe("permissions.canUpload", () => {
-  it("admins and lecturers can upload; students cannot", () => {
+  // Sprint-3 completion: students with at least one enrollment are
+  // eligible uploaders — the per-course gate + forced-draft +
+  // review-workflow live in `canUploadToCourse` + `uploadDocuments`.
+  it("admins, lecturers, and enrolled students can upload", () => {
     expect(permissions.canUpload(admin)).toBe(true);
     expect(permissions.canUpload(lecturerA)).toBe(true);
-    expect(permissions.canUpload(studentEnrolledA)).toBe(false);
+    expect(permissions.canUpload(studentEnrolledA)).toBe(true);
+  });
+
+  it("students with zero enrollments still cannot upload (no legal target)", () => {
+    const detached = makeUser({
+      id: "stu-detached",
+      roles: ["student"],
+      primaryRole: "student",
+    });
+    expect(permissions.canUpload(detached)).toBe(false);
   });
 });
 
@@ -323,8 +335,13 @@ describe("permissions.canUploadToCourse", () => {
     expect(permissions.canUploadToCourse(lecturerA, null)).toBe(true);
   });
 
-  it("students cannot upload to any course, even one they are enrolled in", () => {
-    expect(permissions.canUploadToCourse(studentEnrolledA, "c-A")).toBe(false);
+  // Sprint-3 completion: students can upload to courses they're
+  // enrolled in (the service forces draft + routes through M2 review).
+  it("student can upload to an enrolled course but not others, and never course-less", () => {
+    expect(permissions.canUploadToCourse(studentEnrolledA, "c-A")).toBe(true);
+    expect(permissions.canUploadToCourse(studentEnrolledA, "c-B")).toBe(false);
+    // Course-less student uploads are never allowed — review router
+    // needs a course to find a lecturer reviewer.
     expect(permissions.canUploadToCourse(studentEnrolledA, null)).toBe(false);
   });
 });
@@ -387,19 +404,37 @@ describe("permissions.visibleDocumentFilter", () => {
     expect(permissions.visibleDocumentFilter(admin)).toBeUndefined();
   });
 
+  // Sprint-3 M2 + completion: the visibility filter is now AND-composed
+  // with a status clause that hides `draft`/`pending_review`/`rejected`
+  // from anyone who isn't the uploader/owner (or a course lecturer who
+  // can review). `draft` joined the hidden set in Sprint-3 completion
+  // to close the "public-draft never submitted" review-gate bypass.
+  const statusClauseFor = (uid: string) => ({
+    OR: [
+      { status: { notIn: ["draft", "pending_review", "rejected"] } },
+      { uploaderId: uid },
+      { ownerId: uid },
+    ],
+  });
+
   it("for an enrolled student: public + restricted-in-enrolled + own private", () => {
     const f = permissions.visibleDocumentFilter(studentEnrolledA);
     expect(f).toEqual({
-      OR: [
-        { visibility: "public" },
-        { visibility: "restricted", courseId: { in: ["c-A"] } },
+      AND: [
         {
-          visibility: "private",
           OR: [
-            { uploaderId: studentEnrolledA.id },
-            { ownerId: studentEnrolledA.id },
+            { visibility: "public" },
+            { visibility: "restricted", courseId: { in: ["c-A"] } },
+            {
+              visibility: "private",
+              OR: [
+                { uploaderId: studentEnrolledA.id },
+                { ownerId: studentEnrolledA.id },
+              ],
+            },
           ],
         },
+        statusClauseFor(studentEnrolledA.id),
       ],
     });
   });
@@ -407,16 +442,21 @@ describe("permissions.visibleDocumentFilter", () => {
   it("for a user with no enrollments, restricted clause is empty", () => {
     const f = permissions.visibleDocumentFilter(studentEnrolledNone);
     expect(f).toEqual({
-      OR: [
-        { visibility: "public" },
-        { id: { in: [] } },
+      AND: [
         {
-          visibility: "private",
           OR: [
-            { uploaderId: studentEnrolledNone.id },
-            { ownerId: studentEnrolledNone.id },
+            { visibility: "public" },
+            { id: { in: [] } },
+            {
+              visibility: "private",
+              OR: [
+                { uploaderId: studentEnrolledNone.id },
+                { ownerId: studentEnrolledNone.id },
+              ],
+            },
           ],
         },
+        statusClauseFor(studentEnrolledNone.id),
       ],
     });
   });

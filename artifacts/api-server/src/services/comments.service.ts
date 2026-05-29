@@ -1,10 +1,14 @@
 import * as commentsRepo from "../repositories/comments.repo";
+import * as reactionsRepo from "../repositories/reactions.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as usersRepo from "../repositories/users.repo";
 import * as usersService from "./users.service";
 import * as auditService from "./audit.service";
+import * as notificationsService from "./notifications.service";
+import * as favoritesService from "./favorites.service";
 import * as permissions from "./permissions.service";
 import { badRequest, forbidden, notFound } from "../lib/errors";
+import { logger } from "../lib/logger";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
 export interface CommentAuthorDTO {
@@ -14,6 +18,12 @@ export interface CommentAuthorDTO {
   roles: string[];
   isActive: boolean;
   createdAt: string;
+}
+
+export interface CommentReactionDTO {
+  kind: string;
+  count: number;
+  viewerReacted: boolean;
 }
 
 export interface CommentDTO {
@@ -27,6 +37,7 @@ export interface CommentDTO {
   editedAt?: string;
   replies: CommentDTO[];
   mentions: usersService.UserSummaryDTO[];
+  reactions: CommentReactionDTO[];
 }
 
 async function loadReadableDocument(
@@ -44,6 +55,7 @@ function toDTO(
   r: commentsRepo.CommentRow,
   authors: Map<string, usersService.UserSummaryDTO>,
   mentionsByComment: Map<string, string[]>,
+  reactionsByComment: Map<string, reactionsRepo.ReactionSummary[]>,
 ): CommentDTO {
   const dto: CommentDTO = {
     id: r.id,
@@ -62,6 +74,7 @@ function toDTO(
     mentions: (mentionsByComment.get(r.id) ?? [])
       .map((uid) => authors.get(uid))
       .filter((u): u is usersService.UserSummaryDTO => !!u),
+    reactions: reactionsByComment.get(r.id) ?? [],
   };
   if (r.parentId) dto.parentId = r.parentId;
   if (r.pageNumber != null) dto.pageNumber = r.pageNumber;
@@ -135,9 +148,11 @@ export async function listForDocument(
 ): Promise<CommentDTO[]> {
   await loadReadableDocument(documentId, user);
   const rows = await commentsRepo.listAliveByDocument(documentId);
-  const mentionsByComment = await commentsRepo.listMentionsByCommentIds(
-    rows.map((r) => r.id),
-  );
+  const ids = rows.map((r) => r.id);
+  const [mentionsByComment, reactionsByComment] = await Promise.all([
+    commentsRepo.listMentionsByCommentIds(ids),
+    reactionsRepo.summariseByCommentIds(ids, user.id),
+  ]);
   // Authors map needs to cover both comment authors and everyone the
   // comments mention so the DTO's `mentions[]` can hydrate to full
   // UserSummary objects in a single query.
@@ -149,7 +164,8 @@ export async function listForDocument(
 
   const map = new Map<string, CommentDTO>();
   const roots: CommentDTO[] = [];
-  for (const r of rows) map.set(r.id, toDTO(r, authors, mentionsByComment));
+  for (const r of rows)
+    map.set(r.id, toDTO(r, authors, mentionsByComment, reactionsByComment));
   for (const r of rows) {
     const dto = map.get(r.id)!;
     if (r.parentId && map.has(r.parentId)) {
@@ -170,9 +186,10 @@ export async function createForDocument(
   // Replies of any depth are allowed (task #29 dropped the previous
   // one-level cap); we still validate that the parent exists and
   // belongs to the same document.
+  let parentComment: Awaited<ReturnType<typeof commentsRepo.findAliveById>> | null = null;
   if (body.parentId) {
-    const parent = await commentsRepo.findAliveById(body.parentId);
-    if (!parent || parent.documentId !== documentId) {
+    parentComment = await commentsRepo.findAliveById(body.parentId);
+    if (!parentComment || parentComment.documentId !== documentId) {
       throw badRequest("Invalid parent comment");
     }
   }
@@ -193,11 +210,111 @@ export async function createForDocument(
   const mentionsByComment = new Map<string, string[]>([
     [c.id, mentionUserIds],
   ]);
+  // A brand-new comment has no reactions yet; an empty map keeps toDTO
+  // happy without an extra query.
+  const reactionsByComment = new Map<
+    string,
+    reactionsRepo.ReactionSummary[]
+  >();
   await auditService.record(user.id, "comment.create", "comment", c.id, {
     documentId,
     mentionCount: mentionUserIds.length,
   });
-  return toDTO(c, authors, mentionsByComment);
+
+  // Producer hooks (Sprint-3 M1). Fire-and-forget: notifications must
+  // never fail the comment write. The service-level helper already
+  // swallows errors and enforces the no-self-notify rule,
+  // so the only thing we still defend against here is an unexpected
+  // synchronous throw.
+  const deepLink = `/documents/${documentId}#comment-${c.id}`;
+  // Wrap notify() so both async rejections AND synchronous throws are
+  // swallowed — `Promise.resolve().then(...)` turns any sync throw
+  // inside the callback into a rejection that .catch can absorb.
+  const fireAndForget = (
+    args: Parameters<typeof notificationsService.notify>[0],
+    label: string,
+  ) => {
+    void Promise.resolve()
+      .then(() => notificationsService.notify(args))
+      .catch((err) => logger.warn({ err }, `${label} notify threw`));
+  };
+  // Dedup precedence: the DB unique key is per-(recipient, type,
+  // subject), so a single recipient COULD receive both
+  // `comment.mention` and `comment.reply` for the same comment.
+  // Producer-side we want exactly one row — reply wins because it's
+  // the stronger signal (a direct response to the recipient's own
+  // content). Suppress the mention here when the parent author is
+  // also @mentioned.
+  const replyRecipient =
+    parentComment && parentComment.authorId !== user.id
+      ? parentComment.authorId
+      : null;
+  const notified = new Set<string>();
+  if (replyRecipient) notified.add(replyRecipient);
+  for (const mentionedId of mentionUserIds) {
+    if (notified.has(mentionedId)) continue;
+    notified.add(mentionedId);
+    fireAndForget(
+      {
+        recipientId: mentionedId,
+        actorId: user.id,
+        type: "comment.mention",
+        subjectType: "comment",
+        subjectId: c.id,
+        body: body.body.slice(0, 280),
+        url: deepLink,
+      },
+      "comment.mention",
+    );
+  }
+  if (replyRecipient) {
+    fireAndForget(
+      {
+        recipientId: replyRecipient,
+        actorId: user.id,
+        type: "comment.reply",
+        subjectType: "comment",
+        subjectId: c.id,
+        body: body.body.slice(0, 280),
+        url: deepLink,
+      },
+      "comment.reply",
+    );
+  }
+
+  // Sprint-3 M6: fan out a `document.activity` ping to everyone who
+  // has favorited this doc — minus the actor, the reply recipient,
+  // and anyone we already notified via @mention. Order matters: the
+  // dedup `notified` set already holds those stronger signals, so a
+  // favoriter who is also mentioned only gets the mention.
+  const favoriteRecipients =
+    await favoritesService.recipientsForDocumentActivity(
+      documentId,
+      [user.id, ...(replyRecipient ? [replyRecipient] : []), ...mentionUserIds],
+    );
+  for (const recipientId of favoriteRecipients) {
+    if (notified.has(recipientId)) continue;
+    notified.add(recipientId);
+    fireAndForget(
+      {
+        recipientId,
+        actorId: user.id,
+        type: "document.activity",
+        // Subject is the *comment*, not the document — the notification
+        // store enforces uniqueness on (recipient, type, subject) and
+        // collapsing every new comment under the same documentId
+        // would suppress all but the first `document.activity` ping
+        // per follower per document.
+        subjectType: "comment",
+        subjectId: c.id,
+        body: body.body.slice(0, 280),
+        url: deepLink,
+      },
+      "document.activity",
+    );
+  }
+
+  return toDTO(c, authors, mentionsByComment, reactionsByComment);
 }
 
 export async function updateComment(
@@ -237,10 +354,14 @@ export async function updateComment(
   const userIds = new Set<string>([updated.authorId]);
   for (const id of mentionsByComment.get(commentId) ?? []) userIds.add(id);
   const authors = await usersService.loadUserSummaries(Array.from(userIds));
+  const reactionsByComment = await reactionsRepo.summariseByCommentIds(
+    [commentId],
+    user.id,
+  );
   await auditService.record(user.id, "comment.update", "comment", commentId, {
     documentId: updated.documentId,
   });
-  return toDTO(updated, authors, mentionsByComment);
+  return toDTO(updated, authors, mentionsByComment, reactionsByComment);
 }
 
 export async function deleteComment(

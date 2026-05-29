@@ -4,12 +4,14 @@ import type { Response } from "express";
 import * as docsRepo from "../repositories/documents.repo";
 import * as taxonomyRepo from "../repositories/taxonomy.repo";
 import * as commentsRepo from "../repositories/comments.repo";
+import * as favoritesRepo from "../repositories/favorites.repo";
 import * as viewRepo from "../repositories/viewHistory.repo";
 import * as usersService from "./users.service";
 import * as quotaService from "./quota.service";
 import * as taxonomyService from "./taxonomy.service";
 import * as auditService from "./audit.service";
 import * as permissions from "./permissions.service";
+import * as notificationsService from "./notifications.service";
 import { badRequest, forbidden, notFound, unauthorized } from "../lib/errors";
 import { signToken, verifyToken } from "../lib/sign-url";
 import { getStorage } from "../lib/storage";
@@ -58,6 +60,12 @@ export interface DocumentDTO {
       imageWidth?: number;
       imageHeight?: number;
       hasExtractedText: boolean;
+      // Sprint-3 M4 smart-metadata. `language` is an ISO-639-1
+      // short code; `keywords` is a ranked list of the most
+      // frequent content terms. Both fall back to undefined when
+      // extraction had nothing usable to chew on.
+      language?: string;
+      keywords?: string[];
     };
   };
   /**
@@ -83,7 +91,20 @@ export interface DocumentDTO {
     canDelete: boolean;
     canDownload: boolean;
     canComment: boolean;
+    /** Sprint-3 M2: review workflow transition affordances. */
+    canSubmitForReview: boolean;
+    canReview: boolean;
   };
+  // ─── Review workflow (Sprint-3 M2) ───────────────────────────────
+  // All four are NULL/absent until the doc enters the workflow.
+  submittedForReviewAt?: string;
+  reviewedAt?: string;
+  reviewer?: usersService.UserSummaryDTO;
+  reviewReason?: string;
+  // Sprint-3 M6 — viewer's favorite state. Populated on detail
+  // responses; absent on bulk list endpoints so the favorites lookup
+  // doesn't fan out N round-trips per list page.
+  isFavorited?: boolean;
 }
 
 // All visibility / role checks are delegated to permissions.service.
@@ -94,11 +115,19 @@ export async function assembleDocuments(
 ): Promise<DocumentDTO[]> {
   if (docs.length === 0) return [];
   const ids = docs.map((d) => d.id);
+  // Reviewer ids are loaded alongside uploader ids so the DTO can
+  // surface the reviewer's display name without an extra round-trip.
+  const reviewerIds = docs
+    .map((d) => d.reviewedBy)
+    .filter((i): i is string => !!i);
+  const userIds = Array.from(
+    new Set([...docs.map((d) => d.uploaderId), ...reviewerIds]),
+  );
   const [coursesMap, categoriesMap, uploadersMap, fileRows, tagLinks] =
     await Promise.all([
       taxonomyService.loadCourses(docs.map((d) => d.courseId)),
       taxonomyService.loadCategories(docs.map((d) => d.categoryId)),
-      usersService.loadUserSummaries(docs.map((d) => d.uploaderId)),
+      usersService.loadUserSummaries(userIds),
       docsRepo.findFilesByDocumentIds(ids),
       docsRepo.findTagLinksForDocuments(ids),
     ]);
@@ -141,6 +170,7 @@ export async function assembleDocuments(
       ownerId: d.ownerId,
       visibility: d.visibility,
       courseId: d.courseId,
+      status: d.status,
     };
     const canView = permissions.canView(permObj, user);
     const dto: DocumentDTO = {
@@ -163,8 +193,22 @@ export async function assembleDocuments(
         canDelete: permissions.canDelete(permObj, user),
         canDownload: canView,
         canComment: permissions.canComment(permObj, user),
+        canSubmitForReview:
+          permissions.canSubmitForReview(permObj, user) &&
+          (d.status === "draft" || d.status === "rejected"),
+        canReview:
+          permissions.canReview(permObj, user) &&
+          d.status === "pending_review",
       },
     };
+    if (d.submittedForReviewAt)
+      dto.submittedForReviewAt = d.submittedForReviewAt.toISOString();
+    if (d.reviewedAt) dto.reviewedAt = d.reviewedAt.toISOString();
+    if (d.reviewedBy) {
+      const r = uploadersMap.get(d.reviewedBy);
+      if (r) dto.reviewer = r;
+    }
+    if (d.reviewReason) dto.reviewReason = d.reviewReason;
     const c = d.courseId ? coursesMap.get(d.courseId) : undefined;
     if (c) dto.course = c;
     const cat = d.categoryId ? categoriesMap.get(d.categoryId) : undefined;
@@ -189,6 +233,8 @@ export async function assembleDocuments(
       if (file.author) extracted.author = file.author;
       if (file.imageWidth != null) extracted.imageWidth = file.imageWidth;
       if (file.imageHeight != null) extracted.imageHeight = file.imageHeight;
+      if (file.language) extracted.language = file.language;
+      if (file.keywords && file.keywords.length > 0) extracted.keywords = file.keywords;
       fileDto.extractedMetadata = extracted;
       dto.file = fileDto;
       dto.fallbackIconType = fallbackIconFor(file.mimeType);
@@ -215,7 +261,6 @@ export interface ListDocumentsQuery {
   academicYear?: number;
   dateFrom?: Date;
   dateTo?: Date;
-  q?: string;
   courseCode?: string;
   lecturerName?: string;
   tagIds?: string[];
@@ -245,7 +290,6 @@ export async function listDocuments(
   if (q.academicYear != null) filters.academicYear = q.academicYear;
   if (q.dateFrom) filters.dateFrom = q.dateFrom;
   if (q.dateTo) filters.dateTo = q.dateTo;
-  if (q.q) filters.q = q.q;
 
   if (q.courseCode || q.lecturerName) {
     const ids = await taxonomyRepo.findCourseIdsByCodeOrLecturer(
@@ -266,25 +310,8 @@ export async function listDocuments(
     filters.restrictDocumentIds = docIds;
   }
 
-  // When `q` is present we route through the Postgres FTS path
-  // (task #28): same filters, but ranked by ts_rank against the GIN
-  // index on `documents.search_vector`. Without `q` we keep the
-  // existing prisma-based list path so sort/popularity semantics are
-  // unchanged.
-  if (q.q) {
-    const visibilitySql = permissions.visibleDocumentFilterSql(user);
-    const [total, rows] = await Promise.all([
-      docsRepo.countSearchDocuments(q.q, filters, visibilitySql),
-      docsRepo.searchDocumentsRanked(q.q, filters, visibilitySql, {
-        sort: q.sort,
-        page: q.page,
-        pageSize: q.pageSize,
-      }),
-    ]);
-    const items = await assembleDocuments(rows, user);
-    return { items, total, page: q.page, pageSize: q.pageSize };
-  }
-
+  // Sprint-3 M7 retired the in-list `q` FTS branch — full-text
+  // search now lives exclusively at `GET /v2/documents/search`.
   const total = await docsRepo.countDocuments(filters);
   const rows = await docsRepo.listDocuments(filters, {
     sort: q.sort,
@@ -312,36 +339,6 @@ export async function listRecentForUser(
   return assembleDocuments(visible, user);
 }
 
-export interface SuggestionDTO {
-  id: string;
-  title: string;
-  materialType: string;
-  courseCode?: string;
-}
-
-export async function suggest(
-  term: string,
-  limit: number,
-  user: AuthenticatedUser,
-): Promise<SuggestionDTO[]> {
-  const rows = await docsRepo.findSuggestions(term, limit, {
-    unrestricted: permissions.isAdmin(user),
-    userId: user.id,
-  });
-  const courseIds = rows
-    .map((r) => r.courseId)
-    .filter((i): i is string => !!i);
-  const courseCodes = await taxonomyRepo.findCourseCodesByIds(courseIds);
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    materialType: r.materialType,
-    ...(r.courseId && courseCodes.has(r.courseId)
-      ? { courseCode: courseCodes.get(r.courseId)! }
-      : {}),
-  }));
-}
-
 export async function getById(
   id: string,
   user: AuthenticatedUser,
@@ -351,8 +348,13 @@ export async function getById(
   if (!permissions.canView(doc, user))
     throw forbidden("Cannot view this document");
   await viewRepo.recordView(doc.id, user.id);
-  const assembled = await assembleDocuments([doc], user);
-  return assembled[0];
+  const [assembled, favorited] = await Promise.all([
+    assembleDocuments([doc], user),
+    favoritesRepo.isFavorited(user.id, doc.id),
+  ]);
+  const dto = assembled[0];
+  dto.isFavorited = favorited;
+  return dto;
 }
 
 export interface UpdateDocumentInput {
@@ -425,7 +427,30 @@ export async function updateDocument(
   if (body.semester !== undefined) patch.semester = body.semester;
   if (body.academicYear !== undefined) patch.academicYear = body.academicYear;
   if (body.visibility !== undefined) patch.visibility = body.visibility;
-  if (body.status !== undefined) patch.status = body.status;
+  if (body.status !== undefined) {
+    // Sprint-3 M2: the review state machine (`pending_review`,
+    // `approved`, `rejected`) is owned exclusively by the
+    // submit-for-review / approve / reject endpoints. Allowing a
+    // status patch in or out of any of those states from the generic
+    // editor would bypass reviewer permissions, the
+    // canSubmitForReview/canReview gates, the required rejection
+    // reason, the audit log entries, and the notify side effects.
+    // Legacy `draft|published|archived` toggles still go through PATCH.
+    const REVIEW_STATES = new Set([
+      "pending_review",
+      "approved",
+      "rejected",
+    ]);
+    if (
+      REVIEW_STATES.has(body.status) ||
+      REVIEW_STATES.has(doc.status)
+    ) {
+      throw badRequest(
+        "Use the review workflow endpoints to change review-state documents",
+      );
+    }
+    patch.status = body.status;
+  }
 
   await docsRepo.updateDocumentById(id, patch);
 
@@ -457,6 +482,299 @@ export async function deleteDocument(
   await auditService.record(user.id, "document.delete", "document", id);
 }
 
+// ─── Bulk operations (Sprint-3 refinement) ──────────────────────────
+//
+// Batch actions for the browse table. Each item is processed through
+// the *existing* audited single-document service paths (deleteDocument /
+// updateDocument) so per-item permission checks, quota release, and
+// audit logging stay identical to the single-document flows. A failure
+// on one id never aborts the batch — callers get a per-id result list
+// so the UI can show partial success.
+
+export type BulkAction = "delete" | "add_tag" | "assign_category";
+
+export interface BulkActionInput {
+  action: BulkAction;
+  ids: string[];
+  /** Required when action === "add_tag". */
+  tagId?: string | null;
+  /**
+   * Required when action === "assign_category". Pass null to clear the
+   * category on every selected document.
+   */
+  categoryId?: string | null;
+}
+
+export interface BulkActionResultEntry {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+const BULK_MAX_IDS = 100;
+
+export async function bulkDocumentAction(
+  input: BulkActionInput,
+  user: AuthenticatedUser,
+): Promise<BulkActionResultEntry[]> {
+  const ids = Array.from(new Set(input.ids));
+  if (ids.length === 0) throw badRequest("No documents selected");
+  if (ids.length > BULK_MAX_IDS) {
+    throw badRequest(`Cannot act on more than ${BULK_MAX_IDS} documents at once`);
+  }
+  if (input.action === "add_tag" && !input.tagId) {
+    throw badRequest("tagId is required for add_tag");
+  }
+  if (input.action === "assign_category" && input.categoryId === undefined) {
+    throw badRequest("categoryId is required for assign_category");
+  }
+
+  const results: BulkActionResultEntry[] = [];
+  for (const id of ids) {
+    try {
+      switch (input.action) {
+        case "delete":
+          await deleteDocument(id, user);
+          break;
+        case "assign_category":
+          await updateDocument(id, { categoryId: input.categoryId }, user);
+          break;
+        case "add_tag": {
+          const existing = await docsRepo.getDocumentTagIds(id);
+          const next = existing.includes(input.tagId!)
+            ? existing
+            : [...existing, input.tagId!];
+          await updateDocument(id, { tagIds: next }, user);
+          break;
+        }
+      }
+      results.push({ id, success: true });
+    } catch (err) {
+      results.push({
+        id,
+        success: false,
+        error: err instanceof Error ? err.message : "Operation failed",
+      });
+    }
+  }
+  return results;
+}
+
+// ─── Review & approval workflow (Sprint-3 M2) ───────────────────────
+//
+// State machine (additive — existing `draft|published|archived` is left
+// untouched):
+//   draft|rejected → pending_review     (submitForReview)
+//   pending_review → approved           (approve)
+//   pending_review → rejected           (reject, requires reason)
+//
+// Permission rules live in `permissions.service`:
+//   - canSubmitForReview = uploader/owner OR canEdit
+//   - canReview          = admin OR lecturer-for-course
+//
+// Notifications go through the M1 bus with subjectType='document'.
+// The (recipient, type, subject) dedup index absorbs duplicate inserts
+// of the *same* event (e.g. two reviewers race-approving the same
+// doc), while still letting distinct outcomes through — `document.
+// rejected` then a later `document.approved` on the same doc both
+// reach the uploader because they differ in `type`. The bus is
+// non-throwing (notify swallows errors), so transitions never fail
+// because of a notify hiccup.
+//
+// Audit log records every transition. The actor never notifies
+// themselves (notifications.service short-circuits on actor=recipient).
+
+const REVIEW_REASON_MAX = 500;
+
+export async function submitForReview(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canSubmitForReview(doc, user)) {
+    throw forbidden("Cannot submit this document for review");
+  }
+  if (doc.status !== "draft" && doc.status !== "rejected") {
+    throw badRequest(
+      `Document cannot be submitted for review from status '${doc.status}'`,
+    );
+  }
+  // Compare-and-swap on the previously-read status so two concurrent
+  // submits can't both fire the audit/notify pipeline (M2 transitions
+  // are read-then-write; without the precondition the second writer
+  // would silently overwrite and double the side effects).
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    doc.status,
+    {
+      status: "pending_review",
+      submittedForReviewAt: new Date(),
+      // Clear any prior rejection reason so the reviewer sees a clean
+      // slate on the next pass. Reviewer stays stamped (historical).
+      reviewReason: null,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) {
+    throw badRequest("Document status changed before submit could apply");
+  }
+  await auditService.record(
+    user.id,
+    "document.submit_for_review",
+    "document",
+    id,
+  );
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export async function approveDocument(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canReview(doc, user)) {
+    throw forbidden("Cannot review this document");
+  }
+  if (doc.status !== "pending_review") {
+    throw badRequest(
+      `Only documents in 'pending_review' can be approved (was '${doc.status}')`,
+    );
+  }
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    "pending_review",
+    {
+      status: "approved",
+      reviewedBy: user.id,
+      reviewedAt: new Date(),
+      reviewReason: null,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) {
+    // Lost the race to another reviewer (or the uploader resubmitted).
+    // Surface as 400 rather than silently double-notify the uploader.
+    throw badRequest("Document is no longer pending review");
+  }
+  await auditService.record(user.id, "document.approve", "document", id);
+  // Fire-and-forget: notify swallows its own failures, but wrap in a
+  // .catch anyway so an awaitless rejection can't crash the process.
+  void Promise.resolve()
+    .then(() =>
+      notificationsService.notify({
+        recipientId: doc.uploaderId,
+        actorId: user.id,
+        type: "document.approved",
+        subjectType: "document",
+        subjectId: id,
+        body: `Your document "${doc.title}" was approved.`,
+        url: `/documents/${id}`,
+      }),
+    )
+    .catch(() => {});
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export async function rejectDocument(
+  id: string,
+  reason: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+
+  const trimmed = reason.trim();
+  if (!trimmed) throw badRequest("A rejection reason is required");
+  if (trimmed.length > REVIEW_REASON_MAX) {
+    throw badRequest(
+      `Rejection reason must be ${REVIEW_REASON_MAX} characters or less`,
+    );
+  }
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (!permissions.canReview(doc, user)) {
+    throw forbidden("Cannot review this document");
+  }
+  if (doc.status !== "pending_review") {
+    throw badRequest(
+      `Only documents in 'pending_review' can be rejected (was '${doc.status}')`,
+    );
+  }
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    "pending_review",
+    {
+      status: "rejected",
+      reviewedBy: user.id,
+      reviewedAt: new Date(),
+      reviewReason: trimmed,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) {
+    throw badRequest("Document is no longer pending review");
+  }
+  await auditService.record(user.id, "document.reject", "document", id);
+  void Promise.resolve()
+    .then(() =>
+      notificationsService.notify({
+        recipientId: doc.uploaderId,
+        actorId: user.id,
+        type: "document.rejected",
+        subjectType: "document",
+        subjectId: id,
+        body: trimmed,
+        url: `/documents/${id}`,
+      }),
+    )
+    .catch(() => {});
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export interface ListPendingReviewResult {
+  items: DocumentDTO[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function listPendingReview(
+  user: AuthenticatedUser,
+  opts: { page: number; pageSize: number },
+): Promise<ListPendingReviewResult> {
+
+  const summary = permissions.userEnrollmentSummary(user);
+  // Anyone who isn't an admin and doesn't teach a course is not a
+  // reviewer — 403 instead of returning an empty list so the UI can
+  // tell apart "no items" from "you shouldn't be here".
+  if (!summary.isAdmin && summary.lecturerCourseIds.length === 0) {
+    throw forbidden("Only reviewers can access the review queue");
+  }
+  const filter: docsRepo.PendingReviewFilter = summary.isAdmin
+    ? {}
+    : { courseIds: summary.lecturerCourseIds };
+  const [total, rows] = await Promise.all([
+    docsRepo.countPendingReview(filter),
+    docsRepo.listPendingReview(filter, opts),
+  ]);
+  const items = await assembleDocuments(rows, user);
+  return { items, total, page: opts.page, pageSize: opts.pageSize };
+}
+
 // ─── Upload ─────────────────────────────────────────────────────────
 export interface UploadInput {
   files: Express.Multer.File[];
@@ -469,6 +787,17 @@ export interface UploadInput {
   titleOverride?: string;
   description: string;
   tagIds: string[];
+  // Sprint-3 M2: when set to "draft", the doc lands in `draft` so the
+  // uploader can submit it for review via the M2 endpoint. Defaults to
+  // "published" to preserve the legacy "upload-and-publish" flow. For
+  // student uploaders the service forces "draft" regardless of input
+  // — students never get a direct-publish path.
+  status?: "draft" | "published";
+  // Sprint-3 completion: when true, every successfully-uploaded doc
+  // is immediately submitted for review (status=pending_review) via
+  // the M2 service. Used by the student UI so the upload+submit
+  // becomes one user action with one shared audit/notification trail.
+  autoSubmitForReview?: boolean;
 }
 
 export interface UploadResultEntry {
@@ -504,14 +833,38 @@ export async function uploadDocuments(
     );
   }
 
+  // Sprint-3 completion: student uploads MUST target a course (the
+  // review router needs a course to find a lecturer reviewer) and
+  // can never reach `published` directly — the review workflow is
+  // the only publish path open to them. We enforce both before the
+  // generic course-permission check so the error messages are clear.
+  const isStudent =
+    !permissions.isAdmin(user) &&
+    !user.roles.includes("lecturer") &&
+    user.roles.includes("student");
+  if (isStudent) {
+    if (!input.courseId) {
+      throw badRequest(
+        "Students must select a course they are enrolled in to upload.",
+      );
+    }
+    // Force-draft regardless of client-supplied status; the M2 review
+    // workflow is the only publish path open to students.
+    input.status = "draft";
+  }
+
   // Authoritative course-aware upload check — keeps internal callers
   // (not just the HTTP route) honest. Lecturers may only upload into
-  // courses they actually teach; admins may upload anywhere.
+  // courses they actually teach; admins may upload anywhere; students
+  // only into courses they're enrolled in (re-verified here even when
+  // the route already checked, so non-HTTP callers are safe too).
   if (!permissions.canUploadToCourse(user, input.courseId ?? null)) {
     throw forbidden(
-      input.courseId
-        ? "You can only upload to courses you teach"
-        : "Only admins or lecturers with at least one taught course may upload",
+      isStudent
+        ? "You can only upload to courses you are enrolled in"
+        : input.courseId
+          ? "You can only upload to courses you teach"
+          : "Only admins or lecturers with at least one taught course may upload",
     );
   }
 
@@ -677,7 +1030,7 @@ export async function uploadDocuments(
         description: input.description,
         materialType: input.materialType,
         visibility: input.visibility,
-        status: "published",
+        status: input.status ?? "published",
         uploaderId: user.id,
         ownerId: user.id,
         createdBy: user.id,
@@ -709,6 +1062,8 @@ export async function uploadDocuments(
         imageHeight: extracted.imageHeight ?? null,
         thumbnailPath,
         thumbnailMimeType,
+        language: extracted.language ?? null,
+        keywords: extracted.keywords ?? [],
       };
 
       // Insert document, file, tag links, and increment usedBytes all in
@@ -906,6 +1261,8 @@ export async function uploadNewVersion(
       imageHeight: extracted.imageHeight ?? null,
       thumbnailPath,
       thumbnailMimeType,
+      language: extracted.language ?? null,
+      keywords: extracted.keywords ?? [],
       changeNote: input.changeNote?.trim() || null,
     },
   });
@@ -1018,6 +1375,19 @@ export async function issueAccessToken(
 }
 
 // ─── Streaming ────────────────────────────────────────────────────
+/**
+ * Recognise "blob is missing from underlying storage" across drivers.
+ * Local: `fs.createReadStream` rejects with `err.code === "ENOENT"`.
+ * GCS:   the adapter pre-checks existence and synthesises `ENOENT`, but
+ *        a race or a direct stream call can still produce a Google API
+ *        error whose numeric `.code` is 404.
+ */
+function isStorageNotFound(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { code?: unknown };
+  return e.code === "ENOENT" || e.code === 404;
+}
+
 async function streamFile(
   documentId: string,
   res: Response,
@@ -1044,7 +1414,20 @@ async function streamFile(
     file = await docsRepo.findLatestFileForDocument(doc.id);
   }
   if (!file) throw notFound("Document has no file");
-  const stream = await getStorage().getStream(file.storagePath);
+  let stream;
+  try {
+    stream = await getStorage().getStream(file.storagePath);
+  } catch (err) {
+    // Translate "blob missing from underlying storage" into a clean 404
+    // instead of a 500. This guards against drift between the DB
+    // (DocumentFile row exists) and the storage backend (object was
+    // deleted out-of-band, a stateless deploy lost its local cache,
+    // or a driver switch left the old keys behind). Without this,
+    // every such request becomes a 500 and Chrome renders the JSON
+    // error body as its blocked-page interstitial.
+    if (isStorageNotFound(err)) throw notFound("File not found");
+    throw err;
+  }
   res.setHeader("Content-Type", file.mimeType);
   res.setHeader("Content-Length", String(file.sizeBytes));
   const safeName = file.originalFilename.replace(/[^A-Za-z0-9._-]/g, "_");
@@ -1053,6 +1436,26 @@ async function streamFile(
     `${disposition}; filename="${safeName}"`,
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
+  if (disposition === "inline") {
+    // Inline (preview) responses are loaded inside an <iframe> on the
+    // web app. Without explicit framing permissions Chrome shows its
+    // "This page has been blocked by Chrome" interstitial when any
+    // upstream proxy injects a restrictive X-Frame-Options or COEP
+    // header. We allow:
+    //  - 'self' for production (same-origin web + api behind the
+    //    autoscale router),
+    //  - the Replit workspace/dev domains so the preview also renders
+    //    inside the workspace's nested iframe during development.
+    // Note: we intentionally do NOT set X-Frame-Options — it cannot
+    // express a list of allowed origins and would override the CSP
+    // policy in older browsers, blocking the workspace iframe.
+    res.setHeader(
+      "Content-Security-Policy",
+      "frame-ancestors 'self' https://*.replit.dev https://*.replit.com https://replit.com https://*.replit.app",
+    );
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Cache-Control", "private, no-store");
+  }
   stream.pipe(res);
 }
 
@@ -1103,9 +1506,24 @@ export async function streamThumbnail(
   if (!result.valid) throw unauthorized("Invalid or expired token");
   const file = await docsRepo.findLatestFileForDocument(id);
   if (!file || !file.thumbnailPath) throw notFound("No thumbnail");
-  const stream = await getStorage().getStream(file.thumbnailPath);
+  let stream;
+  try {
+    stream = await getStorage().getStream(file.thumbnailPath);
+  } catch (err) {
+    if (isStorageNotFound(err)) throw notFound("No thumbnail");
+    throw err;
+  }
   res.setHeader("Content-Type", file.thumbnailMimeType ?? "image/jpeg");
   res.setHeader("Cache-Control", "private, max-age=300");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  // Thumbnails are rendered as <img> in the SPA but may also surface
+  // inside iframed preview panes (e.g. fallback when in-browser
+  // preview is unsupported). Allow same-origin + Replit workspace
+  // framing so upstream proxy defaults can't block them.
+  res.setHeader(
+    "Content-Security-Policy",
+    "frame-ancestors 'self' https://*.replit.dev https://*.replit.com https://replit.com https://*.replit.app",
+  );
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   stream.pipe(res);
 }

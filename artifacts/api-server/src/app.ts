@@ -16,6 +16,14 @@ app.set("trust proxy", 1);
 app.use(
   pinoHttp({
     logger,
+    // Sprint-3 M7 log-hygiene: drop the per-request 2xx noise to
+    // `debug` so a normal dev run is quiet. Anything 4xx/5xx still
+    // surfaces at warn/error.
+    customLogLevel: (_req, res, err) => {
+      if (err || res.statusCode >= 500) return "error";
+      if (res.statusCode >= 400) return "warn";
+      return "debug";
+    },
     serializers: {
       req(req) {
         return {

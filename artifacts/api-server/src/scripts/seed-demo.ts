@@ -193,6 +193,8 @@ interface DocSpec {
   filename: string;
   body: Buffer;
   createdAt?: Date;
+  status?: string;
+  reviewReason?: string;
 }
 
 async function ensureDocument(spec: DocSpec) {
@@ -216,8 +218,22 @@ async function ensureDocument(spec: DocSpec) {
         ...(spec.semester ? { semester: spec.semester } : {}),
         ...(spec.academicYear != null ? { academicYear: spec.academicYear } : {}),
         ...(spec.createdAt ? { createdAt: spec.createdAt, updatedAt: spec.createdAt } : {}),
+        ...(spec.status ? { status: spec.status } : {}),
+        ...(spec.reviewReason != null ? { reviewReason: spec.reviewReason } : {}),
       },
     });
+  } else {
+    // Converge status and reviewReason on re-runs so the documented
+    // demo state is always restored even if an admin mutated the doc.
+    if (spec.status || spec.reviewReason != null) {
+      await db.document.update({
+        where: { id: doc.id },
+        data: {
+          ...(spec.status ? { status: spec.status } : {}),
+          ...(spec.reviewReason != null ? { reviewReason: spec.reviewReason } : {}),
+        },
+      });
+    }
   }
 
   let docFile = await db.documentFile.findFirst({
@@ -756,6 +772,76 @@ async function main() {
         ),
         createdAt: daysAgo(3),
     }},
+
+    // ── Student review-workflow documents (Sprint-3 demo) ─────────
+    // These illustrate every status reachable via the student-upload
+    // flow: draft (not yet submitted), pending_review (waiting for
+    // lecturer decision), rejected (with reason), and approved.
+    { key: "noa-draft", spec: {
+        title: "Noa's Draft Study Notes — CS101",
+        description: "Noa's unfinished notes — still being edited before submission.",
+        uploaderId: noa.id, courseId: cs101.id, categoryId: catLectureNotes.id,
+        materialType: "lecture-notes", visibility: "public",
+        semester: "Spring", academicYear: 2026,
+        tagIds: [tagsByName["summary"]],
+        mimeType: "text/markdown", filename: "noa-draft-notes.md",
+        bodyFactory: () => txt(
+          "# CS101 Study Notes (DRAFT)",
+          "Week 1: variables, loops, functions.",
+          "Week 2: TODO — add examples",
+        ),
+        createdAt: daysAgo(2),
+        status: "draft",
+    }},
+    { key: "noa-pending", spec: {
+        title: "Noa's CS101 Exam Summary — Pending Review",
+        description: "Noa's one-page exam summary submitted for lecturer approval.",
+        uploaderId: noa.id, courseId: cs101.id, categoryId: catSummaries.id,
+        materialType: "summary", visibility: "public",
+        semester: "Spring", academicYear: 2026,
+        tagIds: [tagsByName["exam-prep"], tagsByName["summary"]],
+        mimeType: "text/markdown", filename: "noa-exam-summary.md",
+        bodyFactory: () => txt(
+          "# CS101 Exam Summary",
+          "Key concepts: recursion, sorting, complexity.",
+          "Practice: BFS, DFS, dynamic programming.",
+        ),
+        createdAt: daysAgo(1),
+        status: "pending_review",
+    }},
+    { key: "amir-rejected", spec: {
+        title: "Amir's CS101 Lab Report — Rejected",
+        description: "Amir's first lab report submission — rejected due to missing references.",
+        uploaderId: amir.id, courseId: cs101.id, categoryId: catAssignments.id,
+        materialType: "assignment", visibility: "public",
+        semester: "Spring", academicYear: 2026,
+        tagIds: [],
+        mimeType: "text/markdown", filename: "amir-lab-report.md",
+        bodyFactory: () => txt(
+          "# Lab Report 1",
+          "We implemented a linked list.",
+          "Results: it works.",
+        ),
+        createdAt: daysAgo(4),
+        status: "rejected",
+        reviewReason: "Incomplete references — please add full citations and expand the results section with measurements.",
+    }},
+    { key: "amir-approved", spec: {
+        title: "Amir's IS310 Sprint Notes — Approved",
+        description: "Amir's sprint-process notes, approved by lecturer for public sharing.",
+        uploaderId: amir.id, courseId: is310.id, categoryId: catLectureNotes.id,
+        materialType: "lecture-notes", visibility: "public",
+        semester: "Spring", academicYear: 2026,
+        tagIds: [tagsByName["sprint"], tagsByName["agile"]],
+        mimeType: "text/markdown", filename: "amir-sprint-notes.md",
+        bodyFactory: () => txt(
+          "# Sprint Notes — IS310",
+          "Sprint 1: planning, backlog refinement.",
+          "Sprint 2: velocity tracking, retrospective.",
+        ),
+        createdAt: daysAgo(6),
+        status: "approved",
+    }},
   ];
 
   const docs: Record<string, { id: string }> = {};
@@ -894,13 +980,60 @@ async function main() {
     body: "Are the retro templates posted somewhere too?",
   });
 
+  // ─── Favorites (document following) ─────────────────────────────
+  // Idempotent via (userId, documentId) unique constraint.
+  const favoritePlan: Array<[string, string[]]> = [
+    [noa.id,  ["cs101-l1", "cs101-midterm-q", "cs220-arrays", "is310-agile-slides"]],
+    [amir.id, ["cs101-l1", "is310-sprint"]],
+    [yael.id, ["is420-arch", "is420-search", "is310-risk"]],
+  ];
+  for (const [userId, keys] of favoritePlan) {
+    for (const k of keys) {
+      const docId = docs[k]?.id;
+      if (!docId) continue;
+      await db.documentFavorite.createMany({
+        data: [{ userId, documentId: docId }],
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  // ─── Comment reactions ────────────────────────────────────────────
+  // Seed a handful of emoji reactions to show the reaction strip on
+  // comment threads. Idempotent via (commentId, userId, emoji).
+  async function ensureReaction(commentId: string, userId: string, kind: string) {
+    await db.commentReaction.createMany({
+      data: [{ commentId, userId, kind }],
+      skipDuplicates: true,
+    });
+  }
+
+  // Reactions on the midterm thread comments
+  const midtermDoc = await db.document.findFirst({
+    where: { title: "CS101 Midterm Practice Questions" },
+  });
+  if (midtermDoc) {
+    const midtermComments = await db.comment.findMany({
+      where: { documentId: midtermDoc.id },
+      take: 3,
+    });
+    for (const [i, c] of midtermComments.entries()) {
+      // Cycle through reaction kinds and reactors so each comment gets ≥1 reaction
+      const pairs: Array<[string, string]> = [
+        ["like", noa.id], ["like", amir.id], ["like", yael.id],
+      ];
+      const [kind, userId] = pairs[i % pairs.length]!;
+      await ensureReaction(c.id, userId, kind);
+    }
+  }
+
   // ─── Material requests ────────────────────────────────────────────
   async function ensureRequest(opts: {
     title: string;
     description: string;
     courseId?: string;
     requestedBy: string;
-    status: "open" | "fulfilled";
+    status: "open" | "in_progress" | "fulfilled" | "closed";
     voters?: string[];
     fulfillingDocumentId?: string;
   }) {
@@ -986,6 +1119,34 @@ async function main() {
     courseId: is420.id, requestedBy: yael.id, status: "open",
     voters: [noa.id],
   });
+  await ensureRequest({
+    title: "Old IS310 exam papers",
+    description: "Past IS310 papers from 2023-2024 would help with revision.",
+    courseId: is310.id, requestedBy: amir.id, status: "closed",
+    voters: [noa.id],
+  });
+
+  // ─── Demo hygiene: prune non-demo requests ────────────────────────
+  // Playwright smoke tests create material requests (title prefix
+  // "smoke request …"). Delete any request whose title is not in the
+  // known demo set so the request board starts clean for every demo run.
+  const demoRequestTitles = [
+    "Need CS101 final exam examples",
+    "Please upload more recursion exercises",
+    "Missing project charter template",
+    "Need IS420 metadata extraction example",
+    "Can we get Agile retrospective slides?",
+    "Need Data Structures previous exams",
+    "Please add risk register sample",
+    "Need summary for Knowledge Base Architecture",
+    "Old IS310 exam papers",
+  ];
+  const pruned = await db.materialRequest.deleteMany({
+    where: { title: { notIn: demoRequestTitles } },
+  });
+  if (pruned.count > 0) {
+    logger.info(`✓ Pruned ${pruned.count} non-demo request(s)`);
+  }
 
   // ─── Output ───────────────────────────────────────────────────────
   /* eslint-disable no-console */

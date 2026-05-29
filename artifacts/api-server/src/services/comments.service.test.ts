@@ -37,10 +37,21 @@ vi.mock("./users.service", () => ({
 vi.mock("./audit.service", () => ({
   record: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("./notifications.service", () => ({
+  notify: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("./favorites.service", () => ({
+  recipientsForDocumentActivity: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("../repositories/reactions.repo", () => ({
+  summariseByCommentIds: vi.fn().mockResolvedValue(new Map()),
+}));
 
 import * as commentsRepo from "../repositories/comments.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as usersRepo from "../repositories/users.repo";
+import * as notificationsService from "./notifications.service";
+import * as favoritesService from "./favorites.service";
 import type { AuthenticatedUser } from "../middlewares/auth";
 import {
   createForDocument,
@@ -321,6 +332,147 @@ describe("updateComment re-parses mentions when body changes", () => {
     await updateComment("c1", { pageNumber: 7 }, user);
     expect(deleteMentions).not.toHaveBeenCalled();
     expect(insertMentions).not.toHaveBeenCalled();
+  });
+});
+
+describe("createForDocument notification producer hooks", () => {
+  // Sprint-3 M1: comment posts must fan out notifications for
+  // @mentioned users and (for replies) the parent author. Fire-and-
+  // forget — the comment write must not depend on notify resolving.
+  const notify = vi.mocked(notificationsService.notify);
+
+  it("notifies each mentioned user with type comment.mention", async () => {
+    insertComment.mockResolvedValueOnce(makeComment({ id: "new-c" }));
+    findByNames.mockResolvedValueOnce([
+      { id: "user-alice", displayName: "Alice" },
+      { id: "user-bob", displayName: "Bob" },
+    ]);
+    await createForDocument(
+      "doc-1",
+      { body: "Hi @Alice and @Bob" },
+      user,
+    );
+    // Allow the fire-and-forget microtasks to drain.
+    await new Promise((r) => setImmediate(r));
+    const mentionCalls = notify.mock.calls.filter(
+      (c) => c[0].type === "comment.mention",
+    );
+    expect(mentionCalls.map((c) => c[0].recipientId).sort()).toEqual([
+      "user-alice",
+      "user-bob",
+    ]);
+    for (const call of mentionCalls) {
+      expect(call[0]).toMatchObject({
+        actorId: user.id,
+        subjectType: "comment",
+        subjectId: "new-c",
+        url: "/documents/doc-1#comment-new-c",
+      });
+    }
+  });
+
+  it("notifies the parent author with comment.reply", async () => {
+    findAliveById.mockResolvedValueOnce(
+      makeComment({ id: "parent", authorId: "u-parent" }),
+    );
+    insertComment.mockResolvedValueOnce(
+      makeComment({ id: "child", parentId: "parent" }),
+    );
+    await createForDocument(
+      "doc-1",
+      { body: "nice point", parentId: "parent" },
+      user,
+    );
+    await new Promise((r) => setImmediate(r));
+    const replyCalls = notify.mock.calls.filter(
+      (c) => c[0].type === "comment.reply",
+    );
+    expect(replyCalls).toHaveLength(1);
+    expect(replyCalls[0]![0]).toMatchObject({
+      recipientId: "u-parent",
+      actorId: user.id,
+      subjectType: "comment",
+      subjectId: "child",
+    });
+  });
+
+  it("does not fire comment.reply when replying to one's own comment", async () => {
+    findAliveById.mockResolvedValueOnce(
+      makeComment({ id: "parent", authorId: user.id }),
+    );
+    insertComment.mockResolvedValueOnce(
+      makeComment({ id: "child", parentId: "parent" }),
+    );
+    await createForDocument(
+      "doc-1",
+      { body: "follow up", parentId: "parent" },
+      user,
+    );
+    await new Promise((r) => setImmediate(r));
+    const replyCalls = notify.mock.calls.filter(
+      (c) => c[0].type === "comment.reply",
+    );
+    expect(replyCalls).toHaveLength(0);
+  });
+
+  it("emits exactly one notification (reply, not mention) when the parent author is also @mentioned in the reply", async () => {
+    findAliveById.mockResolvedValueOnce(
+      makeComment({ id: "parent", authorId: "u-parent" }),
+    );
+    insertComment.mockResolvedValueOnce(
+      makeComment({ id: "child", parentId: "parent" }),
+    );
+    findByNames.mockResolvedValueOnce([
+      { id: "u-parent", displayName: "ParentUser" },
+    ]);
+    await createForDocument(
+      "doc-1",
+      { body: "hey @ParentUser thanks", parentId: "parent" },
+      user,
+    );
+    await new Promise((r) => setImmediate(r));
+    const callsForParent = notify.mock.calls.filter(
+      (c) => c[0].recipientId === "u-parent",
+    );
+    expect(callsForParent).toHaveLength(1);
+    expect(callsForParent[0]![0].type).toBe("comment.reply");
+  });
+
+  it("uses the new comment id (not document id) as the document.activity subject so successive comments produce distinct notifications", async () => {
+    const recipients = vi.mocked(favoritesService.recipientsForDocumentActivity);
+    recipients.mockResolvedValue(["follower"]);
+    insertComment.mockResolvedValueOnce(makeComment({ id: "c-first" }));
+    await createForDocument("doc-1", { body: "first" }, user);
+    insertComment.mockResolvedValueOnce(makeComment({ id: "c-second" }));
+    await createForDocument("doc-1", { body: "second" }, user);
+    await new Promise((r) => setImmediate(r));
+    const activityCalls = notify.mock.calls.filter(
+      (c) => c[0].type === "document.activity",
+    );
+    expect(activityCalls).toHaveLength(2);
+    expect(activityCalls.map((c) => c[0].subjectId)).toEqual([
+      "c-first",
+      "c-second",
+    ]);
+    for (const call of activityCalls) {
+      expect(call[0].subjectType).toBe("comment");
+    }
+  });
+
+  it("does not fail the comment write if notify throws synchronously", async () => {
+    insertComment.mockResolvedValueOnce(makeComment({ id: "new-c" }));
+    findByNames.mockResolvedValueOnce([
+      { id: "user-alice", displayName: "Alice" },
+    ]);
+    notify.mockImplementationOnce(() => {
+      throw new Error("synchronous boom");
+    });
+    const dto = await createForDocument(
+      "doc-1",
+      { body: "Hi @Alice" },
+      user,
+    );
+    expect(dto.id).toBe("new-c");
   });
 });
 

@@ -26,12 +26,18 @@ export interface LoginRequest {
   password: string;
 }
 
+export type CurrentUserEnrollmentsItem = {
+  courseId: string;
+  roleInCourse: string;
+};
+
 export interface CurrentUser {
   id: string;
   email: string;
   displayName: string;
   primaryRole: string;
   roles: string[];
+  enrollments: CurrentUserEnrollmentsItem[];
 }
 
 export type UserSummaryStatus =
@@ -145,6 +151,9 @@ export const DocumentVisibility = {
   private: "private",
 } as const;
 
+/**
+ * Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.
+ */
 export type DocumentStatus =
   (typeof DocumentStatus)[keyof typeof DocumentStatus];
 
@@ -152,6 +161,9 @@ export const DocumentStatus = {
   draft: "draft",
   published: "published",
   archived: "archived",
+  pending_review: "pending_review",
+  approved: "approved",
+  rejected: "rejected",
 } as const;
 
 /**
@@ -185,6 +197,10 @@ export interface ExtractedFileMetadata {
   imageHeight?: number;
   /** True when extracted text exists for full-text search (task */
   hasExtractedText: boolean;
+  /** ISO-639-1 short code (en/es/fr/de/it/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4). */
+  language?: string;
+  /** Top content terms by frequency after stopword filtering, most frequent first. Empty/omitted when extraction had no usable text (Sprint-3 M4). */
+  keywords?: string[];
 }
 
 export interface DocumentFileMeta {
@@ -209,6 +225,10 @@ export interface DocumentPermissions {
   canDelete: boolean;
   canDownload: boolean;
   canComment: boolean;
+  /** True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader/owner or can edit). */
+  canSubmitForReview: boolean;
+  /** True when the user can approve/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course). */
+  canReview: boolean;
 }
 
 export interface Document {
@@ -221,6 +241,7 @@ export interface Document {
   semester?: DocumentSemester;
   academicYear?: number;
   visibility: DocumentVisibility;
+  /** Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow. */
   status: DocumentStatus;
   uploader: UserSummary;
   createdAt: string;
@@ -234,15 +255,56 @@ export interface Document {
   /** Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type. */
   fallbackIconType?: DocumentFallbackIconType;
   permissions: DocumentPermissions;
+  /** When the doc was most recently submitted for review. */
+  submittedForReviewAt?: string;
+  /** When the doc was last approved or rejected. */
+  reviewedAt?: string;
+  reviewer?: UserSummary;
+  /** Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review. */
+  reviewReason?: string;
+  /** True when the requesting user has favorited this document (Sprint-3 M6). Populated on detail responses and the `/me/favorites` list; may be absent on bulk list endpoints. */
+  isFavorited?: boolean;
 }
 
 export type DocumentDetail = Document;
 
-export interface DocumentSuggestion {
-  id: string;
+export interface DuplicateDocument {
+  documentId: string;
   title: string;
-  courseCode?: string;
-  materialType?: string;
+  uploaderDisplayName: string;
+  uploadedAt: string;
+}
+
+export interface DuplicateCheckResponse {
+  duplicate: DuplicateDocument | null;
+}
+
+export type SuggestMetadataResponseTitleSource =
+  (typeof SuggestMetadataResponseTitleSource)[keyof typeof SuggestMetadataResponseTitleSource];
+
+export const SuggestMetadataResponseTitleSource = {
+  metadata: "metadata",
+  filename: "filename",
+} as const;
+
+export type SuggestMetadataResponseTagsItem = {
+  id: string;
+  name: string;
+};
+
+export type SuggestMetadataResponseCategory = {
+  id: string;
+  name: string;
+};
+
+export interface SuggestMetadataResponse {
+  title?: string;
+  titleSource?: SuggestMetadataResponseTitleSource;
+  language?: string;
+  keywords: string[];
+  tags: SuggestMetadataResponseTagsItem[];
+  category?: SuggestMetadataResponseCategory;
+  duplicate?: DuplicateDocument;
 }
 
 export interface DocumentPage {
@@ -250,6 +312,69 @@ export interface DocumentPage {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export type SearchHit = Document & {
+  /** Snippet from `ts_headline` with sentinel markers `[[KBMARK]]…[[/KBMARK]]` around matches. Clients MUST HTML-escape the string before swapping the sentinels for `<mark>` tags — the underlying haystack may contain user-supplied characters that are unsafe to render as raw HTML. */
+  headline?: string;
+};
+
+export interface SearchPage {
+  items: SearchHit[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SearchFacetCourse {
+  id: string;
+  code: string;
+  title: string;
+  count: number;
+}
+
+export interface SearchFacetValue {
+  value: string;
+  count: number;
+}
+
+export interface SearchFacetUploader {
+  id: string;
+  displayName: string;
+  count: number;
+}
+
+export interface SearchFacets {
+  course: SearchFacetCourse[];
+  materialType: SearchFacetValue[];
+  semester: SearchFacetValue[];
+  status: SearchFacetValue[];
+  uploader: SearchFacetUploader[];
+}
+
+export interface AutocompleteTagHit {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface AutocompleteCourseHit {
+  id: string;
+  code: string;
+  title: string;
+  count: number;
+}
+
+export interface AutocompleteUploaderHit {
+  id: string;
+  displayName: string;
+  count: number;
+}
+
+export interface SearchAutocomplete {
+  tags: AutocompleteTagHit[];
+  courses: AutocompleteCourseHit[];
+  uploaders: AutocompleteUploaderHit[];
 }
 
 export type UpdateDocumentRequestSemester =
@@ -290,6 +415,15 @@ export interface UpdateDocumentRequest {
   visibility?: UpdateDocumentRequestVisibility;
   status?: UpdateDocumentRequestStatus;
   tagIds?: string[];
+}
+
+export interface RejectDocumentRequest {
+  /**
+   * Rejection rationale. Trimmed; must be non-empty and ≤500 chars. Stored on the doc and pushed to the uploader as the notification body.
+   * @minLength 1
+   * @maxLength 500
+   */
+  reason: string;
 }
 
 export interface UploadFileResult {
@@ -342,6 +476,25 @@ export interface SignedTokenResponse {
   url: string;
 }
 
+export type CommentReactionKind =
+  (typeof CommentReactionKind)[keyof typeof CommentReactionKind];
+
+export const CommentReactionKind = {
+  like: "like",
+  love: "love",
+  insightful: "insightful",
+  celebrate: "celebrate",
+  thanks: "thanks",
+  question: "question",
+} as const;
+
+export interface CommentReaction {
+  kind: CommentReactionKind;
+  /** @minimum 0 */
+  count: number;
+  viewerReacted: boolean;
+}
+
 export interface Comment {
   id: string;
   documentId: string;
@@ -354,6 +507,12 @@ export interface Comment {
   replies: Comment[];
   /** Users mentioned in the comment body via `@displayName` or `@[uuid]` tokens. Unresolved tokens are silently dropped on write — they remain plain text in `body` but produce no entry here. */
   mentions: UserSummary[];
+  /** Per-kind reaction summary. Empty list when no one has reacted. `viewerReacted` is true when the requesting user has the reaction of that kind on this comment. */
+  reactions: CommentReaction[];
+}
+
+export interface FavoriteStatus {
+  favorited: boolean;
 }
 
 export interface CreateCommentRequest {
@@ -376,6 +535,7 @@ export type MaterialRequestStatus =
 
 export const MaterialRequestStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
@@ -405,6 +565,7 @@ export type UpdateRequestRequestStatus =
 
 export const UpdateRequestRequestStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
@@ -416,8 +577,191 @@ export interface UpdateRequestRequest {
   description?: string;
 }
 
+export interface Notification {
+  id: string;
+  /** Producer-defined kind, e.g. comment.mention, comment.reply */
+  type: string;
+  subjectType: string;
+  subjectId: string;
+  body: string;
+  url: string | null;
+  readAt: string | null;
+  createdAt: string;
+  actor: UserSummary | null;
+}
+
+export interface NotificationUnreadCount {
+  /** @minimum 0 */
+  unread: number;
+}
+
+export interface NotificationMarkAllResponse {
+  /** @minimum 0 */
+  updated: number;
+}
+
+export interface AnalyticsTopDocument {
+  documentId: string;
+  title: string;
+  courseCode: string | null;
+  /** @minimum 0 */
+  count: number;
+}
+
+export interface AnalyticsActiveUploader {
+  userId: string;
+  displayName: string;
+  /** @minimum 0 */
+  uploadCount: number;
+}
+
+export interface AnalyticsDailyCount {
+  /** YYYY-MM-DD */
+  day: string;
+  /** @minimum 0 */
+  count: number;
+}
+
+export interface AnalyticsOverviewTotals {
+  /** @minimum 0 */
+  totalDocuments: number;
+  /** @minimum 0 */
+  totalUsers: number;
+  /** @minimum 0 */
+  totalComments: number;
+  /** @minimum 0 */
+  pendingReviewCount: number;
+  /** @minimum 0 */
+  viewsThisWeek: number;
+  /** @minimum 0 */
+  viewsPriorWeek: number;
+  /** @minimum 0 */
+  downloadsThisWeek: number;
+  /** @minimum 0 */
+  downloadsPriorWeek: number;
+  /** @minimum 0 */
+  uploadsThisWeek: number;
+}
+
+export interface AnalyticsCourseTotals {
+  /** @minimum 0 */
+  totalDocuments: number;
+  /** @minimum 0 */
+  pendingReviewCount: number;
+  /** @minimum 0 */
+  totalComments: number;
+  /** @minimum 0 */
+  viewsThisWeek: number;
+  /** @minimum 0 */
+  viewsPriorWeek: number;
+  /** @minimum 0 */
+  downloadsThisWeek: number;
+  /** @minimum 0 */
+  downloadsPriorWeek: number;
+  /** @minimum 0 */
+  uploadsThisWeek: number;
+}
+
+export interface AnalyticsTopCategory {
+  categoryId: string;
+  name: string;
+  documentCount: number;
+}
+
+export interface AnalyticsDuplicateGroup {
+  checksum: string;
+  count: number;
+  sampleTitle: string;
+  sampleDocumentId: string;
+}
+
+export interface AdminAnalyticsOverview {
+  totals: AnalyticsOverviewTotals;
+  topDocumentsByViews: AnalyticsTopDocument[];
+  topDocumentsByDownloads: AnalyticsTopDocument[];
+  activeUploaders: AnalyticsActiveUploader[];
+  uploadsLast14Days: AnalyticsDailyCount[];
+  topCategories: AnalyticsTopCategory[];
+  duplicateGroups: AnalyticsDuplicateGroup[];
+  generatedAt: string;
+}
+
+export type BulkDocumentActionRequestAction =
+  (typeof BulkDocumentActionRequestAction)[keyof typeof BulkDocumentActionRequestAction];
+
+export const BulkDocumentActionRequestAction = {
+  delete: "delete",
+  add_tag: "add_tag",
+  assign_category: "assign_category",
+} as const;
+
+export interface BulkDocumentActionRequest {
+  action: BulkDocumentActionRequestAction;
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  ids: string[];
+  tagId?: string | null;
+  categoryId?: string | null;
+}
+
+export interface BulkDocumentActionResultEntry {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface BulkDocumentActionResult {
+  results: BulkDocumentActionResultEntry[];
+}
+
+export type ActivityEntryActor = {
+  id: string;
+  displayName: string;
+} | null;
+
+export type ActivityEntryTarget = {
+  title: string;
+} | null;
+
+export type ActivityEntryMetadata = { [key: string]: unknown };
+
+export interface ActivityEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  actor: ActivityEntryActor;
+  target: ActivityEntryTarget;
+  metadata: ActivityEntryMetadata;
+  createdAt: string;
+}
+
+export interface ActivityPage {
+  items: ActivityEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AnalyticsCourseInfo {
+  id: string;
+  code: string;
+  title: string;
+}
+
+export interface CourseAnalytics {
+  course: AnalyticsCourseInfo;
+  totals: AnalyticsCourseTotals;
+  topDocumentsByViews: AnalyticsTopDocument[];
+  topDocumentsByDownloads: AnalyticsTopDocument[];
+  activeUploaders: AnalyticsActiveUploader[];
+  uploadsLast14Days: AnalyticsDailyCount[];
+  generatedAt: string;
+}
+
 export type ListDocumentsParams = {
-  q?: string;
   courseId?: string;
   courseCode?: string;
   lecturerName?: string;
@@ -477,6 +821,14 @@ export const UploadDocumentsBodyVisibility = {
   private: "private",
 } as const;
 
+export type UploadDocumentsBodyStatus =
+  (typeof UploadDocumentsBodyStatus)[keyof typeof UploadDocumentsBodyStatus];
+
+export const UploadDocumentsBodyStatus = {
+  draft: "draft",
+  published: "published",
+} as const;
+
 export type UploadDocumentsBody = {
   files: Blob[];
   courseId?: string;
@@ -488,6 +840,8 @@ export type UploadDocumentsBody = {
   tagIds?: string[];
   title?: string;
   description?: string;
+  status?: UploadDocumentsBodyStatus;
+  autoSubmitForReview?: boolean;
 };
 
 export type ListRecentDocumentsParams = {
@@ -498,7 +852,88 @@ export type ListRecentDocumentsParams = {
   limit?: number;
 };
 
-export type DocumentSuggestionsParams = {
+export type SearchDocumentsV2Params = {
+  q?: string;
+  courseId?: string;
+  courseCode?: string;
+  lecturerName?: string;
+  semester?: SearchDocumentsV2Semester;
+  academicYear?: number;
+  materialType?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  uploaderId?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sort?: SearchDocumentsV2Sort;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+};
+
+export type SearchDocumentsV2Semester =
+  (typeof SearchDocumentsV2Semester)[keyof typeof SearchDocumentsV2Semester];
+
+export const SearchDocumentsV2Semester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
+} as const;
+
+export type SearchDocumentsV2Sort =
+  (typeof SearchDocumentsV2Sort)[keyof typeof SearchDocumentsV2Sort];
+
+export const SearchDocumentsV2Sort = {
+  newest: "newest",
+  oldest: "oldest",
+  title: "title",
+  popularity: "popularity",
+} as const;
+
+export type SearchDocumentsFacetsParams = {
+  q?: string;
+  courseId?: string;
+  courseCode?: string;
+  lecturerName?: string;
+  semester?: SearchDocumentsFacetsSemester;
+  academicYear?: number;
+  materialType?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  uploaderId?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type SearchDocumentsFacetsSemester =
+  (typeof SearchDocumentsFacetsSemester)[keyof typeof SearchDocumentsFacetsSemester];
+
+export const SearchDocumentsFacetsSemester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
+} as const;
+
+export type CheckDuplicateDocumentParams = {
+  /**
+   * @pattern ^[a-fA-F0-9]{64}$
+   */
+  checksum: string;
+};
+
+export type SuggestDocumentMetadataBody = {
+  file: Blob;
+};
+
+export type SearchAutocompleteParams = {
   /**
    * @minLength 1
    */
@@ -539,6 +974,7 @@ export type ListRequestsStatus =
 
 export const ListRequestsStatus = {
   open: "open",
+  in_progress: "in_progress",
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
@@ -554,4 +990,38 @@ export type SearchUsersParams = {
    * @maximum 20
    */
   limit?: number;
+};
+
+export type ListPendingReviewDocumentsParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+};
+
+export type ListNotificationsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  unreadOnly?: boolean;
+};
+
+export type ListActivityParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+  entityType?: string;
 };

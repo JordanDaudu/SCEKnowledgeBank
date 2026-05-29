@@ -1,0 +1,196 @@
+You are continuing the existing Knowledge Bank / Asset Manager project in Replit.
+
+IMPORTANT:
+Do NOT start coding Sprint 3 yet.
+Do NOT implement all Sprint 3 features at once.
+Do NOT rewrite the Sprint 2 architecture.
+Do NOT break the working Sprint 2 MVP.
+
+Your task in this prompt is ONLY to create a modular Sprint 3 implementation plan.
+
+==================================================
+CURRENT PROJECT STATUS
+==================================================
+
+Sprint 2 is considered complete.
+
+The system already has:
+- working modular monolith architecture
+- React + Vite + TypeScript frontend
+- Express + TypeScript backend
+- Drizzle ORM
+- OpenAPI + generated client
+- auth and RBAC
+- centralized permission service
+- document upload
+- metadata extraction baseline
+- versioning baseline
+- storage quotas
+- preview/download with signed URLs
+- search/filter/pagination
+- comments and nested replies
+- request board and voting
+- audit logging
+- seed/demo data
+- Docker-ready structure
+
+Sprint 3 must build on this foundation slowly and safely.
+
+==================================================
+SPRINT 3 PURPOSE
+==================================================
+
+Sprint 3 should upgrade the product from a strong MVP into a more advanced academic Knowledge Bank.
+
+The goal is to add advanced features gradually while keeping the product fully functional after every module.
+
+Sprint 3 should focus on improvements such as:
+- smarter metadata and document intelligence
+- better search/discovery
+- notifications
+- review/approval workflows
+- analytics
+- richer collaboration
+- admin/governance improvements
+- UX polish
+
+But these must be planned as separate modules.
+
+==================================================
+CRITICAL WORKING RULE
+==================================================
+
+The product must remain functional after every module.
+
+For each Sprint 3 module:
+1. inspect existing code
+2. define minimal schema/API changes
+3. implement backend changes
+4. implement frontend changes
+5. add or update tests
+6. run typecheck/build/tests
+7. verify Sprint 2 flows still work
+8. only then move to the next module
+
+Do NOT work on multiple major modules at the same time.
+
+==================================================
+YOUR TASK NOW
+==================================================
+
+Create a Sprint 3 modular implementation plan.
+
+Do NOT write code yet.
+
+The plan must include:
+
+1. Proposed Sprint 3 modules
+2. Recommended implementation order
+3. For each module:
+   - purpose
+   - user value
+   - affected backend areas
+   - affected frontend areas
+   - database/schema changes needed
+   - OpenAPI changes needed
+   - tests required
+   - risk level
+   - rollback/safety notes
+4. What should NOT be touched
+5. What must be tested after every module
+6. Suggested first module to implement
+7. Definition of Done for Sprint 3
+
+==================================================
+IMPORTANT ARCHITECTURE RULES
+==================================================
+
+Preserve:
+- current folder structure
+- existing API patterns
+- existing OpenAPI/client generation flow
+- existing Drizzle database layer
+- existing service/repository/controller pattern
+- existing auth/RBAC/permission system
+- existing upload/search/comment/request flows
+
+Avoid:
+- big-bang implementation
+- major rewrites
+- duplicate modules
+- breaking Sprint 2 features
+- unnecessary enterprise complexity
+
+==================================================
+EXPECTED MODULE STYLE
+==================================================
+
+Break Sprint 3 into small safe modules.
+
+Suggested structure:
+
+Module 0:
+Sprint 3 technical baseline and regression test gate
+
+Module 1:
+Smart metadata/document intelligence foundation
+
+Module 2:
+Enhanced search and discovery
+
+Module 3:
+Notifications foundation
+
+Module 4:
+Review/approval workflow
+
+Module 5:
+Analytics/dashboard foundation
+
+Module 6:
+Collaboration and UX polish
+
+Module 7:
+Final Sprint 3 hardening and documentation
+
+You may adjust this order if the current codebase suggests a better dependency order.
+
+==================================================
+TEST-FIRST / SAFETY-FIRST EXPECTATION
+==================================================
+
+Before each module:
+- identify what existing tests must still pass
+- identify what new tests are needed
+
+After each module:
+- run relevant backend tests
+- run relevant frontend checks
+- verify upload still works
+- verify search/filter still works
+- verify preview/download still works
+- verify permissions still work
+- verify comments still work
+- verify request board still works
+
+==================================================
+OUTPUT FORMAT
+==================================================
+
+Return only the Sprint 3 plan.
+
+Use this structure:
+
+1. Sprint 3 Strategy
+2. Module Breakdown
+3. Recommended Build Order
+4. Per-Module Details
+5. Test Gates After Each Module
+6. Risks and Mitigations
+7. What Not To Build Yet
+8. First Implementation Prompt Recommendation
+
+Do NOT write code.
+Do NOT modify files.
+Do NOT begin implementation.
+Only plan Sprint 3 in a modular, testable way.

@@ -1,0 +1,555 @@
+Role: Principal Product Engineer, Platform Architect, Search Engineer, DAM Systems Designer, and UI/UX Lead
+
+Context:
+The Knowledge Bank / רותם ניהול פרויקטים platform is functionally stable after Sprint 3. Core infrastructure, review workflows, notifications, analytics foundations, requests, upload flow, and regression safety are already implemented.
+
+This phase is NOT Sprint 4.
+This is a structured refinement, intelligence, and productization phase.
+
+The goal is to transform the current system from:
+
+* a functional academic document repository
+
+into:
+
+* a polished intelligent academic knowledge platform.
+
+IMPORTANT RULES
+
+* Do NOT redesign the entire application
+* Do NOT rewrite the architecture unnecessarily
+* Do NOT break existing Sprint 2 or Sprint 3 behavior
+* Preserve regression safety
+* Reuse existing services/components whenever possible
+* Extend existing architecture instead of rebuilding
+* Keep changes modular and incremental
+* Keep the professional academic design language
+* Maintain mobile responsiveness
+* Avoid feature duplication
+
+CRITICAL IMPLEMENTATION RULE:
+Some systems depend on others.
+You MUST implement features in the exact order below.
+Do NOT skip ahead.
+
+At the end of EACH phase:
+
+1. Run typecheck
+2. Run affected tests
+3. Verify UI manually
+4. Commit internally before continuing
+
+====================================================
+PHASE 0 — INITIAL AUDIT & SAFETY
+================================
+
+Before implementing anything:
+
+1. Audit existing:
+
+* document services
+* upload services
+* search services
+* metadata services
+* analytics services
+* request board
+* notifications
+* activity/audit logic
+* review workflow
+* existing ranking logic
+* existing version/history logic if present
+
+2. Identify:
+
+* partially implemented systems
+* duplicated logic
+* dead UI
+* legacy search paths
+* exact-match search bottlenecks
+* reusable components
+
+3. Verify:
+
+* regression suite still passes
+* local + gcs regression matrix works
+* no pending migration conflicts
+
+Deliver:
+
+* short architecture summary
+* implementation plan confirmation
+* dependency notes between phases
+
+====================================================
+PHASE 1 — SEARCH FOUNDATION FIXES
+(MUST COME FIRST)
+=================
+
+Current issue:
+Search only works reliably when the user types the full exact string.
+
+This blocks:
+
+* discovery,
+* ranking,
+* Prep Hub usability,
+* recommendations.
+
+Implement first.
+
+REQUIRED:
+
+* real-time incremental search
+* partial matching
+* prefix matching
+* fuzzy matching tolerance
+* debounce optimization
+* responsive loading states
+* better empty states
+* highlight matching text
+* responsive mobile search UX
+
+Search across:
+
+* title
+* filename
+* tags
+* categories
+* metadata
+* descriptions
+* uploader names if already indexed
+
+TECHNICAL REQUIREMENTS:
+
+* preserve existing search architecture where possible
+* optimize query performance
+* avoid excessive API calls
+* maintain deterministic results
+* preserve v2 search compatibility
+
+Validation:
+
+* typing partial words returns results
+* typo tolerance works
+* search remains fast
+* regression suite passes
+
+====================================================
+PHASE 2 — FILE RANKING & DISCOVERY ENGINE
+(DEPENDS ON PHASE 1)
+====================
+
+After search foundation is stable, implement ranking.
+
+Current issue:
+Documents are mostly chronological/equal priority.
+
+Implement ranking factors:
+
+* search relevance
+* views
+* downloads
+* favorites
+* engagement
+* recency
+* metadata completeness
+* course relevance
+* document quality indicators
+
+Implement:
+
+* weighted scoring system
+* deterministic ranking
+* configurable scoring constants
+* lightweight aggregation strategy
+
+UI:
+Add sorting:
+
+* Most Relevant
+* Most Recent
+* Most Viewed
+* Most Downloaded
+* Most Favorited
+* Trending
+
+Add:
+
+* trending section
+* popular this week
+* engagement indicators
+
+IMPORTANT:
+Do NOT create expensive realtime queries.
+Use cached or aggregated logic where possible.
+
+Validation:
+
+* relevant documents rank higher
+* engagement affects ordering
+* exact matches still prioritize correctly
+* large searches remain performant
+
+====================================================
+PHASE 3 — UPLOAD INTELLIGENCE
+(DEPENDS ON SEARCH + RANKING)
+=============================
+
+Implement intelligent upload assistance.
+
+Current issue:
+Uploads are still mostly manual.
+
+REQUIRED:
+
+* filename parsing
+* metadata extraction
+* EXIF/document metadata extraction where possible
+* smart title suggestions
+* smart category suggestions
+* auto-generated tags
+* confidence-based suggestions
+* prefilled forms
+
+Add:
+
+* suggestion acceptance UX
+* lightweight recommendation panel
+* metadata quality indicators
+
+IMPORTANT:
+Extraction failures must NEVER block upload.
+
+Validation:
+
+* uploads prefill intelligently
+* users can override suggestions
+* unsupported files fail gracefully
+
+====================================================
+PHASE 4 — VERSIONING & UPLOAD HISTORY
+(DEPENDS ON UPLOAD FOUNDATION)
+==============================
+
+Implement persistent asset lifecycle management.
+
+REQUIRED:
+
+* upload history page
+* recent uploads
+* recent edits
+* editable upload history
+* document revision history
+* version numbers
+* upload new version flow
+* preserve old versions
+* restore/revert older versions
+* revision timeline
+
+UI:
+
+* dedicated Upload History section
+* version panel on document detail page
+* current version clearly marked
+* revision metadata visible
+
+TECHNICAL:
+
+* never overwrite old versions
+* maintain relational integrity
+* preserve backward compatibility
+
+Validation:
+
+* multiple versions preserved
+* reverting works
+* history timeline accurate
+
+====================================================
+PHASE 5 — ACTIVITY & AUDIT FOUNDATION
+(DEPENDS ON VERSIONING)
+=======================
+
+Implement platform activity visibility.
+
+Track:
+
+* upload events
+* edits
+* version creation
+* metadata changes
+* favorites
+* review actions
+* request interactions
+
+Add:
+
+* activity feed
+* recent activity dashboard widgets
+* user activity history
+
+IMPORTANT:
+Reuse existing audit infrastructure where possible.
+
+Validation:
+
+* activity feed updates correctly
+* actions trace properly
+* no duplicated events
+
+====================================================
+PHASE 6 — PREP HUB & STUDY COLLECTIONS
+(DEPENDS ON SEARCH + RANKING + HISTORY)
+=======================================
+
+Implement Prep Hub.
+
+Goal:
+Transform the platform into an academic preparation workspace.
+
+DO NOT build a full LMS.
+
+REQUIRED:
+
+1. Study Collections
+   Allow:
+
+* custom collections
+* exam prep sets
+* semester collections
+* revision bundles
+* saved study folders
+
+Capabilities:
+
+* add/remove documents
+* reorder materials
+* descriptions/notes
+* favorite collections
+* optional sharing
+
+2. Quick Access
+   Add:
+
+* recently viewed
+* continue studying
+* saved assets
+* quick access widgets
+
+3. Preparation Organization
+   Group by:
+
+* course
+* semester
+* exam
+* lecturer
+* topic
+
+4. Study Progress
+   Allow:
+
+* mark reviewed
+* progress indicators
+* viewed/completed tracking
+
+5. Curated Learning Paths
+   Allow lecturers/admins to create:
+
+* recommended bundles
+* official prep paths
+* “start here” collections
+
+6. Recommendations
+   Based on:
+
+* ranking
+* engagement
+* related assets
+* popular materials
+* user activity
+
+UI:
+
+* dedicated Prep Hub navigation item
+* academic card/grid design
+* strong mobile support
+
+Validation:
+
+* collections work reliably
+* recommendations feel relevant
+* no duplicate asset storage
+
+====================================================
+PHASE 7 — ADVANCED TABLE & MANAGEMENT UX
+(DEPENDS ON HISTORY + ACTIVITY)
+===============================
+
+Improve operational usability.
+
+Implement:
+
+* multi-select
+* bulk actions
+* bulk tagging
+* bulk category assignment
+* column visibility controls
+* persistent filters
+* persistent sorting
+* sticky search/filter bars
+* improved pagination
+
+Validation:
+
+* bulk operations work safely
+* mobile remains usable
+* no accidental destructive behavior
+
+====================================================
+PHASE 8 — DASHBOARD INTELLIGENCE
+(DEPENDS ON ACTIVITY + RANKING + PREP HUB)
+==========================================
+
+Upgrade dashboard from static overview to operational intelligence.
+
+Add:
+
+* recent uploads
+* recent edits
+* trending assets
+* storage insights
+* preparation activity
+* duplicate warnings
+* most used categories
+* engagement summaries
+* continue studying widgets
+
+For lecturers/admins:
+
+* review backlog indicators
+* course engagement
+* active uploaders
+* prep collection activity
+
+Validation:
+
+* dashboard loads quickly
+* widgets remain responsive
+* no excessive backend load
+
+====================================================
+PHASE 9 — FINAL UI/UX POLISH
+(LAST PHASE ONLY)
+=================
+
+ONLY after all systems are complete.
+
+Improve:
+
+* spacing consistency
+* typography hierarchy
+* hover/focus states
+* transitions
+* loading skeletons
+* empty states
+* card polish
+* visual density
+* mobile polish
+* responsive edge cases
+
+Pages needing highest attention:
+
+* Browse
+* Upload
+* Login
+* Prep Hub
+* Document detail
+* Requests
+
+Keep:
+
+* academic tone
+* restrained colors
+* professional appearance
+* existing green branding
+
+Do NOT over-modernize.
+
+====================================================
+PHASE 10 — DOCUMENTATION & DEMO PREP
+(FINAL)
+=======
+
+Update:
+
+* README.md
+* DEMO.md
+* replit.md
+
+Include:
+
+* final architecture summary
+* feature inventory
+* validation commands
+* demo walkthrough
+* demo accounts
+* Prep Hub explanation
+* ranking/search explanation
+* upload intelligence explanation
+* versioning explanation
+
+Add:
+
+* clean demo seed flow
+* smoke data cleanup/reset
+* realistic academic demo data
+
+====================================================
+FINAL VALIDATION
+================
+
+Run fully:
+
+* pnpm install --frozen-lockfile
+* pnpm run typecheck
+* pnpm -r --if-present run test
+* pnpm regression
+* pnpm regression:local
+* pnpm regression:gcs
+* seed demo verify
+
+Manual verification:
+Desktop:
+
+* login
+* upload
+* search
+* browse
+* prep hub
+* requests
+* review queue
+* analytics
+* document detail
+* upload history
+* versioning
+
+Mobile:
+
+* 375px
+* 390px
+* 430px
+* 768px
+
+Acceptance Criteria:
+
+* search feels intelligent
+* ranking works naturally
+* uploads feel smart
+* history/versioning works reliably
+* Prep Hub feels useful
+* dashboard feels operational
+* platform feels production-grade
+* UI remains academic/professional
+* mobile experience is stable
+* all regressions pass
+* no Sprint 2/3 functionality breaks
