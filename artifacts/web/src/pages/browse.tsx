@@ -68,7 +68,7 @@ export default function Browse() {
   const [status, setStatus] = useState<string>(initialParams.get("status") ?? "");
   const [dateFrom, setDateFrom] = useState<string>(initialParams.get("dateFrom") ?? "");
   const [dateTo, setDateTo] = useState<string>(initialParams.get("dateTo") ?? "");
-  const [sort, setSort] = useState<Sort>(((initialParams.get("sort") as Sort) || "newest") as Sort);
+  const [sort, setSort] = useState<Sort>(((initialParams.get("sort") as Sort) || "relevance") as Sort);
   const [page, setPage] = useState<number>(Number(initialParams.get("page") ?? "1") || 1);
 
   // Two-way URL sync: when the URL search string changes from outside
@@ -92,7 +92,7 @@ export default function Browse() {
     setStatus(p.get("status") ?? "");
     setDateFrom(p.get("dateFrom") ?? "");
     setDateTo(p.get("dateTo") ?? "");
-    setSort(((p.get("sort") as Sort) || "newest") as Sort);
+    setSort(((p.get("sort") as Sort) || "relevance") as Sort);
     setPage(Number(p.get("page") ?? "1") || 1);
   }, [currentSearch]);
   const [view, setView] = useState<BrowseView>(() => readView());
@@ -147,7 +147,7 @@ export default function Browse() {
       status: status || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
-      sort: sort !== "newest" ? sort : undefined,
+      sort: sort !== "relevance" ? sort : undefined,
       page: page > 1 ? page : undefined,
     }),
     [
@@ -246,7 +246,7 @@ export default function Browse() {
     setStatus("");
     setDateFrom("");
     setDateTo("");
-    setSort("newest");
+    setSort("relevance");
     setPage(1);
   };
 

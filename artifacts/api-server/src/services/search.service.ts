@@ -137,11 +137,17 @@ export async function searchDocuments(
     return { items, total, page: q.page, pageSize: q.pageSize };
   }
   const total = await docsRepo.countDocuments(filters);
-  const rows = await docsRepo.listDocuments(filters, {
-    sort: q.sort,
-    page: q.page,
-    pageSize: q.pageSize,
-  });
+  // Score-based sorts (trending / relevance-without-query) need a computed
+  // ORDER BY → raw path with SQL visibility. Counter/simple sorts stay on
+  // the cheaper Prisma path.
+  const opts = { sort: q.sort, page: q.page, pageSize: q.pageSize };
+  const rows = docsRepo.sortNeedsScore(q.sort)
+    ? await docsRepo.listDocumentsRanked(
+        filters,
+        permissions.visibleDocumentFilterSql(user),
+        opts,
+      )
+    : await docsRepo.listDocuments(filters, opts);
   const items = await documentsService.assembleDocuments(rows, user);
   return { items, total, page: q.page, pageSize: q.pageSize };
 }

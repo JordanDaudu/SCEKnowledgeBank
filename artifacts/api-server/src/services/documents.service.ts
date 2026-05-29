@@ -43,6 +43,9 @@ export interface DocumentDTO {
   createdAt: string;
   updatedAt: string;
   viewCount: number;
+  // Refinement Phase 2 engagement indicators (denormalised counters).
+  downloadCount: number;
+  favoriteCount: number;
   commentCount: number;
   tags: { id: string; name: string }[];
   file?: {
@@ -184,6 +187,8 @@ export async function assembleDocuments(
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
       viewCount: viewCounts.get(d.id) ?? 0,
+      downloadCount: d.downloadCount ?? 0,
+      favoriteCount: d.favoriteCount ?? 0,
       commentCount: commentCounts.get(d.id) ?? 0,
       tags: tagsByDoc.get(d.id) ?? [],
       fallbackIconType: "unknown",
@@ -1487,6 +1492,13 @@ export async function streamDownload(
     "document",
     id,
   );
+  // Refinement Phase 2: bump the denormalised download counter for ranking.
+  // Fire-and-forget — must never block or fail the stream.
+  void docsRepo
+    .incrementDownloadCount(id)
+    .catch(() => {
+      /* best-effort counter; ignore */
+    });
 }
 
 /**

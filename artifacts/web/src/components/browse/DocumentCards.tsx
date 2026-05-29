@@ -11,6 +11,7 @@ import {
 } from "@/lib/fallback-icon";
 import { renderSnippetHtml } from "@/lib/snippet";
 import { cn } from "@/lib/utils";
+import { Eye, Download, Heart } from "lucide-react";
 
 interface Props {
   items: (Document & { headline?: string })[];
@@ -77,6 +78,25 @@ export default function DocumentCards({ items }: Props) {
                     {doc.description}
                   </p>
                 )}
+
+                {/* Engagement indicators (Refinement Phase 2) */}
+                <div
+                  className="flex items-center gap-3 mb-3 text-xs text-muted-foreground tabular-nums"
+                  data-testid="doc-engagement"
+                >
+                  <span className="inline-flex items-center gap-1" title="Views">
+                    <Eye className="h-3.5 w-3.5" />
+                    {doc.viewCount ?? 0}
+                  </span>
+                  <span className="inline-flex items-center gap-1" title="Downloads">
+                    <Download className="h-3.5 w-3.5" />
+                    {doc.downloadCount ?? 0}
+                  </span>
+                  <span className="inline-flex items-center gap-1" title="Favorites">
+                    <Heart className="h-3.5 w-3.5" />
+                    {doc.favoriteCount ?? 0}
+                  </span>
+                </div>
 
                 {/* Footer: material type + status + date */}
                 <div className="mt-auto flex justify-between items-center pt-2 gap-2 border-t border-border/50">

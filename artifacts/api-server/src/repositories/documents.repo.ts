@@ -1,4 +1,5 @@
 import { db, Prisma } from "@workspace/db";
+import { RANKING } from "../lib/ranking";
 
 export interface DocumentRow {
   id: string;
@@ -27,6 +28,10 @@ export interface DocumentRow {
   reviewedAt: Date | null;
   reviewReason: string | null;
   submittedForReviewAt: Date | null;
+  // Refinement Phase 2 engagement counters (denormalised).
+  viewCount: number;
+  downloadCount: number;
+  favoriteCount: number;
 }
 
 export type DocumentInsert = Prisma.DocumentUncheckedCreateInput;
@@ -89,7 +94,21 @@ export interface DocumentFileInsert {
   keywords?: string[];
 }
 
-export type DocumentSort = "newest" | "oldest" | "title" | "popularity";
+// Sort options. The first four are the original Sprint-2 values (kept for
+// backward compatibility — old clients still send them); the rest are the
+// Refinement Phase 2 ranking sorts. "popularity" is an alias of "viewed";
+// "newest" of "recent".
+export type DocumentSort =
+  | "newest"
+  | "oldest"
+  | "title"
+  | "popularity"
+  | "relevance"
+  | "recent"
+  | "viewed"
+  | "downloaded"
+  | "favorited"
+  | "trending";
 
 export interface DocumentListFilters {
   courseId?: string;
@@ -197,42 +216,45 @@ export async function countDocuments(
   return db.document.count({ where: buildBaseWhere(filters) });
 }
 
+/** Refinement Phase 2: bump the denormalised download counter (best-effort). */
+export async function incrementDownloadCount(documentId: string): Promise<void> {
+  await db.document.update({
+    where: { id: documentId },
+    data: { downloadCount: { increment: 1 } },
+  });
+}
+
 export async function listDocuments(
   filters: DocumentListFilters,
   options: { sort: DocumentSort; page: number; pageSize: number },
 ): Promise<DocumentRow[]> {
   const where = buildBaseWhere(filters);
-  if (options.sort === "popularity") {
-    // Pull all matching ids ordered by view count, then page.
-    // (Same semantics as the previous Drizzle implementation.)
-    const grouped = await db.materialViewHistory.groupBy({
-      by: ["documentId"],
-      where: { document: { is: where } },
-      _count: { _all: true },
-    });
-    const viewMap = new Map<string, number>();
-    for (const g of grouped) viewMap.set(g.documentId, g._count._all);
-    const allDocs = await db.document.findMany({ where });
-    allDocs.sort((a, b) => {
-      const va = viewMap.get(a.id) ?? 0;
-      const vb = viewMap.get(b.id) ?? 0;
-      if (vb !== va) return vb - va;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
-    const start = (options.page - 1) * options.pageSize;
-    return allDocs.slice(start, start + options.pageSize);
-  }
-  let orderBy: Prisma.DocumentOrderByWithRelationInput;
+  // Counter-based and simple sorts are expressible directly as a Prisma
+  // orderBy on the denormalised columns — no GROUP BY, no in-memory paging.
+  // Score sorts (trending / relevance) need a computed expression and go
+  // through `listDocumentsRanked` (raw SQL); callers route those there.
+  let orderBy: Prisma.DocumentOrderByWithRelationInput[];
   switch (options.sort) {
     case "oldest":
-      orderBy = { createdAt: "asc" };
+      orderBy = [{ createdAt: "asc" }];
       break;
     case "title":
-      orderBy = { title: "asc" };
+      orderBy = [{ title: "asc" }];
       break;
+    case "viewed":
+    case "popularity":
+      orderBy = [{ viewCount: "desc" }, { createdAt: "desc" }];
+      break;
+    case "downloaded":
+      orderBy = [{ downloadCount: "desc" }, { createdAt: "desc" }];
+      break;
+    case "favorited":
+      orderBy = [{ favoriteCount: "desc" }, { createdAt: "desc" }];
+      break;
+    case "recent":
     case "newest":
     default:
-      orderBy = { createdAt: "desc" };
+      orderBy = [{ createdAt: "desc" }];
       break;
   }
   return db.document.findMany({
@@ -325,6 +347,127 @@ function prefixTsQuery(q: string): Prisma.Sql {
   return Prisma.sql`to_tsquery('english', ${tokens.join(" & ")})`;
 }
 
+// ─── Ranking score (Refinement Phase 2) ──────────────────────────
+//
+// Deterministic, configurable (see lib/ranking.ts). All counts are
+// dampened with ln(1+x); recency is an exponential half-life decay.
+// Built from columns on `documents` only (the denormalised counters), so
+// these expressions never trigger a join or aggregation.
+
+function recencyDecaySql(halfLifeDays: number): Prisma.Sql {
+  return Prisma.sql`exp( - (extract(epoch from (now() - d.created_at)) / 86400.0) / ${halfLifeDays}::float8 )`;
+}
+
+function engagementSql(): Prisma.Sql {
+  return Prisma.sql`(
+    ln(1 + d.view_count) * ${RANKING.viewWeight}::float8
+    + ln(1 + d.download_count) * ${RANKING.downloadWeight}::float8
+    + ln(1 + d.favorite_count) * ${RANKING.favoriteWeight}::float8
+  )`;
+}
+
+function metadataCompletenessSql(): Prisma.Sql {
+  return Prisma.sql`((
+    (d.description <> '')::int
+    + (d.course_id IS NOT NULL)::int
+    + (d.category_id IS NOT NULL)::int
+    + (d.semester IS NOT NULL)::int
+  ) / 4.0)`;
+}
+
+/** q-independent base score: engagement + recency + metadata quality. */
+function baseScoreSql(): Prisma.Sql {
+  return Prisma.sql`(
+    ${engagementSql()}
+    + ${RANKING.recencyWeight}::float8 * ${recencyDecaySql(RANKING.recencyHalfLifeDays)}
+    + ${RANKING.metadataWeight}::float8 * ${metadataCompletenessSql()}
+  )`;
+}
+
+/** Trending: engagement weighted by a short recency half-life. */
+function trendingScoreSql(): Prisma.Sql {
+  return Prisma.sql`(${engagementSql()} * ${recencyDecaySql(RANKING.trendingHalfLifeDays)})`;
+}
+
+/**
+ * ORDER BY fragment for a given sort (excludes the FTS relevance term,
+ * which the FTS path prepends). `d.` alias required.
+ */
+function orderBySql(sort: DocumentSort): Prisma.Sql {
+  const recent = Prisma.sql`d.created_at DESC`;
+  switch (sort) {
+    case "oldest":
+      return Prisma.sql`d.created_at ASC`;
+    case "title":
+      return Prisma.sql`d.title ASC`;
+    case "viewed":
+    case "popularity":
+      return Prisma.sql`d.view_count DESC, ${recent}`;
+    case "downloaded":
+      return Prisma.sql`d.download_count DESC, ${recent}`;
+    case "favorited":
+      return Prisma.sql`d.favorite_count DESC, ${recent}`;
+    case "trending":
+      return Prisma.sql`${trendingScoreSql()} DESC, ${recent}`;
+    case "relevance":
+      // No query term to rank against → fall back to the base score.
+      return Prisma.sql`${baseScoreSql()} DESC, ${recent}`;
+    case "recent":
+    case "newest":
+    default:
+      return recent;
+  }
+}
+
+/** True for sorts that need a computed-score ORDER BY (raw SQL only). */
+export function sortNeedsScore(sort: DocumentSort): boolean {
+  return sort === "trending" || sort === "relevance";
+}
+
+/**
+ * ORDER BY for the FTS path. "relevance" ranks by ts_rank first (so exact /
+ * strong matches win), with the base score and recency as tiebreakers. Any
+ * other explicit sort is honoured, with ts_rank as the final tiebreaker so
+ * equally-engaged hits still order by match strength.
+ */
+function ftsOrderBySql(q: string, sort: DocumentSort): Prisma.Sql {
+  const rank = Prisma.sql`ts_rank(d.search_vector, ${prefixTsQuery(q)}) DESC`;
+  if (sort === "relevance") {
+    return Prisma.sql`${rank}, ${baseScoreSql()} DESC, d.created_at DESC`;
+  }
+  return Prisma.sql`${orderBySql(sort)}, ${rank}`;
+}
+
+/**
+ * Raw, score-ordered list for the non-FTS browse path when the sort needs a
+ * computed score (trending / relevance-without-query). Counter-based sorts
+ * stay on the cheaper Prisma `listDocuments` path.
+ */
+export async function listDocumentsRanked(
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+  options: { sort: DocumentSort; page: number; pageSize: number },
+): Promise<DocumentRow[]> {
+  const where = Prisma.join(
+    [...buildFilterFragmentsSql(filters), visibilitySql],
+    " AND ",
+  );
+  const offset = (options.page - 1) * options.pageSize;
+  const idRows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT d.id
+    FROM documents d
+    WHERE ${where}
+    ORDER BY ${orderBySql(options.sort)}
+    LIMIT ${options.pageSize} OFFSET ${offset}
+  `;
+  if (idRows.length === 0) return [];
+  const ids = idRows.map((r) => r.id);
+  const docs = await db.document.findMany({ where: { id: { in: ids } } });
+  const order = new Map(ids.map((id, i) => [id, i]));
+  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return docs;
+}
+
 export async function countSearchDocuments(
   q: string,
   filters: DocumentListFilters,
@@ -360,22 +503,12 @@ export async function searchDocumentsRanked(
     ],
     " AND ",
   );
-  // Ranking is always ts_rank-first when `q` is present (the task
-  // contract). `options.sort` only changes the tie-breaker so it stays
-  // stable with the non-FTS code path.
-  const tieBreaker =
-    options.sort === "oldest"
-      ? Prisma.sql`d.created_at ASC`
-      : options.sort === "title"
-        ? Prisma.sql`d.title ASC`
-        : Prisma.sql`d.created_at DESC`;
   const offset = (options.page - 1) * options.pageSize;
   const idRows = await db.$queryRaw<Array<{ id: string }>>`
     SELECT d.id
     FROM documents d
     WHERE ${where}
-    ORDER BY ts_rank(d.search_vector, ${prefixTsQuery(q)}) DESC,
-             ${tieBreaker}
+    ORDER BY ${ftsOrderBySql(q, options.sort)}
     LIMIT ${options.pageSize} OFFSET ${offset}
   `;
   if (idRows.length === 0) return [];
@@ -417,12 +550,6 @@ export async function searchDocumentsRankedWithSnippets(
     ],
     " AND ",
   );
-  const tieBreaker =
-    options.sort === "oldest"
-      ? Prisma.sql`d.created_at ASC`
-      : options.sort === "title"
-        ? Prisma.sql`d.title ASC`
-        : Prisma.sql`d.created_at DESC`;
   const offset = (options.page - 1) * options.pageSize;
   const idRows = await db.$queryRaw<
     Array<{ id: string; headline: string | null }>
@@ -435,8 +562,7 @@ export async function searchDocumentsRankedWithSnippets(
            ) AS headline
     FROM documents d
     WHERE ${where}
-    ORDER BY ts_rank(d.search_vector, ${prefixTsQuery(q)}) DESC,
-             ${tieBreaker}
+    ORDER BY ${ftsOrderBySql(q, options.sort)}
     LIMIT ${options.pageSize} OFFSET ${offset}
   `;
   if (idRows.length === 0) return { rows: [], headlines: new Map() };

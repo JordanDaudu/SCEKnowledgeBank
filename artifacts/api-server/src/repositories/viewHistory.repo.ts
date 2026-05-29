@@ -4,7 +4,15 @@ export async function recordView(
   documentId: string,
   userId: string,
 ): Promise<void> {
-  await db.materialViewHistory.create({ data: { documentId, userId } });
+  // Record the event AND bump the denormalised counter atomically so
+  // ranking can ORDER BY view_count without a per-request GROUP BY.
+  await db.$transaction([
+    db.materialViewHistory.create({ data: { documentId, userId } }),
+    db.document.update({
+      where: { id: documentId },
+      data: { viewCount: { increment: 1 } },
+    }),
+  ]);
 }
 
 export async function tryRecordView(
@@ -12,7 +20,7 @@ export async function tryRecordView(
   userId: string,
 ): Promise<void> {
   try {
-    await db.materialViewHistory.create({ data: { documentId, userId } });
+    await recordView(documentId, userId);
   } catch {
     // Non-fatal — preserves previous Drizzle behaviour where a failed insert
     // (e.g. FK race when a document is being soft-deleted) is silently ignored.

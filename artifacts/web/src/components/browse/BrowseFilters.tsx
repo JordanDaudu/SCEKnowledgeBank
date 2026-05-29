@@ -13,7 +13,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { SlidersHorizontal, X } from "lucide-react";
 import { MATERIAL_TYPES, formatMaterialType } from "@/lib/material-types";
 
-export type Sort = "newest" | "oldest" | "title" | "popularity";
+// Canonical ranking sorts (Refinement Phase 2). Legacy values
+// ("newest"/"popularity") are still accepted by the API and tolerated from
+// old bookmarked URLs, but the UI offers the canonical set below.
+export type Sort =
+  | "relevance"
+  | "recent"
+  | "viewed"
+  | "downloaded"
+  | "favorited"
+  | "trending"
+  | "oldest"
+  | "title"
+  | "newest"
+  | "popularity";
 export type Semester = "fall" | "spring" | "summer" | "";
 
 interface Props {
@@ -217,13 +230,17 @@ export default function BrowseFilters(props: Props) {
       </Select>
 
       <Select value={sort} onValueChange={(val) => setSort(val as Sort)}>
-        <SelectTrigger className="w-[140px] bg-background">
+        <SelectTrigger className="w-[150px] bg-background">
           <SelectValue placeholder="Sort by" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="newest">Newest First</SelectItem>
+          <SelectItem value="relevance">Most Relevant</SelectItem>
+          <SelectItem value="recent">Most Recent</SelectItem>
+          <SelectItem value="trending">Trending</SelectItem>
+          <SelectItem value="viewed">Most Viewed</SelectItem>
+          <SelectItem value="downloaded">Most Downloaded</SelectItem>
+          <SelectItem value="favorited">Most Favorited</SelectItem>
           <SelectItem value="oldest">Oldest First</SelectItem>
-          <SelectItem value="popularity">Most Viewed</SelectItem>
           <SelectItem value="title">A-Z</SelectItem>
         </SelectContent>
       </Select>

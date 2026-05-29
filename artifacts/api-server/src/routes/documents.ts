@@ -152,7 +152,20 @@ const SearchQueryParams = z.object({
   status: z.string().optional(),
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
-  sort: z.enum(["newest", "oldest", "title", "popularity"]).default("newest"),
+  sort: z
+    .enum([
+      "newest",
+      "oldest",
+      "title",
+      "popularity",
+      "relevance",
+      "recent",
+      "viewed",
+      "downloaded",
+      "favorited",
+      "trending",
+    ])
+    .default("newest"),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

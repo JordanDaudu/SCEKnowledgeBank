@@ -14,4 +14,10 @@ export const ListDocumentsSort = {
   oldest: "oldest",
   title: "title",
   popularity: "popularity",
+  relevance: "relevance",
+  recent: "recent",
+  viewed: "viewed",
+  downloaded: "downloaded",
+  favorited: "favorited",
+  trending: "trending",
 } as const;

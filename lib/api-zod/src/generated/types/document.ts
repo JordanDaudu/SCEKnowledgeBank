@@ -32,6 +32,8 @@ export interface Document {
   createdAt: Date;
   updatedAt: Date;
   viewCount: number;
+  downloadCount: number;
+  favoriteCount: number;
   commentCount: number;
   tags: Tag[];
   file?: DocumentFileMeta;

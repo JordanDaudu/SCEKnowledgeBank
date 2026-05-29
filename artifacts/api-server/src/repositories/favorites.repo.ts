@@ -15,6 +15,14 @@ export async function insertIfAbsent(
     data: [{ userId, documentId }],
     skipDuplicates: true,
   });
+  if (r.count > 0) {
+    // Maintain the denormalised counter only on an actual insert (a
+    // duplicate add is skipped above, so it must not double-count).
+    await db.document.update({
+      where: { id: documentId },
+      data: { favoriteCount: { increment: 1 } },
+    });
+  }
   return r.count > 0;
 }
 
@@ -25,6 +33,12 @@ export async function deleteOne(
   const r = await db.documentFavorite.deleteMany({
     where: { userId, documentId },
   });
+  if (r.count > 0) {
+    await db.document.update({
+      where: { id: documentId },
+      data: { favoriteCount: { decrement: 1 } },
+    });
+  }
   return r.count > 0;
 }
 

@@ -223,6 +223,16 @@ model Document {
   reviewReason          String?   @map("review_reason")
   submittedForReviewAt  DateTime? @map("submitted_for_review_at") @db.Timestamptz()
 
+  // ─── Engagement counters (Refinement Phase 2: ranking) ────────
+  // Denormalised counts maintained incrementally (O(1) per event) so
+  // ranking/sorting never needs a per-request GROUP BY over the event
+  // tables. Backfilled from material_view_history / audit_logs
+  // (document.download) / document_favorites in migration
+  // 20260528100000. Treat as best-effort hints, not authoritative.
+  viewCount       Int @default(0) @map("view_count")
+  downloadCount   Int @default(0) @map("download_count")
+  favoriteCount   Int @default(0) @map("favorite_count")
+
   course            Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
   category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   uploader          User                  @relation("DocumentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
@@ -243,6 +253,9 @@ model Document {
   @@index([semester, academicYear], map: "documents_semester_year_idx")
   @@index([uploaderId], map: "documents_uploader_idx")
   @@index([createdAt], map: "documents_created_at_idx")
+  @@index([viewCount], map: "documents_view_count_idx")
+  @@index([downloadCount], map: "documents_download_count_idx")
+  @@index([favoriteCount], map: "documents_favorite_count_idx")
   // Review queue: list pending_review docs (optionally scoped by
   // course for lecturers) ordered oldest-first.
   @@index([status, courseId, submittedForReviewAt], map: "documents_status_course_submitted_idx")

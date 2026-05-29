@@ -247,6 +247,8 @@ export interface Document {
   createdAt: string;
   updatedAt: string;
   viewCount: number;
+  downloadCount: number;
+  favoriteCount: number;
   commentCount: number;
   tags: Tag[];
   file?: DocumentFileMeta;
@@ -801,6 +803,12 @@ export const ListDocumentsSort = {
   oldest: "oldest",
   title: "title",
   popularity: "popularity",
+  relevance: "relevance",
+  recent: "recent",
+  viewed: "viewed",
+  downloaded: "downloaded",
+  favorited: "favorited",
+  trending: "trending",
 } as const;
 
 export type UploadDocumentsBodySemester =
@@ -895,6 +903,12 @@ export const SearchDocumentsV2Sort = {
   oldest: "oldest",
   title: "title",
   popularity: "popularity",
+  relevance: "relevance",
+  recent: "recent",
+  viewed: "viewed",
+  downloaded: "downloaded",
+  favorited: "favorited",
+  trending: "trending",
 } as const;
 
 export type SearchDocumentsFacetsParams = {

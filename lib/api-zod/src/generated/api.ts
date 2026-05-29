@@ -114,7 +114,18 @@ export const ListDocumentsQueryParams = zod.object({
   dateFrom: zod.coerce.date().optional(),
   dateTo: zod.coerce.date().optional(),
   sort: zod
-    .enum(["newest", "oldest", "title", "popularity"])
+    .enum([
+      "newest",
+      "oldest",
+      "title",
+      "popularity",
+      "relevance",
+      "recent",
+      "viewed",
+      "downloaded",
+      "favorited",
+      "trending",
+    ])
     .default(listDocumentsQuerySortDefault),
   page: zod.coerce.number().min(1).default(listDocumentsQueryPageDefault),
   pageSize: zod.coerce
@@ -180,6 +191,8 @@ export const ListDocumentsResponse = zod.object({
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
       viewCount: zod.number(),
+      downloadCount: zod.number(),
+      favoriteCount: zod.number(),
       commentCount: zod.number(),
       tags: zod.array(
         zod.object({
@@ -431,6 +444,8 @@ export const ListRecentDocumentsResponseItem = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   viewCount: zod.number(),
+  downloadCount: zod.number(),
+  favoriteCount: zod.number(),
   commentCount: zod.number(),
   tags: zod.array(
     zod.object({
@@ -595,7 +610,18 @@ export const SearchDocumentsV2QueryParams = zod.object({
   dateFrom: zod.coerce.date().optional(),
   dateTo: zod.coerce.date().optional(),
   sort: zod
-    .enum(["newest", "oldest", "title", "popularity"])
+    .enum([
+      "newest",
+      "oldest",
+      "title",
+      "popularity",
+      "relevance",
+      "recent",
+      "viewed",
+      "downloaded",
+      "favorited",
+      "trending",
+    ])
     .default(searchDocumentsV2QuerySortDefault),
   page: zod.coerce.number().min(1).default(searchDocumentsV2QueryPageDefault),
   pageSize: zod.coerce
@@ -662,6 +688,8 @@ export const SearchDocumentsV2Response = zod.object({
         createdAt: zod.coerce.date(),
         updatedAt: zod.coerce.date(),
         viewCount: zod.number(),
+        downloadCount: zod.number(),
+        favoriteCount: zod.number(),
         commentCount: zod.number(),
         tags: zod.array(
           zod.object({
@@ -1032,6 +1060,8 @@ export const GetDocumentResponse = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   viewCount: zod.number(),
+  downloadCount: zod.number(),
+  favoriteCount: zod.number(),
   commentCount: zod.number(),
   tags: zod.array(
     zod.object({
@@ -1240,6 +1270,8 @@ export const UpdateDocumentResponse = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   viewCount: zod.number(),
+  downloadCount: zod.number(),
+  favoriteCount: zod.number(),
   commentCount: zod.number(),
   tags: zod.array(
     zod.object({
@@ -1811,6 +1843,8 @@ export const ListMyFavoritesResponseItem = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   viewCount: zod.number(),
+  downloadCount: zod.number(),
+  favoriteCount: zod.number(),
   commentCount: zod.number(),
   tags: zod.array(
     zod.object({
@@ -2301,6 +2335,8 @@ export const ListPendingReviewDocumentsResponse = zod.object({
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
       viewCount: zod.number(),
+      downloadCount: zod.number(),
+      favoriteCount: zod.number(),
       commentCount: zod.number(),
       tags: zod.array(
         zod.object({
@@ -2510,6 +2546,8 @@ export const SubmitDocumentForReviewResponse = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   viewCount: zod.number(),
+  downloadCount: zod.number(),
+  favoriteCount: zod.number(),
   commentCount: zod.number(),
   tags: zod.array(
     zod.object({
@@ -2714,6 +2752,8 @@ export const ApproveDocumentResponse = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   viewCount: zod.number(),
+  downloadCount: zod.number(),
+  favoriteCount: zod.number(),
   commentCount: zod.number(),
   tags: zod.array(
     zod.object({
@@ -2924,6 +2964,8 @@ export const RejectDocumentResponse = zod.object({
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
   viewCount: zod.number(),
+  downloadCount: zod.number(),
+  favoriteCount: zod.number(),
   commentCount: zod.number(),
   tags: zod.array(
     zod.object({
