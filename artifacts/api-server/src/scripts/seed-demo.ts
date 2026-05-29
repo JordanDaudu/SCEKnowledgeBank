@@ -1148,6 +1148,68 @@ async function main() {
     logger.info(`✓ Pruned ${pruned.count} non-demo request(s)`);
   }
 
+  // ─── Prep Hub: a study collection + progress for Noa ──────────────
+  // Gives the Prep Hub, Continue-studying, and recommendation surfaces real
+  // demo data. Idempotent: find-or-create the collection, then reset its
+  // items and re-add in order.
+  let prep = await db.studyCollection.findFirst({
+    where: { ownerId: noa.id, title: "CS101 Final Prep" },
+  });
+  if (!prep) {
+    prep = await db.studyCollection.create({
+      data: {
+        ownerId: noa.id,
+        title: "CS101 Final Prep",
+        description: "Everything I need to review for the CS101 final.",
+        kind: "exam_prep",
+      },
+    });
+  }
+  await db.studyCollectionItem.deleteMany({ where: { collectionId: prep.id } });
+  const prepKeys = ["cs101-l1", "cs101-midterm-q", "cs220-arrays"];
+  let prepPos = 0;
+  for (const k of prepKeys) {
+    const docId = docs[k]?.id;
+    if (!docId) continue;
+    await db.studyCollectionItem.create({
+      data: { collectionId: prep.id, documentId: docId, position: prepPos++ },
+    });
+  }
+  async function setProgress(key: string, status: "reviewing" | "completed") {
+    const docId = docs[key]?.id;
+    if (!docId) return;
+    await db.studyProgress.upsert({
+      where: { userId_documentId: { userId: noa.id, documentId: docId } },
+      create: { userId: noa.id, documentId: docId, status },
+      update: { status },
+    });
+  }
+  await setProgress("cs101-l1", "completed");
+  await setProgress("cs101-midterm-q", "reviewing");
+  await setProgress("cs220-arrays", "reviewing");
+  logger.info("✓ Seeded Prep Hub collection + study progress for Noa");
+
+  // ─── Sync engagement counters from the seeded event tables ────────
+  // The seed inserts view-history / favorites / download audits directly via
+  // Prisma, which bypasses the incremental maintenance of the denormalised
+  // counters the ranking engine reads. Reset and backfill them so search
+  // ranking, the trending widget, and the dashboards reflect the demo data.
+  await db.$executeRaw`UPDATE documents SET view_count = 0, download_count = 0, favorite_count = 0`;
+  await db.$executeRaw`
+    UPDATE documents d SET view_count = sub.c
+    FROM (SELECT document_id, count(*)::int AS c FROM material_view_history GROUP BY document_id) sub
+    WHERE sub.document_id = d.id`;
+  await db.$executeRaw`
+    UPDATE documents d SET favorite_count = sub.c
+    FROM (SELECT document_id, count(*)::int AS c FROM document_favorites GROUP BY document_id) sub
+    WHERE sub.document_id = d.id`;
+  await db.$executeRaw`
+    UPDATE documents d SET download_count = sub.c
+    FROM (SELECT entity_id, count(*)::int AS c FROM audit_logs
+          WHERE action = 'document.download' AND entity_type = 'document' GROUP BY entity_id) sub
+    WHERE sub.entity_id = d.id::text`;
+  logger.info("✓ Synced engagement counters from seeded events");
+
   // ─── Output ───────────────────────────────────────────────────────
   /* eslint-disable no-console */
   console.log("\nDemo data created successfully.\n");
@@ -1177,6 +1239,9 @@ async function main() {
   console.log(" 8. Test storage quota display (Yael is near quota)");
   console.log(" 9. Test duplicate upload detection by re-uploading the same file");
   console.log("    (e.g. lib/db/src/seed/fixtures/sample-lecture-notes.pdf — same sha256)");
+  console.log(" 10. Login as Noa and open Prep Hub — see the 'CS101 Final Prep'");
+  console.log("     collection, Continue studying, and Recommended for you");
+  console.log(" 11. Login as Admin → Analytics → Activity logs tab; check the dashboard");
   /* eslint-enable no-console */
 
   logger.info("✓ Demo seed complete.");

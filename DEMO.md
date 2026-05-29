@@ -31,13 +31,17 @@ All demo accounts use the password **`Demo1234!`**.
 3. **Browse / search**
    - Go to **Browse**.
    - Type `recursion` in the search bar — see ranked results with keyword snippets highlighted in yellow.
+   - Type just `recurs` (a partial word) — it still matches (prefix search). Try a small typo like `algoritm` — fuzzy fallback still finds "Algorithm Complexity Cheat Sheet".
+   - Use the **Sort** dropdown — try **Trending**, **Most Viewed**, **Most Favorited**. Cards show view/download/favorite counts.
    - Click a facet chip (e.g., CS220) to narrow results; click again to remove.
+   - Switch to **table view** → select rows → **Add tag** / **Set category** (bulk actions); click the **Title** / **Uploaded** column headers to sort.
    - Try the autocomplete — type `alg` and pick from the tag suggestions.
 
 4. **Open a document**
    - Open **"Data Structures — Arrays and Lists"** (CS220).
    - Preview the PDF inline.
-   - Click **Follow / Favorite** — the button confirms.
+   - Click the **♥ Favorite** button — the button confirms (this also follows the doc for new-comment notifications).
+   - Click **Add to collection** → pick "CS101 Final Prep" or create a new one inline.
    - Add a comment; mention `@Dr. Maya Cohen` to see mention autocomplete.
    - React to an existing comment with an emoji.
 
@@ -58,12 +62,18 @@ All demo accounts use the password **`Demo1234!`**.
    - In Browse, filter by `status: Rejected` and uploader = you.
    - Open **"Amir's CS101 Lab Report — Rejected"** (log in as Amir to see the rejection reason banner).
 
-8. **Request board**
+8. **Prep Hub** (study collections + progress)
+   - Click **Prep Hub** in the nav.
+   - The **Recommended for you**, **Continue studying**, **Saved**, and **Recently viewed** lanes are pre-populated.
+   - Open the **"CS101 Final Prep"** collection — see its ordered documents. Reorder with the up/down arrows, set a document's progress to **Reviewing** / **Completed**, or remove one.
+   - Documents marked "Reviewing" show up under **Continue studying** (here and on the Home dashboard).
+
+9. **Request board**
    - Go to **Requests**.
    - Upvote an open request.
    - Create a new request with a title and optional course.
 
-9. **Notifications**
+10. **Notifications**
    - After commenting or favoriting, click the bell in the top nav.
    - See unread notifications; click one to navigate to the source.
    - Use "Mark all read".
@@ -111,23 +121,26 @@ All demo accounts use the password **`Demo1234!`**.
 
 1. **Log in** as `admin@knowledgebank.demo / Demo1234!`
 
-2. **Analytics**
-   - Navigate to **Analytics** in the nav bar.
-   - See total document/user/course counts, top viewed docs, top contributors, upload trend chart.
+2. **Dashboard intelligence (Home)**
+   - The admin home shows a **Platform Insights** panel (engagement this week vs last, pending-review backlog, duplicate warnings, top categories, active uploaders), plus **Trending** and **Recent activity** widgets.
 
-3. **User management**
-   - Navigate to **Admin → Users**.
+3. **Analytics**
+   - Open the **More ▾** menu in the nav → **Analytics** (the desktop nav uses a "More" overflow menu; Prep Hub is intentionally not shown to admins).
+   - The page is tabbed: **Overview** (corpus/course stats, top docs, upload trend chart, top categories, duplicates) and **Activity logs** (the full audit feed with Everyone / Just-me + entity filters — activity lives here for admins rather than a separate nav item).
+
+4. **User management**
+   - Navigate to **Admin → Users** (via the **More ▾** menu).
    - Find `pending.lecturer@knowledgebank.demo` — click **Approve** to activate the account.
    - Find `disabled.user@knowledgebank.demo` — status shows DISABLED.
 
-4. **Full visibility**
+5. **Full visibility**
    - In Browse, set **Status = Draft** or **Pending review** — admin sees all statuses across all courses.
    - Open a rejected document — the rejection reason is visible.
 
-5. **Review queue**
+6. **Review queue**
    - The admin's queue shows pending submissions from every course, not just taught ones.
 
-6. **Reset demo data**
+7. **Reset demo data**
    - If the demo state has drifted, re-run the seed (idempotent):
      ```
      pnpm --filter @workspace/api-server run seed:demo
@@ -145,8 +158,17 @@ All demo accounts use the password **`Demo1234!`**.
 | Approval flow | Log in as Maya, approve → doc becomes public |
 | Rejection with reason | Log in as Maya, reject → log in as Amir, see rejection reason banner |
 | Full-text search + snippets | Browse → search `recursion` → yellow keyword highlights |
+| Partial + fuzzy search | Browse → `recurs` (prefix) and `algoritm` (typo) still match |
+| Ranking & sorts | Browse → Sort → Trending / Most Viewed; cards show engagement counts |
 | Faceted search | Browse → click a course/type chip to filter |
+| Bulk table actions | Browse → table view → select rows → Add tag / Set category |
 | Autocomplete | Browse search bar → type 2+ chars → grouped suggestions |
+| Upload intelligence | Upload a file named e.g. `cs101-final-exam-fall-2024.pdf` → type/semester/year pre-fill |
+| Versioning & history | Document detail → Versions panel → upload a new version; `/uploads` → revision timeline |
+| Prep Hub collections | Prep Hub → open "CS101 Final Prep" → reorder, set progress, add/remove |
+| Recommendations | Prep Hub → "Recommended for you" lane (ranked, course-relevant, excludes seen) |
+| Dashboard intelligence | Admin Home → Platform Insights + Trending; everyone → Continue studying |
+| Activity logs | Admin → More ▾ → Analytics → Activity logs tab |
 | Notifications | Comment/react/upload → bell shows unread badge |
 | Favorites / following | Follow a doc → `document.activity` notifications land in bell |
 | Request board lifecycle | Open → In Progress → Fulfilled (with doc link) → Closed |

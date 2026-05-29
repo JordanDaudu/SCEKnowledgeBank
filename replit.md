@@ -18,6 +18,26 @@ A scholarly document repository for university communities — upload, browse, s
 | Polish (pass 1) | Restrained semantic visual system: `StatusBadge` rewritten with amber/emerald/rose/slate per-status color tokens; `DocumentCards` uses sage course-tag + warm material-tag CSS utilities; request-board cards gain status-colored left border accent + redesigned vote column; analytics `StatTile` gets per-metric colored icon tiles (amber pending-review highlight); home hero gradient + per-action `iconClass`; `hover-elevate` CSS utility defined in `index.css`. `seed-demo` now prunes non-demo material requests (smoke-test artifacts) on every run. |
 | Polish (pass 2) | Login: role-colored icon tiles (sky=student, forest green=lecturer, amber=admin) replacing generic outline buttons; dual-tone background gradient; improved tagline. Browse Library: `Library` icon accent in header, improved subtitle, results count with `font-semibold` number, animated "refreshing…" label. `FacetChips`: uppercase tracking section labels, semantic per-dimension active colors (emerald for course, status-semantic for review states), `secondary` variant for inactive chips. `BrowseStates`: colored icon backgrounds on empty/no-results/error states (`Search` icon for no-results), polished numbered pagination replacing simple prev/next. `RecentlyViewedStrip`: card-style container with border, colored Clock icon bg, hover-elevate chips. `BrowseFilters` `FilterChip`: primary-tinted pill with `×` replacing secondary `Badge`. Review Queue: `ShieldCheck` amber icon tile header, subtitle, polished "Queue is clear" empty state with emerald checkmark, `course-tag` CSS class on course codes. Upload: numbered step circles (①②③) in card headers, `HardDrive` icon tile on quota card, stronger dropzone border with icon bg + file-type hint, step-3 "Review & Upload" section with live file count + `size="lg"` submit button, tag chips replaced with custom toggle buttons. |
 
+## Refinement phase changelog (post-Sprint-3)
+
+Structured refinement — extend existing services, no architecture rewrite.
+
+| Phase | What shipped |
+| ----- | ------------ |
+| P1 Search foundation | Prefix-aware tsquery (`tok:*`) + trigram `word_similarity` fuzzy fallback in `search.service`; FTS haystack widened to filename / category / uploader / smart-metadata (migration `20260528000000`). |
+| P2 Ranking & discovery | Denormalised `view_count`/`download_count`/`favorite_count` on `documents` (migration `20260528100000`, maintained incrementally); `lib/ranking.ts` weighted score; sorts relevance/recent/trending/viewed/downloaded/favorited; engagement counts in DTO. |
+| P3 Upload intelligence | `documents/filename-intel.ts` (material type / semester / year from filename); fuzzy tag/category match; `suggest-metadata` response + UI extended. |
+| P4 Versioning & upload history | `/uploads` Upload History page + per-document revision timeline; `currentVersion` on DTO. (Versioning core pre-existed.) |
+| P5 Activity & audit | `document.favorite`/`unfavorite` + `comment.reaction` audit events (insert-only); `listActivity` `mine` filter; home activity widget. |
+| P6 Prep Hub | New tables `study_collections` / `study_collection_items` / `study_progress` (migration `20260528200000`); collections CRUD + items/reorder/notes + progress + `/me/continue-studying`; `/prep-hub` + collection detail UI; recommendations (`/me/recommendations`) reusing P2 ranking. |
+| P7 Table & management UX | Wired bulk tag/category menus (latent bug), clickable column-header sorting, sticky filter bar. |
+| P8 Dashboard intelligence | Trending + Continue-studying widgets; admin Platform Insights (reuses cached analytics overview). |
+| P9 UI polish | Keyboard focus rings, shared `DocMiniGrid`, consistency. |
+| Nav rework | Desktop "More" overflow menu; Activity logs moved into the admin Analytics page (Overview / Activity logs tabs); Prep Hub scoped to students/lecturers; home Recent-activity widget admin-only. |
+| P10 Docs & demo | README/DEMO/replit updated; `seed-demo` now seeds a Prep Hub collection + study progress for Noa and backfills engagement counters from seeded events. |
+
+Local-dev note: built/validated on Windows via `corepack pnpm` with `.env` loaded; the repo's `pnpm-workspace.yaml` was fixed to ship the win32-x64 native binaries and `lib/storage` was restored (it had been dropped from `origin/main`). `gcs` is a fail-fast stub locally. The `regression` Playwright + `regression:gcs` steps run on Replit, not on a local box.
+
 ### Endpoint inventory (post-M7)
 
 Source of truth is `lib/api-spec/openapi.yaml`; the list below is a hand-curated index.
@@ -99,8 +119,8 @@ Run on a freshly-seeded demo DB, both workflows up.
 
 | Driver                              | Wall   | Unit tests        | Seed verify      | Playwright smoke |
 | ----------------------------------- | ------ | ----------------- | ---------------- | ---------------- |
-| `local` (`STORAGE_DRIVER=local`)    | ~60 s  | 277 / 277 pass    | 22 / 22 pass     | 2/2 pass         |
-| `gcs` (auto-pick, default in Replit)| ~55 s  | 277 / 277 pass    | 22 / 22 pass     | 2/2 pass         |
+| `local` (`STORAGE_DRIVER=local`)    | ~60 s  | 302 / 302 pass    | 22 / 22 pass     | 2/2 pass         |
+| `gcs` (auto-pick, default in Replit)| ~55 s  | 302 / 302 pass    | 22 / 22 pass     | 2/2 pass         |
 
 To switch drivers for a regression sweep, the wrapper scripts (`pnpm regression:local`, `pnpm regression:gcs`) export `STORAGE_DRIVER` into the vitest run. The Playwright leg drives the *running* `artifacts/api-server: API Server` workflow, so to make the end-to-end leg actually exercise the other driver you must additionally:
 

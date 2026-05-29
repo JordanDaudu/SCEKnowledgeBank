@@ -11,7 +11,7 @@ A standalone academic-materials platform for universities. Students, lecturers, 
 ### Document upload & storage
 - Multipart upload through `POST /api/documents/upload`. Each file is virus-/magic-byte sniffed, MIME-validated, and capped by `MAX_UPLOAD_MB`.
 - Two storage drivers ship in the box: `local` (default in dev — writes under `.data/storage`) and `gcs` (default on Replit when the bucket env vars are present). Drivers are selected at runtime by `STORAGE_DRIVER` or auto-picked from the environment.
-- Versioning: every file write produces a new `DocumentFile` row. Previous versions remain downloadable; quota is counted on the active version.
+- Versioning: every file write produces a new `DocumentFile` row with a monotonic version number and optional change note. Previous versions remain downloadable; quota is counted on the active version; older versions can be **restored** (forward-only — history is preserved). The document detail page has a versions panel, and the **Upload History** page (`/uploads`) lists your documents with an expandable per-document **revision timeline**.
 - Previews and downloads use short-lived signed URLs (`SIGNED_URL_TTL_SECONDS`, default 300 s) bound to the document id and the requesting user.
 
 ### Student-upload review workflow
@@ -25,14 +25,26 @@ A standalone academic-materials platform for universities. Students, lecturers, 
 - `GET /api/documents/pending-review` paginated queue. Admins see everything pending; lecturers see only docs in courses they teach; others get 403.
 - The web client's `/review-queue` page shows the queue with one-click Approve / Reject (with reason prompt) and links back to the document for full context.
 
-### Search v2 — facets, autocomplete, snippets, ranking
+### Search v2 — partial/prefix/fuzzy, facets, autocomplete, snippets, ranking
 - Single source of truth: `search.service` behind a typed filter DSL.
+- **Intelligent matching (refinement Phase 1):** queries are prefix-aware — a partial word like `lect` matches `lecture` (a `to_tsquery('english', 'tok:*')` built from the input). When the full-text pass returns nothing, the service falls back to a **trigram (`word_similarity`) fuzzy match** so typos still find results (`plankron` → `plankton`). The search haystack covers title, description, course code/title/lecturer, tags, **filename, category, uploader name, and extracted file text + smart-metadata keywords**.
 - `GET /api/v2/documents/search` — ranked page with optional per-row `headline` snippets via Postgres `ts_headline` (sentinel-tagged so the client html-escapes safely before swapping in `<mark>`).
 - `GET /api/v2/documents/search/facets` — counts grouped across course / materialType / semester / status / uploader, scoped to the current filter set, with id-bearing dims hydrated with display labels.
 - `GET /api/v2/documents/autocomplete?q=…` — grouped suggestions over tags / courses / uploaders, scoped to docs the caller can already see (a tag or uploader name that exists only on a hidden doc never surfaces to outsiders).
 
-### Smart metadata suggestions
-- `POST /api/v2/documents/suggest-metadata` (multipart) runs the real extractor chain (PDF/text/image), deduplicates against the user's quota, then matches keywords against existing `Tag` / `Category` rows. Suggestions appear as clickable chips in the upload card.
+### Upload intelligence — smart metadata suggestions
+- `POST /api/v2/documents/suggest-metadata` (multipart) runs the real extractor chain (PDF/text/image), deduplicates against the user's quota, then matches keywords against existing `Tag` / `Category` rows (exact **and** substring). Suggestions appear as clickable, apply-on-click chips in the upload card, with a confidence indicator (`from file metadata` vs `from filename`).
+- **Filename intelligence (refinement Phase 3):** a pure parser derives **material type** (exam / problem-set / lecture-notes / slides / syllabus / cheat-sheet / review-notes / …), **semester**, and **academic year** from the filename — so even Office files we can't read inside still pre-fill the form. Extraction failures never block upload.
+
+### Ranking & discovery (refinement Phase 2)
+- Deterministic, configurable weighted score (`lib/ranking.ts`): engagement (views/downloads/favorites, ln-dampened) + recency half-life decay + a metadata-completeness quality signal. Engagement is read from **denormalised counter columns** on `documents` (maintained incrementally on each view/download/favorite), so ranking never runs a per-request `GROUP BY`.
+- Browse sort options: **Most Relevant** (FTS rank first, so exact matches still win), **Most Recent**, **Trending**, **Most Viewed / Downloaded / Favorited**, plus Oldest / A–Z. Default is relevance. Browse cards show engagement counts.
+
+### Prep Hub — study collections, progress & recommendations (refinement Phase 6)
+- **Study collections** (`/prep-hub`): user-owned ordered groupings of existing documents (kinds: collection / exam-prep / revision / semester). Add/remove, reorder, per-item notes — items reference documents by FK, nothing is duplicated. Learning paths reuse the same model (`kind='learning_path'`, `is_official`) — schema in place, UI deferred.
+- **Study progress:** mark documents Reviewing / Completed; "Reviewing" feeds the **Continue studying** lane.
+- **Quick Access:** Recommended-for-you, Continue studying, Saved, Recently viewed.
+- **Recommendations** (`GET /api/me/recommendations`): top-ranked documents in the user's interest courses (enrolments + courses of recently-viewed/favorited docs), excluding what they've already seen, reusing the Phase-2 ranking.
 
 ### Duplicate detection
 - Upload pre-flight checks checksum-equivalent files already owned by the user and returns the existing doc instead of re-uploading.
@@ -54,8 +66,12 @@ A standalone academic-materials platform for universities. Students, lecturers, 
 - Students post material requests; everyone can upvote. Authors can fulfil their own requests by linking a document.
 - Status (`open|in_progress|fulfilled|closed`) is editable by request author, course lecturer, or admin. Status transitions notify the author via the bus.
 
-### Analytics dashboard
-- Admin/lecturer analytics endpoints power the `/admin/analytics` and `/course-analytics` pages — overall corpus stats, per-course stats, top-viewed docs, top contributors, etc.
+### Analytics & dashboard intelligence
+- Admin/lecturer analytics endpoints (30 s cached) power the `/admin/analytics` and `/course-analytics` pages — corpus + per-course stats, top-viewed/downloaded docs, active uploaders, top categories, duplicate groups. The admin Analytics page is tabbed: **Overview** and **Activity logs**.
+- **Dashboard widgets (refinement Phase 8):** the home page surfaces Trending, Continue studying, recent uploads (Latest additions) and — for admins — a Platform Insights panel (engagement deltas, pending-review backlog, duplicate warnings, top categories, active uploaders) reusing the cached analytics.
+
+### Activity & audit
+- Generic `audit_logs(action, entity_type, entity_id, metadata)` event bus records auth, uploads, edits, deletes, versions, downloads, review transitions, comments, **favorites, reactions**, and request interactions. A role-scoped feed (`GET /api/activity`, `?mine=true` for own actions) powers the **Activity logs** tab inside admin Analytics (students/lecturers don't have a separate activity surface).
 
 ### Audit log, security, regression gate
 - `audit_logs` records auth, uploads, edits, deletes, comments, requests, votes, downloads, review transitions.
@@ -111,6 +127,8 @@ Hidden statuses (`draft` / `pending_review` / `rejected`) are filtered out of li
 - **Replit notes:** workflows for `api-server`, `web`, and the mockup sandbox are pre-configured; ports are auto-assigned via `$PORT`. The Replit secrets pane is the canonical home for `SESSION_SECRET` / `SIGNED_URL_SECRET` / storage env vars.
 
 ## Common commands
+
+> **Windows / local dev:** invoke pnpm via `corepack pnpm …` (no global shim needed), and load `.env` first (the app reads `process.env` directly). The repo includes `dev.ps1` which loads `.env`, starts Postgres in Docker, and launches the API + web. The root `typecheck`/`regression` npm scripts call `pnpm` recursively (which fails under cmd.exe), so on Windows run the package-level scripts via `corepack pnpm --filter … run …`. See the local hybrid setup in the project notes.
 
 ```bash
 # install
@@ -172,17 +190,18 @@ For a step-by-step walkthrough of all major flows see **[DEMO.md](DEMO.md)**.
 
 ## Test baseline
 
-Validated at Sprint-3 completion + polish:
+Validated at refinement-phase completion:
 
 | Surface                                  | Result                |
 | ---------------------------------------- | --------------------- |
-| `pnpm run typecheck`                     | pass                  |
-| `pnpm -r --if-present run test`          | 277 / 277 pass        |
-| `pnpm --filter @workspace/api-server run seed:demo:verify` | 18 / 18 pass |
-| `pnpm regression:local` (Playwright)     | 2 / 2 pass            |
-| `pnpm regression:gcs`   (Playwright)     | 2 / 2 pass            |
+| `pnpm install --frozen-lockfile`         | clean (lockfile matches) |
+| `pnpm run typecheck`                     | pass (all packages)   |
+| `pnpm -r --if-present run test`          | 302 / 302 pass        |
+| `pnpm --filter @workspace/api-server run seed:demo:verify` | 22 / 22 pass |
+| `pnpm regression:local` (Playwright)     | 2 / 2 pass (Replit)   |
+| `pnpm regression:gcs`   (Playwright)     | 2 / 2 pass (Replit)   |
 
-Update these numbers in `README.md` *and* `replit.md` whenever the test count changes.
+The Playwright steps in `regression` / `regression:local` / `regression:gcs` target `$REPLIT_DEV_DOMAIN` and the `gcs` driver, so they run in the Replit environment, not on a local box. Locally, the meaningful gate is `typecheck` + `pnpm -r run test` + `seed:demo:verify` (all green above). Update these numbers in `README.md` *and* `replit.md` whenever the test count changes.
 
 ## Sprint 3 changelog
 
@@ -195,6 +214,22 @@ Update these numbers in `README.md` *and* `replit.md` whenever the test count ch
 - **M6** — Collaboration polish (reactions, favorites + `document.activity`).
 - **M7** — Hardening & docs (feature-flag graduation, full validation matrix).
 - **Completion + polish** — Student uploads routed through the review workflow; raw-SQL visibility parity for `draft`; notification dedup key restored to include `type`; README rewrite.
+
+## Refinement phase changelog (post-Sprint-3)
+
+A structured refinement pass turning the functional repo into a polished, intelligent platform (no architecture rewrite — all features extend the existing services):
+
+- **P1 — Search foundation:** prefix/partial + trigram fuzzy fallback; haystack widened to filename/category/uploader/metadata.
+- **P2 — Ranking & discovery:** denormalised engagement counters + configurable weighted score; relevance/recent/trending/viewed/downloaded/favorited sorts; engagement indicators.
+- **P3 — Upload intelligence:** filename parser (material type / semester / year), fuzzy tag/category matching, apply-on-click suggestion chips.
+- **P4 — Versioning & upload history:** `/uploads` page with per-document revision timeline (versioning core already existed).
+- **P5 — Activity & audit:** favorite/reaction audit events; per-user "mine" filter; dashboard activity widget.
+- **P6 — Prep Hub:** study collections (ordered items, notes, progress) + Quick Access + recommendations. New tables: `study_collections`, `study_collection_items`, `study_progress`.
+- **P7 — Table & management UX:** wired bulk tag/category menus, clickable column-header sorting, sticky filter bar.
+- **P8 — Dashboard intelligence:** Trending / Continue-studying widgets + admin Platform Insights.
+- **P9 — UI polish:** keyboard focus rings, shared card grid, consistency.
+- **Nav rework:** desktop "More" overflow menu; Activity logs moved into the admin Analytics tab; Prep Hub scoped to students/lecturers.
+- **P10 — Docs & demo prep:** this update + demo seed now populates a Prep Hub collection/progress and syncs engagement counters.
 
 ## Known limitations / future work
 
