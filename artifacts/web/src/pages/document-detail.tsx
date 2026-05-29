@@ -30,6 +30,7 @@ import {
   getGetMyStorageQuotaQueryKey,
 } from "@workspace/api-client-react";
 import { Heart } from "lucide-react";
+import { AddToCollection } from "@/components/add-to-collection";
 
 // Recently-viewed history is server-backed (task #29): visiting a
 // document calls `GET /documents/:id`, which records a row in
@@ -291,6 +292,7 @@ export default function DocumentDetail() {
               ? "Saved to your favorites — you'll be notified of new comments."
               : "Save to your favorites and get notified of new comments."}
           </p>
+          <AddToCollection documentId={doc.id} />
         </div>
         <MetadataPanel
           doc={doc}

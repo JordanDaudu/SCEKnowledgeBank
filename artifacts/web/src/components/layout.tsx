@@ -17,6 +17,7 @@ import {
   BarChart3,
   Activity,
   History,
+  GraduationCap,
   Menu,
   X,
   type LucideIcon,
@@ -62,6 +63,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ? [
         { href: "/", icon: BookOpen, label: "Home" },
         { href: "/browse", icon: Search, label: "Browse" },
+        { href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" },
         { href: "/requests", icon: MessageSquare, label: "Requests" },
         { href: "/upload", icon: Upload, label: "Upload" },
         { href: "/uploads", icon: History, label: "My Uploads" },

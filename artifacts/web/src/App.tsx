@@ -11,6 +11,8 @@ import Browse from "@/pages/browse";
 import DocumentDetail from "@/pages/document-detail";
 import Upload from "@/pages/upload";
 import UploadHistory from "@/pages/upload-history";
+import PrepHub from "@/pages/prep-hub";
+import CollectionDetail from "@/pages/collection-detail";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
 import Activity from "@/pages/activity";
@@ -89,6 +91,22 @@ function Router() {
         <AuthGuard>
           <Layout>
             <UploadHistory />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/prep-hub">
+        <AuthGuard>
+          <Layout>
+            <PrepHub />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/prep-hub/:id">
+        <AuthGuard>
+          <Layout>
+            <CollectionDetail />
           </Layout>
         </AuthGuard>
       </Route>
