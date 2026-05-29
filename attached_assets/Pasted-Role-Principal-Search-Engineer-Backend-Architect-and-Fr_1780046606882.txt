@@ -1,0 +1,318 @@
+Role: Principal Search Engineer, Backend Architect, and Frontend UX Lead
+
+Context:
+The Knowledge Bank / רותם ניהול פרויקטים platform already has:
+
+* Sprint 2 foundations
+* Sprint 3 workflows
+* existing search infrastructure
+* analytics
+* requests
+* notifications
+* review system
+* regression gates
+
+However, the current search experience is weak and blocks several future systems.
+
+Current critical issue:
+Search only works reliably when users type the full exact string.
+Partial typing often returns empty results.
+
+This phase focuses ONLY on:
+
+1. Search foundation fixes
+2. Ranking & discovery engine
+
+Do NOT implement unrelated systems yet.
+
+IMPORTANT RULES
+
+* Do NOT redesign the architecture unnecessarily
+* Preserve existing Sprint 2 and Sprint 3 behavior
+* Reuse existing search infrastructure where possible
+* Maintain regression compatibility
+* Keep changes modular
+* Avoid expensive realtime queries
+* Preserve mobile usability
+* Keep UI style academic and professional
+
+====================================================
+PART 1 — SEARCH FOUNDATION FIXES
+================================
+
+Current Problems:
+
+* Exact-match dependent behavior
+* Weak incremental search
+* Poor discovery experience
+* Empty results while typing
+* Search feels unreliable
+
+REQUIRED IMPLEMENTATION:
+
+1. Real-Time Incremental Search
+   Implement proper search-as-you-type behavior.
+
+Requirements:
+
+* partial matching
+* prefix matching
+* incremental results while typing
+* fuzzy matching tolerance
+* debounce optimization
+* responsive loading states
+
+Behavior Examples:
+Typing:
+
+* "algo"
+  should return:
+* "Algorithms"
+* "Advanced Algorithms"
+* "Algorithm Analysis"
+
+Typing:
+
+* "datab"
+  should return:
+* "Database Systems"
+* "Databases 101"
+
+Minor typos should still produce useful results.
+
+2. Search Scope
+   Search across:
+
+* document title
+* filename
+* tags
+* categories
+* descriptions
+* metadata fields
+* uploader names if indexed already
+
+3. Search Ranking Logic
+   Search results should prioritize:
+
+* exact matches
+* partial matches
+* metadata relevance
+* engagement
+* popularity
+* recency
+
+4. Search UX Improvements
+   Improve frontend UX:
+
+* instant feedback
+* loading/searching indicators
+* no-results state
+* highlighted matching text
+* smoother mobile search behavior
+
+5. Performance Requirements
+
+* avoid excessive API calls
+* debounce requests properly
+* optimize query performance
+* maintain responsiveness with larger datasets
+* preserve current search architecture if possible
+
+====================================================
+PART 2 — FILE RANKING & DISCOVERY ENGINE
+========================================
+
+Current Problem:
+Documents are mostly displayed equally or chronologically.
+
+Implement intelligent ranking.
+
+REQUIRED RANKING FACTORS:
+
+* search relevance
+* views
+* downloads
+* favorites/bookmarks
+* engagement
+* recency
+* metadata completeness
+* course relevance
+* document quality indicators
+
+IMPLEMENT:
+
+1. Weighted Scoring System
+   Create a modular ranking engine.
+
+Requirements:
+
+* deterministic ranking
+* configurable weights/constants
+* reusable scoring logic
+* easy future expansion
+
+2. Discovery Sorting Options
+   Add:
+
+* Most Relevant
+* Most Recent
+* Most Viewed
+* Most Downloaded
+* Most Favorited
+* Trending
+
+3. Trending & Popular Sections
+   Add lightweight discovery widgets:
+
+* Trending Assets
+* Popular This Week
+* Most Downloaded
+* Recommended Materials
+
+Use existing analytics/activity data where possible.
+
+4. Engagement Indicators
+   Add lightweight UI indicators:
+
+* views
+* downloads
+* favorites
+* popularity/trending indicator
+
+Keep UI subtle and academic.
+
+====================================================
+PART 3 — UI POLISH FOR SEARCH/DISCOVERY
+=======================================
+
+Improve ONLY search-related UI areas.
+
+Focus pages:
+
+* Browse
+* Search results
+* Discovery widgets
+* Document cards
+
+Required:
+
+* stronger visual hierarchy
+* improved hover states
+* better empty states
+* cleaner filter chips
+* improved pagination
+* more polished search bar
+* mobile responsive refinement
+
+Keep:
+
+* existing green academic branding
+* restrained color palette
+* professional tone
+
+Do NOT over-modernize.
+
+====================================================
+PART 4 — CLEAN DEMO DATA
+========================
+
+Current issue:
+Search and browse contain many smoke-test records.
+
+Do NOT remove smoke testing.
+
+Instead:
+
+* ensure smoke records are cleaned/reset properly
+  OR
+* isolate smoke records from demo seed data
+
+Demo environment should contain:
+
+* realistic academic document titles
+* realistic courses
+* realistic metadata
+
+====================================================
+TECHNICAL REQUIREMENTS
+======================
+
+Before coding:
+
+1. Audit existing search implementation
+2. Audit ranking/discovery logic
+3. Identify exact-match bottlenecks
+4. Reuse existing FTS infrastructure if available
+5. Avoid duplicate query logic
+
+Validation Requirements:
+
+* partial typing returns results
+* fuzzy matching works
+* ranking feels natural
+* sorting works correctly
+* trending/popular sections populate correctly
+* mobile search works well
+* no regression failures
+
+====================================================
+FILES TO REVIEW FIRST
+=====================
+
+Backend:
+
+* documents service
+* search service
+* repositories
+* Prisma schema
+* existing FTS logic
+* analytics services
+* ranking-related queries
+
+Frontend:
+
+* Browse page
+* search components
+* document cards
+* filter components
+* search bar components
+* discovery widgets
+
+====================================================
+VALIDATION
+==========
+
+Run:
+
+* pnpm run typecheck
+* pnpm -r --if-present run test
+* pnpm regression
+* pnpm regression:local
+* pnpm regression:gcs
+
+Manual verification:
+Desktop:
+
+* Browse
+* Search
+* Sorting
+* Trending
+* Filters
+* Mobile search behavior
+
+Mobile:
+
+* 375px
+* 390px
+* 430px
+* 768px
+
+Acceptance Criteria:
+
+* Search feels intelligent and responsive
+* Partial typing returns useful results
+* Ranking surfaces better documents naturally
+* Trending/popular discovery works
+* UI feels polished but still academic
+* Existing functionality is preserved
+* Regression suites pass
