@@ -1439,6 +1439,10 @@ components:
             name: { type: string }
         duplicate:
           $ref: "#/components/schemas/DuplicateDocument"
+        materialType: { type: string }
+        materialTypeSource: { type: string, enum: [filename] }
+        semester: { type: string, enum: [fall, spring, summer] }
+        academicYear: { type: integer }
 
     DocumentPage:
       type: object

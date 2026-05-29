@@ -299,6 +299,22 @@ export type SuggestMetadataResponseCategory = {
   name: string;
 };
 
+export type SuggestMetadataResponseMaterialTypeSource =
+  (typeof SuggestMetadataResponseMaterialTypeSource)[keyof typeof SuggestMetadataResponseMaterialTypeSource];
+
+export const SuggestMetadataResponseMaterialTypeSource = {
+  filename: "filename",
+} as const;
+
+export type SuggestMetadataResponseSemester =
+  (typeof SuggestMetadataResponseSemester)[keyof typeof SuggestMetadataResponseSemester];
+
+export const SuggestMetadataResponseSemester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
+} as const;
+
 export interface SuggestMetadataResponse {
   title?: string;
   titleSource?: SuggestMetadataResponseTitleSource;
@@ -307,6 +323,10 @@ export interface SuggestMetadataResponse {
   tags: SuggestMetadataResponseTagsItem[];
   category?: SuggestMetadataResponseCategory;
   duplicate?: DuplicateDocument;
+  materialType?: string;
+  materialTypeSource?: SuggestMetadataResponseMaterialTypeSource;
+  semester?: SuggestMetadataResponseSemester;
+  academicYear?: number;
 }
 
 export interface DocumentPage {

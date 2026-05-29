@@ -58,6 +58,22 @@ describe("suggestForUpload", () => {
     expect(res.title).toBe("Lecture Notes"); // humanised filename stem
   });
 
+  it("derives materialType, semester and year from the filename", async () => {
+    extractMock.mockResolvedValue({});
+    const res = await suggestForUpload(
+      {
+        buffer: Buffer.from("x"),
+        mimeType: "application/pdf",
+        filename: "CS101-final-exam-fall-2024.pdf",
+      },
+      user,
+    );
+    expect(res.materialType).toBe("exam");
+    expect(res.materialTypeSource).toBe("filename");
+    expect(res.semester).toBe("fall");
+    expect(res.academicYear).toBe(2024);
+  });
+
   it("populates suggestions with extracted keywords and matched tags", async () => {
     extractMock.mockResolvedValue({
       language: "en",

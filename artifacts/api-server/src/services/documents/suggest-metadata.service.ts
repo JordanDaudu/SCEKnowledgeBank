@@ -17,6 +17,8 @@ import { createHash } from "node:crypto";
 import { db } from "@workspace/db";
 import { extractMetadata } from "./metadata.service";
 import { findVisibleDuplicateByChecksum, type DuplicateHit } from "./dedup.service";
+import { parseFilenameSignals } from "./filename-intel";
+import { type MaterialType } from "../../lib/material-types";
 import type { AuthenticatedUser } from "../../middlewares/auth";
 
 export interface SuggestionInput {
@@ -45,6 +47,15 @@ export interface SuggestionResult {
   category?: { id: string; name: string };
   /** Set when an identical-checksum doc is already visible to the user. */
   duplicate?: DuplicateHit;
+  // ─── Phase 3 filename-derived signals ────────────────────────────
+  /** Suggested material type, parsed from the filename. */
+  materialType?: MaterialType;
+  /** Provenance of `materialType` so the UI can convey confidence. */
+  materialTypeSource?: "filename";
+  /** Suggested semester, parsed from the filename. */
+  semester?: "fall" | "spring" | "summer";
+  /** Suggested academic year, parsed from the filename. */
+  academicYear?: number;
 }
 
 /**
@@ -78,15 +89,30 @@ function humaniseFilename(filename: string): string | undefined {
  * queries on noisy text — the keyword list is already small (≤8) but
  * adding a guard is cheap insurance.
  */
+/**
+ * Build a name-match OR clause for a keyword list: exact (case-insensitive)
+ * for every term, plus substring `contains` for terms long enough (≥4 chars)
+ * to be meaningful — so the keyword "learning" can match a "Machine Learning"
+ * category. Short terms stay exact-only to avoid noisy matches.
+ */
+function nameMatchOr(keywords: string[]) {
+  const terms = keywords.slice(0, 16);
+  const clauses: Array<{ name: { equals?: string; contains?: string; mode: "insensitive" } }> = [];
+  for (const t of terms) {
+    clauses.push({ name: { equals: t, mode: "insensitive" as const } });
+    if (t.length >= 4) {
+      clauses.push({ name: { contains: t, mode: "insensitive" as const } });
+    }
+  }
+  return clauses;
+}
+
 async function matchTags(
   keywords: string[],
 ): Promise<Array<{ id: string; name: string }>> {
   if (keywords.length === 0) return [];
-  const terms = keywords.slice(0, 16);
   const rows = await db.tag.findMany({
-    where: {
-      OR: terms.map((t) => ({ name: { equals: t, mode: "insensitive" as const } })),
-    },
+    where: { OR: nameMatchOr(keywords) },
     select: { id: true, name: true },
     take: 8,
   });
@@ -101,11 +127,8 @@ async function matchCategory(
   keywords: string[],
 ): Promise<{ id: string; name: string } | undefined> {
   if (keywords.length === 0) return undefined;
-  const terms = keywords.slice(0, 16);
   const row = await db.category.findFirst({
-    where: {
-      OR: terms.map((t) => ({ name: { equals: t, mode: "insensitive" as const } })),
-    },
+    where: { OR: nameMatchOr(keywords) },
     select: { id: true, name: true },
   });
   return row ?? undefined;
@@ -148,5 +171,15 @@ export async function suggestForUpload(
   if (extracted.language) result.language = extracted.language;
   if (category) result.category = category;
   if (duplicate) result.duplicate = duplicate;
+
+  // Phase 3: filename-derived signals (deterministic, never throws).
+  const signals = parseFilenameSignals(input.filename);
+  if (signals.materialType) {
+    result.materialType = signals.materialType;
+    result.materialTypeSource = "filename";
+  }
+  if (signals.semester) result.semester = signals.semester;
+  if (signals.academicYear) result.academicYear = signals.academicYear;
+
   return result;
 }

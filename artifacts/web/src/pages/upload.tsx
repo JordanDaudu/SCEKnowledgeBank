@@ -857,6 +857,9 @@ export default function Upload() {
               ((suggestion.tags && suggestion.tags.length > 0) ||
                 suggestion.category ||
                 (isSingleFileBatch && suggestion.title) ||
+                suggestion.materialType ||
+                suggestion.semester ||
+                suggestion.academicYear ||
                 (suggestion.keywords && suggestion.keywords.length > 0)) && (
                 <div
                   className="space-y-3 rounded-md border border-primary/20 bg-primary/5 p-3"
@@ -924,6 +927,64 @@ export default function Upload() {
                       >
                         {suggestion.category.name}
                       </Badge>
+                    </div>
+                  )}
+                  {(suggestion.materialType ||
+                    suggestion.semester ||
+                    suggestion.academicYear) && (
+                    <div className="text-sm space-y-1" data-testid="suggestion-details">
+                      <span className="text-muted-foreground">
+                        Detected from filename:
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestion.materialType && (
+                          <Badge
+                            variant={
+                              materialType === suggestion.materialType
+                                ? "default"
+                                : "outline"
+                            }
+                            className="cursor-pointer capitalize"
+                            onClick={() => setMaterialType(suggestion.materialType!)}
+                            data-testid="suggestion-material-type"
+                            title="Apply suggested material type"
+                          >
+                            {suggestion.materialType.replace(/-/g, " ")}
+                          </Badge>
+                        )}
+                        {suggestion.semester && (
+                          <Badge
+                            variant={
+                              semester === suggestion.semester ? "default" : "outline"
+                            }
+                            className="cursor-pointer capitalize"
+                            onClick={() =>
+                              setSemester(suggestion.semester as Semester)
+                            }
+                            data-testid="suggestion-semester"
+                            title="Apply suggested semester"
+                          >
+                            {suggestion.semester}
+                          </Badge>
+                        )}
+                        {suggestion.academicYear && (
+                          <Badge
+                            variant={
+                              academicYear === String(suggestion.academicYear)
+                                ? "default"
+                                : "outline"
+                            }
+                            className="cursor-pointer"
+                            onClick={() =>
+                              setAcademicYear(String(suggestion.academicYear))
+                            }
+                            data-testid="suggestion-year"
+                            title="Apply suggested academic year"
+                          >
+                            {suggestion.academicYear}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   )}
                   {suggestion.tags && suggestion.tags.length > 0 && (

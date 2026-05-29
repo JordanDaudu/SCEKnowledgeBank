@@ -959,6 +959,10 @@ export const SuggestDocumentMetadataResponse = zod.object({
       uploadedAt: zod.coerce.date(),
     })
     .optional(),
+  materialType: zod.string().optional(),
+  materialTypeSource: zod.enum(["filename"]).optional(),
+  semester: zod.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: zod.number().optional(),
 });
 
 /**

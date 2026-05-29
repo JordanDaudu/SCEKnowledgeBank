@@ -97,6 +97,8 @@ export * from "./storageQuota";
 export * from "./suggestDocumentMetadataBody";
 export * from "./suggestMetadataResponse";
 export * from "./suggestMetadataResponseCategory";
+export * from "./suggestMetadataResponseMaterialTypeSource";
+export * from "./suggestMetadataResponseSemester";
 export * from "./suggestMetadataResponseTagsItem";
 export * from "./suggestMetadataResponseTitleSource";
 export * from "./tag";

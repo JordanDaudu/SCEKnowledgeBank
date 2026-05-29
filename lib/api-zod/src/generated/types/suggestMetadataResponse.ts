@@ -7,6 +7,8 @@
  */
 import type { DuplicateDocument } from "./duplicateDocument";
 import type { SuggestMetadataResponseCategory } from "./suggestMetadataResponseCategory";
+import type { SuggestMetadataResponseMaterialTypeSource } from "./suggestMetadataResponseMaterialTypeSource";
+import type { SuggestMetadataResponseSemester } from "./suggestMetadataResponseSemester";
 import type { SuggestMetadataResponseTagsItem } from "./suggestMetadataResponseTagsItem";
 import type { SuggestMetadataResponseTitleSource } from "./suggestMetadataResponseTitleSource";
 
@@ -18,4 +20,8 @@ export interface SuggestMetadataResponse {
   tags: SuggestMetadataResponseTagsItem[];
   category?: SuggestMetadataResponseCategory;
   duplicate?: DuplicateDocument;
+  materialType?: string;
+  materialTypeSource?: SuggestMetadataResponseMaterialTypeSource;
+  semester?: SuggestMetadataResponseSemester;
+  academicYear?: number;
 }
