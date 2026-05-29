@@ -143,13 +143,14 @@ function BundleGrid({
 function DiscoverBundles() {
   const [sort, setSort] = useState<"popular" | "recent">("popular");
   const params = { sort } as const;
-  const { data } = useListDiscoverableCollections(params, {
+  const { data, isLoading } = useListDiscoverableCollections(params, {
     query: {
       queryKey: getListDiscoverableCollectionsQueryKey(params),
       staleTime: 30_000,
     },
   });
-  if (!data || data.length === 0) return null;
+  // Always render the section (and its ranking control) so the sort options
+  // are visible even before any bundle has been shared.
   return (
     <section aria-label="Discover bundles">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -167,7 +168,27 @@ function DiscoverBundles() {
           </SelectContent>
         </Select>
       </div>
-      <BundleGrid collections={data} testid="discover-grid" />
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full" />
+          ))}
+        </div>
+      ) : data && data.length > 0 ? (
+        <BundleGrid collections={data} testid="discover-grid" />
+      ) : (
+        <div
+          className="rounded-xl border border-dashed bg-card py-12 text-center"
+          data-testid="discover-empty"
+        >
+          <Compass className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">
+            No shared bundles yet. Create a collection and set it to{" "}
+            <span className="font-medium">Shared</span> to make it discoverable
+            and rankable here.
+          </p>
+        </div>
+      )}
     </section>
   );
 }
