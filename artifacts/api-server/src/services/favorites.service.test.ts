@@ -18,8 +18,10 @@ vi.mock("./documents.service", () => ({
   assembleDocuments: vi.fn(),
 }));
 vi.mock("./permissions.service", () => ({ canView: vi.fn() }));
+vi.mock("./audit.service", () => ({ record: vi.fn() }));
 
 import * as favoritesRepo from "../repositories/favorites.repo";
+import * as auditService from "./audit.service";
 import * as docsRepo from "../repositories/documents.repo";
 import * as enrollmentsRepo from "../repositories/enrollments.repo";
 import * as documentsService from "./documents.service";
@@ -41,6 +43,7 @@ const findDoc = vi.mocked(docsRepo.findByIdAlive);
 const findMany = vi.mocked(docsRepo.findManyByIdsAlive);
 const assemble = vi.mocked(documentsService.assembleDocuments);
 const canView = vi.mocked(permissions.canView);
+const auditRecord = vi.mocked(auditService.record);
 
 const user: AuthenticatedUser = {
   id: "u1",
@@ -52,6 +55,43 @@ const user: AuthenticatedUser = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("favorites.service — audit events", () => {
+  it("records document.favorite only when a row is actually inserted", async () => {
+    findDoc.mockResolvedValue({ id: "d1" } as never);
+    canView.mockReturnValue(true);
+    insertIfAbsent.mockResolvedValue(true);
+    await favoriteDocument("d1", user);
+    expect(auditRecord).toHaveBeenCalledTimes(1);
+    expect(auditRecord).toHaveBeenCalledWith(
+      "u1",
+      "document.favorite",
+      "document",
+      "d1",
+    );
+
+    // A duplicate favorite (no insert) must not emit a second event.
+    auditRecord.mockClear();
+    insertIfAbsent.mockResolvedValue(false);
+    await favoriteDocument("d1", user);
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it("records document.unfavorite only when a row is actually removed", async () => {
+    deleteOne.mockResolvedValue(true);
+    await unfavoriteDocument("d1", user);
+    expect(auditRecord).toHaveBeenCalledWith(
+      "u1",
+      "document.unfavorite",
+      "document",
+      "d1",
+    );
+    auditRecord.mockClear();
+    deleteOne.mockResolvedValue(false);
+    await unfavoriteDocument("d1", user);
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
 });
 
 describe("favorites.service", () => {

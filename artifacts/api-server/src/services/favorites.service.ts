@@ -3,6 +3,7 @@ import * as docsRepo from "../repositories/documents.repo";
 import * as enrollmentsRepo from "../repositories/enrollments.repo";
 import * as documentsService from "./documents.service";
 import * as permissions from "./permissions.service";
+import * as auditService from "./audit.service";
 import { forbidden, notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -22,7 +23,12 @@ export async function favoriteDocument(
   user: AuthenticatedUser,
 ): Promise<{ favorited: true }> {
   await loadVisibleDocument(documentId, user);
-  await favoritesRepo.insertIfAbsent(user.id, documentId);
+  const inserted = await favoritesRepo.insertIfAbsent(user.id, documentId);
+  // Audit only on an actual insert so a repeat favorite doesn't duplicate
+  // the activity entry.
+  if (inserted) {
+    await auditService.record(user.id, "document.favorite", "document", documentId);
+  }
   return { favorited: true };
 }
 
@@ -32,7 +38,10 @@ export async function unfavoriteDocument(
 ): Promise<{ favorited: false }> {
   // No visibility check on remove — users should always be able to
   // unsubscribe themselves, even if access has since been revoked.
-  await favoritesRepo.deleteOne(user.id, documentId);
+  const removed = await favoritesRepo.deleteOne(user.id, documentId);
+  if (removed) {
+    await auditService.record(user.id, "document.unfavorite", "document", documentId);
+  }
   return { favorited: false };
 }
 

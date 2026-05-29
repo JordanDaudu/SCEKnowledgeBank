@@ -9,6 +9,7 @@ import {
   type Document,
 } from "@workspace/api-client-react";
 import { SearchBar } from "@/components/search-bar";
+import { RecentActivity } from "@/components/recent-activity";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -454,6 +455,9 @@ export default function Home() {
             )}
           </div>
         </section>
+
+        {/* Recent activity (Phase 5) */}
+        <RecentActivity />
       </div>
     </div>
   );

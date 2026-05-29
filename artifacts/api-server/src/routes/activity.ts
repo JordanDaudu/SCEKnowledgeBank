@@ -12,6 +12,7 @@ router.get("/activity", requireAuth, async (req, res, next) => {
       page: q.page,
       pageSize: q.pageSize,
       entityType: q.entityType,
+      mine: q.mine,
     });
     res.json(result);
   } catch (err) {

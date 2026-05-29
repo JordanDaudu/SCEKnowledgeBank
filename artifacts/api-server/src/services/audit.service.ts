@@ -61,18 +61,28 @@ function lecturerCourseIds(user: AuthenticatedUser): string[] {
 
 export async function listActivity(
   user: AuthenticatedUser,
-  opts: { page?: number; pageSize?: number; entityType?: string } = {},
+  opts: {
+    page?: number;
+    pageSize?: number;
+    entityType?: string;
+    /** Restrict to the current user's own actions (per-user history). */
+    mine?: boolean;
+  } = {},
 ): Promise<ActivityPage> {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 20));
 
   const isAdmin = user.roles.includes("admin");
   const isLecturer = user.roles.includes("lecturer");
-  const scope: auditRepo.ActivityScope = isAdmin
-    ? { kind: "all" }
-    : isLecturer
-      ? { kind: "lecturer", userId: user.id, courseIds: lecturerCourseIds(user) }
-      : { kind: "self", userId: user.id };
+  // `mine` forces the self scope (actor = me) regardless of role, giving
+  // every user a "my activity" history. Otherwise role-scoped as before.
+  const scope: auditRepo.ActivityScope = opts.mine
+    ? { kind: "self", userId: user.id }
+    : isAdmin
+      ? { kind: "all" }
+      : isLecturer
+        ? { kind: "lecturer", userId: user.id, courseIds: lecturerCourseIds(user) }
+        : { kind: "self", userId: user.id };
 
   const { rows, total } = await auditRepo.listActivity({
     scope,

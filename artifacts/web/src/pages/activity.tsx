@@ -18,14 +18,12 @@ import {
 } from "@/components/ui/select";
 import {
   Activity as ActivityIcon,
-  FileText,
-  MessageSquare,
-  User,
   Inbox,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
+import { describeAction, iconForEntity } from "@/lib/activity-format";
 
 const PAGE_SIZE = 20;
 
@@ -36,50 +34,6 @@ const ENTITY_FILTERS: { value: string; label: string }[] = [
   { value: "request", label: "Requests" },
   { value: "user", label: "Accounts" },
 ];
-
-const ACTION_LABELS: Record<string, string> = {
-  "document.upload": "uploaded",
-  "document.update": "updated",
-  "document.delete": "deleted",
-  "document.download": "downloaded",
-  "document.submit_for_review": "submitted for review",
-  "document.approve": "approved",
-  "document.reject": "rejected",
-  "document.version.create": "added a new version of",
-  "document.version.restore": "restored a version of",
-  "comment.create": "commented on",
-  "comment.update": "edited a comment on",
-  "comment.delete": "deleted a comment on",
-  "comment.reaction": "reacted to a comment on",
-  "request.create": "created a request",
-  "request.update": "updated a request",
-  "request.status": "changed a request's status",
-  "request.vote": "voted on a request",
-  "user.register": "registered an account",
-  "user.login": "signed in",
-  "user.logout": "signed out",
-  "user.approve": "approved an account",
-  "user.disable": "disabled an account",
-};
-
-function iconForEntity(entityType: string) {
-  switch (entityType) {
-    case "document":
-      return FileText;
-    case "comment":
-      return MessageSquare;
-    case "user":
-      return User;
-    default:
-      return ActivityIcon;
-  }
-}
-
-function describeAction(action: string): string {
-  if (ACTION_LABELS[action]) return ACTION_LABELS[action];
-  // Fall back to a readable form of the raw action key.
-  return action.replace(/^[a-z]+\./, "").replace(/[._]/g, " ");
-}
 
 function ActivityRow({ entry }: { entry: ActivityEntry }) {
   const Icon = iconForEntity(entry.entityType);
@@ -122,11 +76,15 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
 export default function Activity() {
   const [page, setPage] = useState(1);
   const [entityType, setEntityType] = useState("all");
+  const [mine, setMine] = useState(false);
 
   const params: ListActivityParams = {
     page,
     pageSize: PAGE_SIZE,
     ...(entityType !== "all" ? { entityType } : {}),
+    // Omit `mine` entirely when off — the API coerces any present value to
+    // true, so sending mine=false would wrongly filter to self.
+    ...(mine ? { mine: true } : {}),
   };
 
   const { data, isLoading, isError, refetch } = useListActivity(params, {
@@ -152,24 +110,41 @@ export default function Activity() {
             A running log of recent actions you can see.
           </p>
         </div>
-        <Select
-          value={entityType}
-          onValueChange={(v) => {
-            setEntityType(v);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-44" data-testid="activity-filter">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {ENTITY_FILTERS.map((f) => (
-              <SelectItem key={f.value} value={f.value}>
-                {f.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            value={mine ? "mine" : "all"}
+            onValueChange={(v) => {
+              setMine(v === "mine");
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-36" data-testid="activity-scope">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Everyone</SelectItem>
+              <SelectItem value="mine">Just me</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={entityType}
+            onValueChange={(v) => {
+              setEntityType(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-44" data-testid="activity-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ENTITY_FILTERS.map((f) => (
+                <SelectItem key={f.value} value={f.value}>
+                  {f.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Card>

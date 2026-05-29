@@ -3,6 +3,7 @@ import * as commentsRepo from "../repositories/comments.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as notificationsService from "./notifications.service";
 import * as permissions from "./permissions.service";
+import * as auditService from "./audit.service";
 import { badRequest, forbidden, notFound } from "../lib/errors";
 import { logger } from "../lib/logger";
 import type { AuthenticatedUser } from "../middlewares/auth";
@@ -67,6 +68,12 @@ export async function addReaction(
     user.id,
     validKind,
   );
+  if (inserted) {
+    // Audit only on an actual insert (no duplicate events for re-reacts).
+    await auditService.record(user.id, "comment.reaction", "comment", commentId, {
+      kind: validKind,
+    });
+  }
   if (inserted && comment.authorId !== user.id) {
     // Producer hook (M1 bus). Fire-and-forget; notify swallows its own
     // errors but we still wrap to defend against sync throws.

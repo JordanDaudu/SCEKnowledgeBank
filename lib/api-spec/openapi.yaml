@@ -1089,6 +1089,7 @@ paths:
         - { in: query, name: page, required: false, schema: { type: integer, minimum: 1, default: 1 } }
         - { in: query, name: pageSize, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
         - { in: query, name: entityType, required: false, schema: { type: string } }
+        - { in: query, name: mine, required: false, schema: { type: boolean }, description: "Restrict to the current user's own actions." }
       responses:
         "200":
           description: Activity page

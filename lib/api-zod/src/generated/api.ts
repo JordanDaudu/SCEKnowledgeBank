@@ -3427,6 +3427,10 @@ export const ListActivityQueryParams = zod.object({
     .max(listActivityQueryPageSizeMax)
     .default(listActivityQueryPageSizeDefault),
   entityType: zod.coerce.string().optional(),
+  mine: zod.coerce
+    .boolean()
+    .optional()
+    .describe("Restrict to the current user's own actions."),
 });
 
 export const ListActivityResponse = zod.object({

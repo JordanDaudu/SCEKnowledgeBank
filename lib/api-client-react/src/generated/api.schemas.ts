@@ -1059,4 +1059,8 @@ export type ListActivityParams = {
    */
   pageSize?: number;
   entityType?: string;
+  /**
+   * Restrict to the current user's own actions.
+   */
+  mine?: boolean;
 };

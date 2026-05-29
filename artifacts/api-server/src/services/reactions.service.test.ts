@@ -13,8 +13,10 @@ vi.mock("../repositories/documents.repo", () => ({
 }));
 vi.mock("./notifications.service", () => ({ notify: vi.fn() }));
 vi.mock("./permissions.service", () => ({ canComment: vi.fn() }));
+vi.mock("./audit.service", () => ({ record: vi.fn() }));
 
 import * as reactionsRepo from "../repositories/reactions.repo";
+import * as auditService from "./audit.service";
 import * as commentsRepo from "../repositories/comments.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as notificationsService from "./notifications.service";
@@ -30,6 +32,7 @@ const findComment = vi.mocked(commentsRepo.findAliveById);
 const findDoc = vi.mocked(docsRepo.findByIdAlive);
 const notify = vi.mocked(notificationsService.notify);
 const canComment = vi.mocked(permissions.canComment);
+const auditRecord = vi.mocked(auditService.record);
 
 const user: AuthenticatedUser = {
   id: "u1",
@@ -64,6 +67,23 @@ describe("reactions.service", () => {
       HttpError,
     );
     expect(insertIfAbsent).not.toHaveBeenCalled();
+  });
+
+  it("records a comment.reaction audit event only on first react", async () => {
+    insertIfAbsent.mockResolvedValue(true);
+    await addReaction("c1", "like", user);
+    expect(auditRecord).toHaveBeenCalledWith(
+      "u1",
+      "comment.reaction",
+      "comment",
+      "c1",
+      { kind: "like" },
+    );
+    // A duplicate react (no insert) must not emit a second event.
+    auditRecord.mockClear();
+    insertIfAbsent.mockResolvedValue(false);
+    await addReaction("c1", "like", user);
+    expect(auditRecord).not.toHaveBeenCalled();
   });
 
   it("inserts and notifies the comment author on first react", async () => {
