@@ -12,6 +12,10 @@ import {
   getListRecentDocumentsQueryKey,
   useListRecommendations,
   getListRecommendationsQueryKey,
+  useListRecommendedCollections,
+  getListRecommendedCollectionsQueryKey,
+  useListDiscoverableCollections,
+  getListDiscoverableCollectionsQueryKey,
   type Document,
   type StudyCollectionSummary,
 } from "@workspace/api-client-react";
@@ -46,6 +50,8 @@ import {
   Clock,
   FolderOpen,
   Sparkles,
+  Users,
+  Compass,
 } from "lucide-react";
 
 const KIND_LABEL: Record<string, string> = {
@@ -53,7 +59,114 @@ const KIND_LABEL: Record<string, string> = {
   exam_prep: "Exam prep",
   revision: "Revision",
   semester: "Semester",
+  learning_path: "Learning path",
 };
+
+/** A study-bundle (collection) card with progress + follower count, reused
+ *  across My collections, Suggested bundles, and Discover. */
+function BundleCard({ c }: { c: StudyCollectionSummary }) {
+  return (
+    <Link href={`/prep-hub/${c.id}`}>
+      <Card className="hover-elevate h-full cursor-pointer transition-colors">
+        <CardContent className="flex h-full flex-col p-4">
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <FolderOpen className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-1.5">
+              {c.isOfficial && (
+                <Badge variant="outline" className="border-primary/40 text-[10px] text-primary">
+                  Official
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px]">
+                {KIND_LABEL[c.kind] ?? c.kind}
+              </Badge>
+            </div>
+          </div>
+          <h3 className="font-serif font-semibold leading-snug text-foreground">
+            {c.title}
+          </h3>
+          {c.description && (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+              {c.description}
+            </p>
+          )}
+          {c.progressPercent > 0 && (
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${c.progressPercent}%` }}
+              />
+            </div>
+          )}
+          <div className="mt-auto flex items-center gap-3 pt-2 text-xs text-muted-foreground tabular-nums">
+            <span>
+              {c.itemCount} {c.itemCount === 1 ? "document" : "documents"}
+            </span>
+            {c.followerCount > 0 && (
+              <span className="inline-flex items-center gap-1" title="Followers">
+                <Users className="h-3 w-3" />
+                {c.followerCount}
+              </span>
+            )}
+            {c.progressPercent > 0 && <span>{c.progressPercent}% done</span>}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+function BundleGrid({
+  collections,
+  testid,
+}: {
+  collections: StudyCollectionSummary[];
+  testid?: string;
+}) {
+  return (
+    <div
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      data-testid={testid}
+    >
+      {collections.map((c) => (
+        <BundleCard key={c.id} c={c} />
+      ))}
+    </div>
+  );
+}
+
+/** Discover shared/official bundles, sortable by popularity or recency (US-55). */
+function DiscoverBundles() {
+  const [sort, setSort] = useState<"popular" | "recent">("popular");
+  const params = { sort } as const;
+  const { data } = useListDiscoverableCollections(params, {
+    query: {
+      queryKey: getListDiscoverableCollectionsQueryKey(params),
+      staleTime: 30_000,
+    },
+  });
+  if (!data || data.length === 0) return null;
+  return (
+    <section aria-label="Discover bundles">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 font-serif text-xl font-bold text-foreground">
+          <Compass className="h-5 w-5 text-primary" />
+          Discover bundles
+        </h2>
+        <Select value={sort} onValueChange={(v) => setSort(v as "popular" | "recent")}>
+          <SelectTrigger className="h-8 w-40" data-testid="discover-sort">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="popular">Most popular</SelectItem>
+            <SelectItem value="recent">Recently updated</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <BundleGrid collections={data} testid="discover-grid" />
+    </section>
+  );
+}
 
 /** Compact horizontal list of documents for a Quick Access lane. */
 function QuickLane({
@@ -84,19 +197,27 @@ function CreateCollectionDialog() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState("collection");
+  const [visibility, setVisibility] = useState<"private" | "shared">("private");
   const createMut = useCreateCollection();
 
   const submit = () => {
     const t = title.trim();
     if (!t) return;
     createMut.mutate(
-      { data: { title: t, kind: kind as "collection" | "exam_prep" | "revision" | "semester" } },
+      {
+        data: {
+          title: t,
+          kind: kind as "collection" | "exam_prep" | "revision" | "semester" | "learning_path",
+          visibility,
+        },
+      },
       {
         onSuccess: (col) => {
           queryClient.invalidateQueries({ queryKey: getListMyCollectionsQueryKey() });
           setOpen(false);
           setTitle("");
           setKind("collection");
+          setVisibility("private");
           navigate(`/prep-hub/${col.id}`);
         },
         onError: () =>
@@ -137,6 +258,15 @@ function CreateCollectionDialog() {
               <SelectItem value="semester">Semester</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={visibility} onValueChange={(v) => setVisibility(v as "private" | "shared")}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="private">Private — only you</SelectItem>
+              <SelectItem value="shared">Shared — others can discover &amp; follow</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <DialogFooter>
           <Button
@@ -167,6 +297,12 @@ export default function PrepHub() {
   });
   const { data: recommended } = useListRecommendations({
     query: { queryKey: getListRecommendationsQueryKey(), staleTime: 60_000 },
+  });
+  const { data: recommendedBundles } = useListRecommendedCollections({
+    query: {
+      queryKey: getListRecommendedCollectionsQueryKey(),
+      staleTime: 60_000,
+    },
   });
 
   const hasQuickAccess =
@@ -202,6 +338,17 @@ export default function PrepHub() {
         </section>
       )}
 
+      {/* Suggested bundles by course (US-62) */}
+      {recommendedBundles && recommendedBundles.length > 0 && (
+        <section aria-label="Suggested bundles">
+          <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-foreground">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Suggested bundles
+          </h2>
+          <BundleGrid collections={recommendedBundles} testid="suggested-grid" />
+        </section>
+      )}
+
       {/* Collections */}
       <section aria-label="My collections">
         <h2 className="mb-3 font-serif text-xl font-bold text-foreground">
@@ -214,36 +361,7 @@ export default function PrepHub() {
             ))}
           </div>
         ) : collections && collections.length > 0 ? (
-          <div
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            data-testid="collections-grid"
-          >
-            {collections.map((c: StudyCollectionSummary) => (
-              <Link key={c.id} href={`/prep-hub/${c.id}`}>
-                <Card className="hover-elevate h-full cursor-pointer transition-colors">
-                  <CardContent className="flex h-full flex-col p-4">
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <FolderOpen className="h-5 w-5 text-primary" />
-                      <Badge variant="outline" className="text-[10px]">
-                        {KIND_LABEL[c.kind] ?? c.kind}
-                      </Badge>
-                    </div>
-                    <h3 className="font-serif font-semibold leading-snug text-foreground">
-                      {c.title}
-                    </h3>
-                    {c.description && (
-                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                        {c.description}
-                      </p>
-                    )}
-                    <p className="mt-auto pt-2 text-xs text-muted-foreground">
-                      {c.itemCount} {c.itemCount === 1 ? "document" : "documents"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          <BundleGrid collections={collections} testid="collections-grid" />
         ) : (
           <div
             className="rounded-xl border border-dashed bg-card py-16 text-center"
@@ -256,6 +374,9 @@ export default function PrepHub() {
           </div>
         )}
       </section>
+
+      {/* Discover shared/official bundles, ranked (US-55) */}
+      <DiscoverBundles />
     </div>
   );
 }

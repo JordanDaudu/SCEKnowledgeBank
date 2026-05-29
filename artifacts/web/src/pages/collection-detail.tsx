@@ -6,6 +6,8 @@ import {
   useReorderCollection,
   useDeleteCollection,
   useSetDocumentProgress,
+  useFollowCollection,
+  useUnfollowCollection,
   getListMyCollectionsQueryKey,
   type StudyCollectionItem,
 } from "@workspace/api-client-react";
@@ -30,6 +32,8 @@ import {
   Trash2,
   FolderOpen,
   CheckCircle2,
+  Heart,
+  Users,
 } from "lucide-react";
 
 const KIND_LABEL: Record<string, string> = {
@@ -55,8 +59,16 @@ export default function CollectionDetail() {
   const reorderMut = useReorderCollection();
   const deleteMut = useDeleteCollection();
   const progressMut = useSetDocumentProgress();
+  const followMut = useFollowCollection();
+  const unfollowMut = useUnfollowCollection();
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
+
+  const toggleFollow = () => {
+    if (!col) return;
+    const mut = col.isFollowing ? unfollowMut : followMut;
+    mut.mutate({ id }, { onSuccess: refresh });
+  };
 
   const items = col?.items ?? [];
   const orderedIds = items.map((i) => i.document.id);
@@ -134,14 +146,55 @@ export default function CollectionDetail() {
           {col.description && (
             <p className="text-muted-foreground">{col.description}</p>
           )}
-          <p className="mt-1 text-sm text-muted-foreground">
-            {col.itemCount} {col.itemCount === 1 ? "document" : "documents"}
+          <p className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+            <span>
+              {col.itemCount} {col.itemCount === 1 ? "document" : "documents"}
+            </span>
+            <span className="inline-flex items-center gap-1" title="Followers">
+              <Users className="h-3.5 w-3.5" />
+              {col.followerCount}
+            </span>
           </p>
         </div>
-        <Button variant="outline" size="sm" className="gap-1 text-destructive" onClick={deleteCollection}>
-          <Trash2 className="h-4 w-4" /> Delete
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={col.isFollowing ? "secondary" : "default"}
+            size="sm"
+            className="gap-1.5"
+            disabled={followMut.isPending || unfollowMut.isPending}
+            onClick={toggleFollow}
+            data-testid="collection-follow"
+          >
+            <Heart className={"h-4 w-4 " + (col.isFollowing ? "fill-current" : "")} />
+            {col.isFollowing ? "Following" : "Follow"}
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1 text-destructive" onClick={deleteCollection}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
       </div>
+
+      {col.itemCount > 0 && (
+        <div className="rounded-lg border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium">Study progress</span>
+            <span className="text-muted-foreground tabular-nums">
+              {col.completedCount} of {col.itemCount} completed ·{" "}
+              {col.progressPercent}%
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${col.progressPercent}%` }}
+              role="progressbar"
+              aria-valuenow={col.progressPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            />
+          </div>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-card py-16 text-center" data-testid="collection-empty">
