@@ -6,6 +6,9 @@
 !.env.example
 !.env.sample
 
+# Local machine-specific Docker overrides (e.g. host port remaps)
+docker-compose.override.yml
+
 *.pem
 *.key
 *.crt
@@ -85,6 +88,13 @@ cypress/screenshots/
 # =========================================================
 uploads/
 storage/
+# ...but the lib/storage source package is NOT an upload dir — keep its source
+# tracked (node_modules/ and dist/ inside it stay ignored via their own rules).
+!lib/storage/
+!lib/storage/src/
+!lib/storage/src/**
+!lib/storage/package.json
+!lib/storage/tsconfig.json
 temp/
 .cache/
 .local/

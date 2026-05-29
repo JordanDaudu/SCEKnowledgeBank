@@ -6,6 +6,8 @@ vi.mock("../repositories/analytics.repo", () => ({
   fetchTopDocumentsByDownloads: vi.fn().mockResolvedValue([]),
   fetchActiveUploaders: vi.fn().mockResolvedValue([]),
   fetchDailyUploads: vi.fn().mockResolvedValue([]),
+  fetchTopCategories: vi.fn().mockResolvedValue([]),
+  fetchDuplicateGroups: vi.fn().mockResolvedValue([]),
   fetchCourseInfo: vi.fn(),
   fetchCourseTotals: vi.fn(),
   fetchCourseTopDocumentsByViews: vi.fn().mockResolvedValue([]),
