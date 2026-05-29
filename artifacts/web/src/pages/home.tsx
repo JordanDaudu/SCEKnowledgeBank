@@ -10,6 +10,9 @@ import {
 } from "@workspace/api-client-react";
 import { SearchBar } from "@/components/search-bar";
 import { RecentActivity } from "@/components/recent-activity";
+import { TrendingDocuments } from "@/components/dashboard/trending-documents";
+import { ContinueStudyingWidget } from "@/components/dashboard/continue-studying-widget";
+import { AdminInsights } from "@/components/dashboard/admin-insights";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -394,8 +397,14 @@ export default function Home() {
         {/* Lecturer/admin: review queue summary */}
         {user && isLecturerOrAdmin && <ReviewQueueSummary />}
 
+        {/* Admin: operational platform intelligence (Phase 8) */}
+        {user && isAdmin && <AdminInsights />}
+
         {/* Storage usage — shown to anyone who can upload */}
         {user && canUpload && <StorageCard />}
+
+        {/* Continue studying — Prep Hub progress (renders only when non-empty) */}
+        {user && <ContinueStudyingWidget />}
 
         {/* Continue reading */}
         <section>
@@ -455,6 +464,9 @@ export default function Home() {
             )}
           </div>
         </section>
+
+        {/* Trending assets (Phase 8 / deferred Phase 2) */}
+        <TrendingDocuments />
 
         {/* Recent activity (Phase 5) */}
         <RecentActivity />
