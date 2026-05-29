@@ -262,7 +262,7 @@ export default function DocumentDetail() {
 
       {/* Right Column: Metadata & Comments */}
       <div className="space-y-6">
-        <div className="space-y-1">
+        <div className="space-y-2">
           <button
             type="button"
             onClick={handleToggleFavorite}
@@ -275,7 +275,7 @@ export default function DocumentDetail() {
                 : "Add to favorites (also notifies you of new comments)"
             }
             className={
-              "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors " +
+              "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 " +
               (doc.isFavorited
                 ? "bg-primary/10 border-primary/40 text-primary"
                 : "bg-background hover:bg-accent")

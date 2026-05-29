@@ -74,7 +74,7 @@ export function AddToCollection({ documentId }: { documentId: string }) {
         <button
           type="button"
           data-testid="add-to-collection"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           <FolderPlus className="h-4 w-4" />
           Add to collection

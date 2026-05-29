@@ -75,7 +75,7 @@ function CardFavoriteButton({
       aria-pressed={favorited}
       title={favorited ? "Remove from favorites" : "Add to favorites"}
       data-testid="card-favorite-toggle"
-      className="inline-flex items-center gap-1 rounded hover:text-primary transition-colors disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded px-1 hover:text-primary transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Heart
         className={"h-3.5 w-3.5 " + (favorited ? "fill-current text-primary" : "")}

@@ -96,7 +96,7 @@ function SortHeader({
       type="button"
       onClick={() => onSortChange(next)}
       className={
-        "inline-flex items-center gap-1 hover:text-foreground " +
+        "inline-flex items-center gap-1 rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
         (active ? "text-foreground font-medium" : "") +
         (className ? ` ${className}` : "")
       }

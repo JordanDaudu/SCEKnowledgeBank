@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { formatMaterialType } from "@/lib/material-types";
+import { DocMiniGrid } from "@/components/doc-mini-grid";
 import {
   GraduationCap,
   Plus,
@@ -72,21 +72,7 @@ function QuickLane({
         <Icon className="h-4 w-4" />
         {title}
       </h3>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {docs.slice(0, 6).map((d) => (
-          <Link key={d.id} href={`/documents/${d.id}`}>
-            <Card className="hover-elevate transition-colors">
-              <CardContent className="p-3">
-                <p className="truncate text-sm font-medium">{d.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {formatMaterialType(d.materialType)}
-                  {d.course ? ` · ${d.course.code}` : ""}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      <DocMiniGrid docs={docs} />
     </div>
   );
 }
