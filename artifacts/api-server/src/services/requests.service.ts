@@ -275,3 +275,46 @@ export async function voteOnRequest(
   const dtos = await buildDTOs([id], user.id);
   return dtos[0];
 }
+
+/**
+ * US-60: surface a newly-uploaded document to the authors of OPEN requests in
+ * the same course, as a possible match (a notification linking to the new
+ * document). Deliberately NON-destructive — it never auto-marks a request
+ * "fulfilled"; that stays a deliberate manual action (so unrelated requests
+ * can't be closed by accident). Best-effort and safe to call fire-and-forget.
+ */
+export async function notifyMatchingRequestsForUpload(doc: {
+  id: string;
+  courseId: string | null;
+  title: string;
+  uploaderId: string;
+  status: string;
+}): Promise<void> {
+  // Only match once the document is actually discoverable.
+  if (!doc.courseId) return;
+  if (doc.status !== "published" && doc.status !== "approved") return;
+  const ids = await requestsRepo.listAliveIds({
+    status: "open",
+    courseId: doc.courseId,
+  });
+  if (ids.length === 0) return;
+  const rows = await requestsRepo.findAliveByIds(ids);
+  for (const r of rows) {
+    if (r.requestedBy === doc.uploaderId) continue; // don't ping yourself
+    void Promise.resolve()
+      .then(() =>
+        notificationsService.notify({
+          recipientId: r.requestedBy,
+          actorId: doc.uploaderId,
+          type: "request.possible_match",
+          subjectType: "material_request",
+          // (request, document) pair is unique under the dedupe key, so each
+          // distinct candidate upload notifies once.
+          subjectId: `${r.id}:${doc.id}`,
+          body: `A new document "${doc.title}" may match your request "${r.title}"`,
+          url: `/documents/${doc.id}`,
+        }),
+      )
+      .catch((err) => logger.warn({ err }, "request match notify threw"));
+  }
+}

@@ -6,11 +6,23 @@ vi.mock("../repositories/collections.repo", () => ({
   findCollectionById: vi.fn(),
   updateCollection: vi.fn(),
   softDeleteCollection: vi.fn(),
-  listItems: vi.fn(),
+  listItems: vi.fn().mockResolvedValue([]),
   addItem: vi.fn(),
   removeItem: vi.fn(),
   updateItemNote: vi.fn(),
   reorderItems: vi.fn(),
+  // Exam Prep Hub additions (followers, popularity, progress, discovery)
+  followCollection: vi.fn(),
+  unfollowCollection: vi.fn(),
+  isFollowing: vi.fn().mockResolvedValue(false),
+  countFollowers: vi.fn().mockResolvedValue(0),
+  countFollowersForCollections: vi.fn().mockResolvedValue(new Map()),
+  listFollowedCollectionIds: vi.fn().mockResolvedValue(new Set()),
+  countItems: vi.fn().mockResolvedValue(0),
+  setPopularityScore: vi.fn(),
+  countCompletedForCollections: vi.fn().mockResolvedValue(new Map()),
+  listDiscoverable: vi.fn().mockResolvedValue([]),
+  recommendCollections: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../repositories/studyProgress.repo", () => ({
   getProgressForDocuments: vi.fn().mockResolvedValue(new Map()),
@@ -20,6 +32,9 @@ vi.mock("../repositories/documents.repo", () => ({
   findManyByIdsAlive: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("./documents.service", () => ({ assembleDocuments: vi.fn().mockResolvedValue([]) }));
+vi.mock("./recommendations.service", () => ({
+  getInterestCourseIds: vi.fn().mockResolvedValue({ courseIds: [], seenDocIds: [] }),
+}));
 vi.mock("./permissions.service", () => ({ canView: vi.fn() }));
 
 import * as collectionsRepo from "../repositories/collections.repo";
@@ -51,6 +66,7 @@ const owned = {
   isOfficial: false,
   courseId: null,
   visibility: "private",
+  popularityScore: 0,
   examDate: null,
   createdAt: new Date(),
   updatedAt: new Date(),

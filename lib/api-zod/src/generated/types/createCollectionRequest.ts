@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { CreateCollectionRequestKind } from "./createCollectionRequestKind";
+import type { CreateCollectionRequestVisibility } from "./createCollectionRequestVisibility";
 
 export interface CreateCollectionRequest {
   /** @minLength 1 */
@@ -13,5 +14,6 @@ export interface CreateCollectionRequest {
   description?: string;
   kind?: CreateCollectionRequestKind;
   courseId?: string;
+  visibility?: CreateCollectionRequestVisibility;
   examDate?: Date;
 }

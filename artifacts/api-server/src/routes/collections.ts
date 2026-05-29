@@ -18,13 +18,20 @@ const CreateBody = z.object({
   description: z.string().optional(),
   kind: z.string().optional(),
   courseId: z.string().uuid().optional(),
+  visibility: z.enum(["private", "shared"]).optional(),
   examDate: z.coerce.date().optional(),
 });
 const UpdateBody = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
   kind: z.string().optional(),
+  visibility: z.enum(["private", "shared"]).optional(),
   examDate: z.coerce.date().optional(),
+});
+const DiscoverQuery = z.object({
+  sort: z.enum(["popular", "recent"]).optional(),
+  courseId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
 });
 const AddItemBody = z.object({
   documentId: z.string().uuid(),
@@ -46,6 +53,23 @@ router.post("/collections", requireAuth, async (req, res, next) => {
   try {
     const body = CreateBody.parse(req.body);
     res.status(201).json(await collectionsService.createCollection(req.authUser!, body));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Discoverable / ranked collections (US-55). MUST precede "/collections/:id"
+// so "discover" isn't parsed as an id.
+router.get("/collections/discover", requireAuth, async (req, res, next) => {
+  try {
+    const q = DiscoverQuery.parse(req.query);
+    res.json(
+      await collectionsService.listDiscoverable(req.authUser!, {
+        sort: q.sort,
+        courseId: q.courseId,
+        limit: q.limit,
+      }),
+    );
   } catch (err) {
     next(err);
   }
@@ -121,6 +145,25 @@ router.patch(
   },
 );
 
+// ─── Follow / unfollow (US-56) ────────────────────────────────────
+router.post("/collections/:id/follow", requireAuth, async (req, res, next) => {
+  try {
+    const { id } = IdParams.parse(req.params);
+    res.json(await collectionsService.followCollection(id, req.authUser!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/collections/:id/follow", requireAuth, async (req, res, next) => {
+  try {
+    const { id } = IdParams.parse(req.params);
+    res.json(await collectionsService.unfollowCollection(id, req.authUser!));
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.put("/collections/:id/order", requireAuth, async (req, res, next) => {
   try {
     const { id } = IdParams.parse(req.params);
@@ -158,5 +201,20 @@ router.get("/me/recommendations", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
+
+// Recommended study bundles by course (US-62).
+router.get(
+  "/me/recommended-collections",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      res.json(
+        await collectionsService.getRecommendedCollections(req.authUser!),
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

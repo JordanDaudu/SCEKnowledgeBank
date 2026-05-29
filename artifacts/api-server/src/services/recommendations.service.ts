@@ -15,26 +15,40 @@ import * as documentsService from "./documents.service";
 import * as permissions from "./permissions.service";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
-export async function getRecommendations(
+/**
+ * The courses a user "cares about" — their enrolments plus the courses of the
+ * documents they've recently viewed / favorited / are studying — together with
+ * the set of documents they've already engaged with (a natural exclude set).
+ * Shared by document recommendations (US-6d) and bundle recommendations (US-62).
+ */
+export async function getInterestCourseIds(
   user: AuthenticatedUser,
-  limit = 8,
-): Promise<documentsService.DocumentDTO[]> {
-  // Engagement signals — what the user has already seen (also our exclude set).
+): Promise<{ courseIds: string[]; seenDocIds: string[] }> {
   const [recentIds, favoriteIds, inProgressIds] = await Promise.all([
     viewRepo.listRecentDocumentIdsForUser(user.id, 30),
     favoritesRepo.listDocumentIdsForUser(user.id, 100),
     studyProgressRepo.listInProgressDocumentIds(user.id, 50),
   ]);
-  const seen = Array.from(new Set([...recentIds, ...favoriteIds, ...inProgressIds]));
-
-  // Interest courses: enrolments + courses of the documents the user has
-  // engaged with.
+  const seen = Array.from(
+    new Set([...recentIds, ...favoriteIds, ...inProgressIds]),
+  );
   const enrolledCourseIds = user.enrollments.map((e) => e.courseId);
-  const engagedDocs = seen.length > 0 ? await docsRepo.findManyByIdsAlive(seen) : [];
+  const engagedDocs =
+    seen.length > 0 ? await docsRepo.findManyByIdsAlive(seen) : [];
   const engagedCourseIds = engagedDocs
     .map((d) => d.courseId)
     .filter((c): c is string => !!c);
-  const courseIds = Array.from(new Set([...enrolledCourseIds, ...engagedCourseIds]));
+  const courseIds = Array.from(
+    new Set([...enrolledCourseIds, ...engagedCourseIds]),
+  );
+  return { courseIds, seenDocIds: seen };
+}
+
+export async function getRecommendations(
+  user: AuthenticatedUser,
+  limit = 8,
+): Promise<documentsService.DocumentDTO[]> {
+  const { courseIds, seenDocIds: seen } = await getInterestCourseIds(user);
 
   const visibilitySql = permissions.visibleDocumentFilterSql(user);
 

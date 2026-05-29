@@ -14,8 +14,15 @@ export interface StudyCollectionSummary {
   description: string;
   kind: StudyCollectionSummaryKind;
   visibility: StudyCollectionSummaryVisibility;
+  courseId?: string | null;
+  isOfficial: boolean;
   examDate?: Date;
   itemCount: number;
+  completedCount: number;
+  progressPercent: number;
+  followerCount: number;
+  isFollowing: boolean;
+  popularityScore: number;
   createdAt: Date;
   updatedAt: Date;
 }

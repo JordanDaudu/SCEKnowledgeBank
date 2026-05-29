@@ -1103,6 +1103,21 @@ export async function uploadDocuments(
         success: true,
         document: assembled[0],
       });
+
+      // US-60: best-effort, non-destructive — notify authors of open requests
+      // in this course that a possibly-matching document was uploaded. Dynamic
+      // import avoids a static documents↔requests module cycle.
+      void import("./requests.service")
+        .then((m) =>
+          m.notifyMatchingRequestsForUpload({
+            id: insertedDoc.id,
+            courseId: insertedDoc.courseId ?? null,
+            title: insertedDoc.title,
+            uploaderId: user.id,
+            status: insertedDoc.status,
+          }),
+        )
+        .catch(() => {});
     } catch (e) {
       results.push({
         originalFilename: file.originalname,

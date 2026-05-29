@@ -3483,8 +3483,15 @@ export const ListMyCollectionsResponseItem = zod.object({
     "learning_path",
   ]),
   visibility: zod.enum(["private", "shared"]),
+  courseId: zod.string().uuid().nullish(),
+  isOfficial: zod.boolean(),
   examDate: zod.coerce.date().optional(),
   itemCount: zod.number(),
+  completedCount: zod.number(),
+  progressPercent: zod.number(),
+  followerCount: zod.number(),
+  isFollowing: zod.boolean(),
+  popularityScore: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -3500,11 +3507,49 @@ export const CreateCollectionBody = zod.object({
   title: zod.string().min(1),
   description: zod.string().optional(),
   kind: zod
-    .enum(["collection", "exam_prep", "revision", "semester"])
+    .enum(["collection", "exam_prep", "revision", "semester", "learning_path"])
     .optional(),
   courseId: zod.string().uuid().optional(),
+  visibility: zod.enum(["private", "shared"]).optional(),
   examDate: zod.coerce.date().optional(),
 });
+
+/**
+ * @summary Discover shared/official study collections, ranked by popularity or recency
+ */
+export const ListDiscoverableCollectionsQueryParams = zod.object({
+  sort: zod.enum(["popular", "recent"]).optional(),
+  courseId: zod.coerce.string().uuid().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListDiscoverableCollectionsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  description: zod.string(),
+  kind: zod.enum([
+    "collection",
+    "exam_prep",
+    "revision",
+    "semester",
+    "learning_path",
+  ]),
+  visibility: zod.enum(["private", "shared"]),
+  courseId: zod.string().uuid().nullish(),
+  isOfficial: zod.boolean(),
+  examDate: zod.coerce.date().optional(),
+  itemCount: zod.number(),
+  completedCount: zod.number(),
+  progressPercent: zod.number(),
+  followerCount: zod.number(),
+  isFollowing: zod.boolean(),
+  popularityScore: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListDiscoverableCollectionsResponse = zod.array(
+  ListDiscoverableCollectionsResponseItem,
+);
 
 /**
  * @summary Get a collection with its ordered items
@@ -3532,8 +3577,15 @@ export const GetCollectionResponse = zod
       "learning_path",
     ]),
     visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
     examDate: zod.coerce.date().optional(),
     itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -3750,8 +3802,9 @@ export const UpdateCollectionBody = zod.object({
   title: zod.string().optional(),
   description: zod.string().optional(),
   kind: zod
-    .enum(["collection", "exam_prep", "revision", "semester"])
+    .enum(["collection", "exam_prep", "revision", "semester", "learning_path"])
     .optional(),
+  visibility: zod.enum(["private", "shared"]).optional(),
   examDate: zod.coerce.date().optional(),
 });
 
@@ -3774,8 +3827,15 @@ export const UpdateCollectionResponse = zod
       "learning_path",
     ]),
     visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
     examDate: zod.coerce.date().optional(),
     itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -4016,8 +4076,15 @@ export const AddCollectionItemResponse = zod
       "learning_path",
     ]),
     visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
     examDate: zod.coerce.date().optional(),
     itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -4254,8 +4321,15 @@ export const SetCollectionItemNoteResponse = zod
       "learning_path",
     ]),
     visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
     examDate: zod.coerce.date().optional(),
     itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -4488,8 +4562,15 @@ export const RemoveCollectionItemResponse = zod
       "learning_path",
     ]),
     visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
     examDate: zod.coerce.date().optional(),
     itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -4725,8 +4806,15 @@ export const ReorderCollectionResponse = zod
       "learning_path",
     ]),
     visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
     examDate: zod.coerce.date().optional(),
     itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
     createdAt: zod.coerce.date(),
     updatedAt: zod.coerce.date(),
   })
@@ -4827,6 +4915,492 @@ export const ReorderCollectionResponse = zod
                       .number()
                       .min(
                         reorderCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageHeightMin,
+                      )
+                      .optional(),
+                    hasExtractedText: zod
+                      .boolean()
+                      .describe(
+                        "True when extracted text exists for full-text search (task",
+                      ),
+                    language: zod
+                      .string()
+                      .optional()
+                      .describe(
+                        "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+                      ),
+                    keywords: zod
+                      .array(zod.string())
+                      .optional()
+                      .describe(
+                        "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
+                      ),
+                  })
+                  .optional()
+                  .describe(
+                    "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+                  ),
+              })
+              .optional(),
+            thumbnailUrl: zod
+              .string()
+              .optional()
+              .describe(
+                "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+              ),
+            fallbackIconType: zod
+              .enum([
+                "pdf",
+                "image",
+                "doc",
+                "slides",
+                "sheet",
+                "text",
+                "archive",
+                "unknown",
+              ])
+              .optional()
+              .describe(
+                "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+              ),
+            permissions: zod
+              .object({
+                canView: zod.boolean(),
+                canEdit: zod.boolean(),
+                canDelete: zod.boolean(),
+                canDownload: zod.boolean(),
+                canComment: zod.boolean(),
+                canSubmitForReview: zod
+                  .boolean()
+                  .describe(
+                    "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+                  ),
+                canReview: zod
+                  .boolean()
+                  .describe(
+                    "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+                  ),
+              })
+              .describe(
+                "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+              ),
+            submittedForReviewAt: zod.coerce
+              .date()
+              .optional()
+              .describe("When the doc was most recently submitted for review."),
+            reviewedAt: zod.coerce
+              .date()
+              .optional()
+              .describe("When the doc was last approved or rejected."),
+            reviewer: zod
+              .object({
+                id: zod.string().uuid(),
+                email: zod.string(),
+                displayName: zod.string(),
+                roles: zod.array(zod.string()),
+                isActive: zod.boolean(),
+                status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+                createdAt: zod.coerce.date(),
+              })
+              .optional(),
+            reviewReason: zod
+              .string()
+              .optional()
+              .describe(
+                "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
+              ),
+            isFavorited: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the requesting user has favorited this document (Sprint-3 M6). Populated on detail responses and the `\/me\/favorites` list; may be absent on bulk list endpoints.",
+              ),
+          }),
+          note: zod.string().optional(),
+          position: zod.number(),
+          progress: zod.enum(["reviewing", "completed"]).optional(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Follow a study collection
+ */
+export const FollowCollectionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const followCollectionResponseTwoItemsItemDocumentFileExtractedMetadataPageCountMin = 0;
+
+export const followCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageWidthMin = 0;
+
+export const followCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageHeightMin = 0;
+
+export const FollowCollectionResponse = zod
+  .object({
+    id: zod.string().uuid(),
+    title: zod.string(),
+    description: zod.string(),
+    kind: zod.enum([
+      "collection",
+      "exam_prep",
+      "revision",
+      "semester",
+      "learning_path",
+    ]),
+    visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
+    examDate: zod.coerce.date().optional(),
+    itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      items: zod.array(
+        zod.object({
+          document: zod.object({
+            id: zod.string().uuid(),
+            title: zod.string(),
+            description: zod.string(),
+            course: zod
+              .object({
+                id: zod.string().uuid(),
+                code: zod.string(),
+                title: zod.string(),
+                lecturerName: zod.string(),
+              })
+              .optional(),
+            category: zod
+              .object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+                slug: zod.string(),
+                description: zod.string().optional(),
+              })
+              .optional(),
+            materialType: zod.string(),
+            semester: zod.enum(["fall", "spring", "summer"]).optional(),
+            academicYear: zod.number().optional(),
+            visibility: zod.enum(["public", "restricted", "private"]),
+            status: zod
+              .enum([
+                "draft",
+                "published",
+                "archived",
+                "pending_review",
+                "approved",
+                "rejected",
+              ])
+              .describe(
+                "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+              ),
+            uploader: zod.object({
+              id: zod.string().uuid(),
+              email: zod.string(),
+              displayName: zod.string(),
+              roles: zod.array(zod.string()),
+              isActive: zod.boolean(),
+              status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+              createdAt: zod.coerce.date(),
+            }),
+            createdAt: zod.coerce.date(),
+            updatedAt: zod.coerce.date(),
+            viewCount: zod.number(),
+            downloadCount: zod.number(),
+            favoriteCount: zod.number(),
+            commentCount: zod.number(),
+            currentVersion: zod.number(),
+            tags: zod.array(
+              zod.object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+              }),
+            ),
+            file: zod
+              .object({
+                id: zod.string().uuid(),
+                originalFilename: zod
+                  .string()
+                  .describe("The exact filename as the user uploaded it."),
+                displayFilename: zod
+                  .string()
+                  .describe(
+                    'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+                  ),
+                mimeType: zod.string(),
+                sizeBytes: zod.number(),
+                uploadedAt: zod.coerce.date(),
+                checksum: zod.string().optional(),
+                extractedMetadata: zod
+                  .object({
+                    pageCount: zod
+                      .number()
+                      .min(
+                        followCollectionResponseTwoItemsItemDocumentFileExtractedMetadataPageCountMin,
+                      )
+                      .optional(),
+                    detectedTitle: zod.string().optional(),
+                    author: zod.string().optional(),
+                    imageWidth: zod
+                      .number()
+                      .min(
+                        followCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageWidthMin,
+                      )
+                      .optional(),
+                    imageHeight: zod
+                      .number()
+                      .min(
+                        followCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageHeightMin,
+                      )
+                      .optional(),
+                    hasExtractedText: zod
+                      .boolean()
+                      .describe(
+                        "True when extracted text exists for full-text search (task",
+                      ),
+                    language: zod
+                      .string()
+                      .optional()
+                      .describe(
+                        "ISO-639-1 short code (en\/es\/fr\/de\/it\/pt) detected from the extracted text. Omitted when the classifier could not reach its confidence threshold (Sprint-3 M4).",
+                      ),
+                    keywords: zod
+                      .array(zod.string())
+                      .optional()
+                      .describe(
+                        "Top content terms by frequency after stopword filtering, most frequent first. Empty\/omitted when extraction had no usable text (Sprint-3 M4).",
+                      ),
+                  })
+                  .optional()
+                  .describe(
+                    "Server-side metadata pulled from the uploaded file on ingest (task #27). Every field is optional — extraction may fail per-file without failing the upload.",
+                  ),
+              })
+              .optional(),
+            thumbnailUrl: zod
+              .string()
+              .optional()
+              .describe(
+                "Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview\/download.",
+              ),
+            fallbackIconType: zod
+              .enum([
+                "pdf",
+                "image",
+                "doc",
+                "slides",
+                "sheet",
+                "text",
+                "archive",
+                "unknown",
+              ])
+              .optional()
+              .describe(
+                "Generic icon bucket the client renders when no thumbnail is available. Derived from the latest file's MIME type.",
+              ),
+            permissions: zod
+              .object({
+                canView: zod.boolean(),
+                canEdit: zod.boolean(),
+                canDelete: zod.boolean(),
+                canDownload: zod.boolean(),
+                canComment: zod.boolean(),
+                canSubmitForReview: zod
+                  .boolean()
+                  .describe(
+                    "True when the user can move this doc into `pending_review` (status is currently `draft` or `rejected`, and they are the uploader\/owner or can edit).",
+                  ),
+                canReview: zod
+                  .boolean()
+                  .describe(
+                    "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+                  ),
+              })
+              .describe(
+                "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
+              ),
+            submittedForReviewAt: zod.coerce
+              .date()
+              .optional()
+              .describe("When the doc was most recently submitted for review."),
+            reviewedAt: zod.coerce
+              .date()
+              .optional()
+              .describe("When the doc was last approved or rejected."),
+            reviewer: zod
+              .object({
+                id: zod.string().uuid(),
+                email: zod.string(),
+                displayName: zod.string(),
+                roles: zod.array(zod.string()),
+                isActive: zod.boolean(),
+                status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+                createdAt: zod.coerce.date(),
+              })
+              .optional(),
+            reviewReason: zod
+              .string()
+              .optional()
+              .describe(
+                "Rejection rationale. Present only when status='rejected'. Cleared on the next submit-for-review.",
+              ),
+            isFavorited: zod
+              .boolean()
+              .optional()
+              .describe(
+                "True when the requesting user has favorited this document (Sprint-3 M6). Populated on detail responses and the `\/me\/favorites` list; may be absent on bulk list endpoints.",
+              ),
+          }),
+          note: zod.string().optional(),
+          position: zod.number(),
+          progress: zod.enum(["reviewing", "completed"]).optional(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Unfollow a study collection
+ */
+export const UnfollowCollectionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const unfollowCollectionResponseTwoItemsItemDocumentFileExtractedMetadataPageCountMin = 0;
+
+export const unfollowCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageWidthMin = 0;
+
+export const unfollowCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageHeightMin = 0;
+
+export const UnfollowCollectionResponse = zod
+  .object({
+    id: zod.string().uuid(),
+    title: zod.string(),
+    description: zod.string(),
+    kind: zod.enum([
+      "collection",
+      "exam_prep",
+      "revision",
+      "semester",
+      "learning_path",
+    ]),
+    visibility: zod.enum(["private", "shared"]),
+    courseId: zod.string().uuid().nullish(),
+    isOfficial: zod.boolean(),
+    examDate: zod.coerce.date().optional(),
+    itemCount: zod.number(),
+    completedCount: zod.number(),
+    progressPercent: zod.number(),
+    followerCount: zod.number(),
+    isFollowing: zod.boolean(),
+    popularityScore: zod.number(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      items: zod.array(
+        zod.object({
+          document: zod.object({
+            id: zod.string().uuid(),
+            title: zod.string(),
+            description: zod.string(),
+            course: zod
+              .object({
+                id: zod.string().uuid(),
+                code: zod.string(),
+                title: zod.string(),
+                lecturerName: zod.string(),
+              })
+              .optional(),
+            category: zod
+              .object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+                slug: zod.string(),
+                description: zod.string().optional(),
+              })
+              .optional(),
+            materialType: zod.string(),
+            semester: zod.enum(["fall", "spring", "summer"]).optional(),
+            academicYear: zod.number().optional(),
+            visibility: zod.enum(["public", "restricted", "private"]),
+            status: zod
+              .enum([
+                "draft",
+                "published",
+                "archived",
+                "pending_review",
+                "approved",
+                "rejected",
+              ])
+              .describe(
+                "Lifecycle status. `draft|published|archived` are the legacy values; `pending_review|approved|rejected` come from the Sprint-3 review workflow.",
+              ),
+            uploader: zod.object({
+              id: zod.string().uuid(),
+              email: zod.string(),
+              displayName: zod.string(),
+              roles: zod.array(zod.string()),
+              isActive: zod.boolean(),
+              status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
+              createdAt: zod.coerce.date(),
+            }),
+            createdAt: zod.coerce.date(),
+            updatedAt: zod.coerce.date(),
+            viewCount: zod.number(),
+            downloadCount: zod.number(),
+            favoriteCount: zod.number(),
+            commentCount: zod.number(),
+            currentVersion: zod.number(),
+            tags: zod.array(
+              zod.object({
+                id: zod.string().uuid(),
+                name: zod.string(),
+              }),
+            ),
+            file: zod
+              .object({
+                id: zod.string().uuid(),
+                originalFilename: zod
+                  .string()
+                  .describe("The exact filename as the user uploaded it."),
+                displayFilename: zod
+                  .string()
+                  .describe(
+                    'The filename shown in lists; if the uploader already had a file with the same name it will be suffixed e.g. \"notes (2).pdf\". Use this for the rename notice.',
+                  ),
+                mimeType: zod.string(),
+                sizeBytes: zod.number(),
+                uploadedAt: zod.coerce.date(),
+                checksum: zod.string().optional(),
+                extractedMetadata: zod
+                  .object({
+                    pageCount: zod
+                      .number()
+                      .min(
+                        unfollowCollectionResponseTwoItemsItemDocumentFileExtractedMetadataPageCountMin,
+                      )
+                      .optional(),
+                    detectedTitle: zod.string().optional(),
+                    author: zod.string().optional(),
+                    imageWidth: zod
+                      .number()
+                      .min(
+                        unfollowCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageWidthMin,
+                      )
+                      .optional(),
+                    imageHeight: zod
+                      .number()
+                      .min(
+                        unfollowCollectionResponseTwoItemsItemDocumentFileExtractedMetadataImageHeightMin,
                       )
                       .optional(),
                     hasExtractedText: zod
@@ -5350,4 +5924,35 @@ export const ListRecommendationsResponseItem = zod.object({
 });
 export const ListRecommendationsResponse = zod.array(
   ListRecommendationsResponseItem,
+);
+
+/**
+ * @summary Recommended study bundles by course for the current user (US-62)
+ */
+export const ListRecommendedCollectionsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  description: zod.string(),
+  kind: zod.enum([
+    "collection",
+    "exam_prep",
+    "revision",
+    "semester",
+    "learning_path",
+  ]),
+  visibility: zod.enum(["private", "shared"]),
+  courseId: zod.string().uuid().nullish(),
+  isOfficial: zod.boolean(),
+  examDate: zod.coerce.date().optional(),
+  itemCount: zod.number(),
+  completedCount: zod.number(),
+  progressPercent: zod.number(),
+  followerCount: zod.number(),
+  isFollowing: zod.boolean(),
+  popularityScore: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListRecommendedCollectionsResponse = zod.array(
+  ListRecommendedCollectionsResponseItem,
 );

@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { UpdateCollectionRequestKind } from "./updateCollectionRequestKind";
+import type { UpdateCollectionRequestVisibility } from "./updateCollectionRequestVisibility";
 
 export interface UpdateCollectionRequest {
   title?: string;
   description?: string;
   kind?: UpdateCollectionRequestKind;
+  visibility?: UpdateCollectionRequestVisibility;
   examDate?: Date;
 }

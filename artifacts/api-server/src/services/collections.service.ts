@@ -10,8 +10,10 @@ import * as collectionsRepo from "../repositories/collections.repo";
 import * as studyProgressRepo from "../repositories/studyProgress.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as documentsService from "./documents.service";
+import * as recommendationsService from "./recommendations.service";
 import * as permissions from "./permissions.service";
 import { badRequest, forbidden, notFound } from "../lib/errors";
+import { computePopularity } from "../lib/collection-popularity";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
 const COLLECTION_KINDS = [
@@ -19,7 +21,10 @@ const COLLECTION_KINDS = [
   "exam_prep",
   "revision",
   "semester",
+  "learning_path",
 ] as const;
+
+const VISIBILITIES = ["private", "shared"] as const;
 
 export interface CollectionSummaryDTO {
   id: string;
@@ -27,8 +32,15 @@ export interface CollectionSummaryDTO {
   description: string;
   kind: string;
   visibility: string;
+  courseId?: string;
+  isOfficial: boolean;
   examDate?: string;
   itemCount: number;
+  completedCount: number;
+  progressPercent: number;
+  followerCount: number;
+  isFollowing: boolean;
+  popularityScore: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,20 +56,70 @@ export interface CollectionDetailDTO extends CollectionSummaryDTO {
   items: CollectionItemDTO[];
 }
 
+interface SummaryExtra {
+  followerCount?: number;
+  isFollowing?: boolean;
+  completedCount?: number;
+}
+
 function toSummary(
   c: collectionsRepo.CollectionRow & { itemCount: number },
+  extra: SummaryExtra = {},
 ): CollectionSummaryDTO {
+  const completedCount = Math.min(extra.completedCount ?? 0, c.itemCount);
   return {
     id: c.id,
     title: c.title,
     description: c.description,
     kind: c.kind,
     visibility: c.visibility,
+    courseId: c.courseId ?? undefined,
+    isOfficial: c.isOfficial,
     examDate: c.examDate?.toISOString(),
     itemCount: c.itemCount,
+    completedCount,
+    progressPercent:
+      c.itemCount > 0 ? Math.round((completedCount / c.itemCount) * 100) : 0,
+    followerCount: extra.followerCount ?? 0,
+    isFollowing: extra.isFollowing ?? false,
+    popularityScore: c.popularityScore,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
+}
+
+/** Enrich a batch of collection rows with the viewer's follow state, follower
+ *  counts, and completed-item counts (one batched query each — no N+1). */
+async function summarize(
+  rows: Array<collectionsRepo.CollectionRow & { itemCount: number }>,
+  user: AuthenticatedUser,
+): Promise<CollectionSummaryDTO[]> {
+  const ids = rows.map((r) => r.id);
+  const [followerCounts, followed, completed] = await Promise.all([
+    collectionsRepo.countFollowersForCollections(ids),
+    collectionsRepo.listFollowedCollectionIds(user.id, ids),
+    collectionsRepo.countCompletedForCollections(user.id, ids),
+  ]);
+  return rows.map((r) =>
+    toSummary(r, {
+      followerCount: followerCounts.get(r.id) ?? 0,
+      isFollowing: followed.has(r.id),
+      completedCount: completed.get(r.id) ?? 0,
+    }),
+  );
+}
+
+/** Recompute and persist a collection's popularity score (US-55). Called
+ *  whenever its followers or items change. */
+async function recomputePopularity(collectionId: string): Promise<void> {
+  const [items, followers] = await Promise.all([
+    collectionsRepo.countItems(collectionId),
+    collectionsRepo.countFollowers(collectionId),
+  ]);
+  await collectionsRepo.setPopularityScore(
+    collectionId,
+    computePopularity(followers, items),
+  );
 }
 
 /** Load a collection the user is allowed to MANAGE (owner only). */
@@ -71,6 +133,20 @@ async function loadOwned(
   return c;
 }
 
+/** Load a collection the user is allowed to VIEW: their own, or any shared /
+ *  official (curated) collection. Management still requires ownership. */
+async function loadVisible(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<collectionsRepo.CollectionRow> {
+  const c = await collectionsRepo.findCollectionById(id);
+  if (!c) throw notFound("Collection not found");
+  if (c.ownerId === user.id || c.visibility === "shared" || c.isOfficial) {
+    return c;
+  }
+  throw forbidden("This collection is private");
+}
+
 export async function createCollection(
   user: AuthenticatedUser,
   input: {
@@ -78,6 +154,7 @@ export async function createCollection(
     description?: string;
     kind?: string;
     courseId?: string | null;
+    visibility?: string;
     examDate?: Date | null;
   },
 ): Promise<CollectionSummaryDTO> {
@@ -86,12 +163,19 @@ export async function createCollection(
   if (input.kind && !(COLLECTION_KINDS as readonly string[]).includes(input.kind)) {
     throw badRequest(`Unknown kind. Allowed: ${COLLECTION_KINDS.join(", ")}`);
   }
+  if (
+    input.visibility &&
+    !(VISIBILITIES as readonly string[]).includes(input.visibility)
+  ) {
+    throw badRequest(`Unknown visibility. Allowed: ${VISIBILITIES.join(", ")}`);
+  }
   const created = await collectionsRepo.createCollection({
     ownerId: user.id,
     title,
     description: input.description?.trim() ?? "",
     kind: input.kind ?? "collection",
     courseId: input.courseId ?? null,
+    visibility: input.visibility ?? "private",
     examDate: input.examDate ?? null,
   });
   return toSummary({ ...created, itemCount: 0 });
@@ -101,14 +185,45 @@ export async function listMyCollections(
   user: AuthenticatedUser,
 ): Promise<CollectionSummaryDTO[]> {
   const rows = await collectionsRepo.listCollectionsForOwner(user.id);
-  return rows.map(toSummary);
+  return summarize(rows, user);
+}
+
+/** Discoverable (shared/official) collections, ranked (US-55). */
+export async function listDiscoverable(
+  user: AuthenticatedUser,
+  opts: { sort?: collectionsRepo.DiscoverSort; courseId?: string; limit?: number },
+): Promise<CollectionSummaryDTO[]> {
+  const rows = await collectionsRepo.listDiscoverable({
+    sort: opts.sort ?? "popular",
+    courseId: opts.courseId,
+    limit: Math.min(opts.limit ?? 24, 50),
+  });
+  return summarize(rows, user);
+}
+
+/** Recommend shared/official bundles in the user's interest courses (US-62).
+ *  Returns a clean empty list when there's no course signal or no matches. */
+export async function getRecommendedCollections(
+  user: AuthenticatedUser,
+  limit = 6,
+): Promise<CollectionSummaryDTO[]> {
+  const { courseIds } = await recommendationsService.getInterestCourseIds(user);
+  if (courseIds.length === 0) return [];
+  const followed = await collectionsRepo.listFollowedCollectionIds(user.id);
+  const rows = await collectionsRepo.recommendCollections({
+    courseIds,
+    excludeOwnerId: user.id,
+    excludeIds: Array.from(followed),
+    limit,
+  });
+  return summarize(rows, user);
 }
 
 export async function getCollection(
   id: string,
   user: AuthenticatedUser,
 ): Promise<CollectionDetailDTO> {
-  const c = await loadOwned(id, user);
+  const c = await loadVisible(id, user);
   const itemRows = await collectionsRepo.listItems(id);
   const docIds = itemRows.map((i) => i.documentId);
   const docs = await docsRepo.findManyByIdsAlive(docIds);
@@ -129,13 +244,50 @@ export async function getCollection(
       position: i.position,
       progress: progress.get(i.documentId),
     }));
-  return { ...toSummary({ ...c, itemCount: items.length }), items };
+  const completedCount = items.filter((i) => i.progress === "completed").length;
+  const [followerCount, following] = await Promise.all([
+    collectionsRepo.countFollowers(id),
+    collectionsRepo.isFollowing(id, user.id),
+  ]);
+  const summary = toSummary(
+    { ...c, itemCount: items.length },
+    { followerCount, isFollowing: following, completedCount },
+  );
+  return { ...summary, items };
+}
+
+/** Follow a shared/official collection (US-56). Owners may follow their own
+ *  too — harmless and keeps the UI uniform. Idempotent. */
+export async function followCollection(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<CollectionDetailDTO> {
+  await loadVisible(id, user);
+  const created = await collectionsRepo.followCollection(id, user.id);
+  if (created) await recomputePopularity(id);
+  return getCollection(id, user);
+}
+
+export async function unfollowCollection(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<CollectionDetailDTO> {
+  await loadVisible(id, user);
+  const removed = await collectionsRepo.unfollowCollection(id, user.id);
+  if (removed) await recomputePopularity(id);
+  return getCollection(id, user);
 }
 
 export async function updateCollection(
   id: string,
   user: AuthenticatedUser,
-  patch: { title?: string; description?: string; kind?: string; examDate?: Date | null },
+  patch: {
+    title?: string;
+    description?: string;
+    kind?: string;
+    visibility?: string;
+    examDate?: Date | null;
+  },
 ): Promise<void> {
   await loadOwned(id, user);
   const data: Record<string, unknown> = {};
@@ -150,6 +302,12 @@ export async function updateCollection(
       throw badRequest(`Unknown kind. Allowed: ${COLLECTION_KINDS.join(", ")}`);
     }
     data.kind = patch.kind;
+  }
+  if (patch.visibility !== undefined) {
+    if (!(VISIBILITIES as readonly string[]).includes(patch.visibility)) {
+      throw badRequest(`Unknown visibility. Allowed: ${VISIBILITIES.join(", ")}`);
+    }
+    data.visibility = patch.visibility;
   }
   if (patch.examDate !== undefined) data.examDate = patch.examDate;
   await collectionsRepo.updateCollection(id, data);
@@ -177,6 +335,7 @@ export async function addDocument(
     throw notFound("Document not found");
   }
   await collectionsRepo.addItem(id, documentId, note?.trim() || undefined);
+  await recomputePopularity(id);
 }
 
 export async function removeDocument(
@@ -186,6 +345,7 @@ export async function removeDocument(
 ): Promise<void> {
   await loadOwned(id, user);
   await collectionsRepo.removeItem(id, documentId);
+  await recomputePopularity(id);
 }
 
 export async function setItemNote(

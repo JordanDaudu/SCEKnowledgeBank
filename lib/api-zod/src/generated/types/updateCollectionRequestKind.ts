@@ -14,4 +14,5 @@ export const UpdateCollectionRequestKind = {
   exam_prep: "exam_prep",
   revision: "revision",
   semester: "semester",
+  learning_path: "learning_path",
 } as const;

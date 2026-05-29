@@ -43,6 +43,7 @@ import type {
   GetDocumentThumbnailParams,
   HealthStatus,
   ListActivityParams,
+  ListDiscoverableCollectionsParams,
   ListDocumentsParams,
   ListNotificationsParams,
   ListPendingReviewDocumentsParams,
@@ -5661,6 +5662,112 @@ export const useCreateCollection = <
 };
 
 /**
+ * @summary Discover shared/official study collections, ranked by popularity or recency
+ */
+export const getListDiscoverableCollectionsUrl = (
+  params?: ListDiscoverableCollectionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/collections/discover?${stringifiedParams}`
+    : `/api/collections/discover`;
+};
+
+export const listDiscoverableCollections = async (
+  params?: ListDiscoverableCollectionsParams,
+  options?: RequestInit,
+): Promise<StudyCollectionSummary[]> => {
+  return customFetch<StudyCollectionSummary[]>(
+    getListDiscoverableCollectionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListDiscoverableCollectionsQueryKey = (
+  params?: ListDiscoverableCollectionsParams,
+) => {
+  return [`/api/collections/discover`, ...(params ? [params] : [])] as const;
+};
+
+export const getListDiscoverableCollectionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDiscoverableCollections>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDiscoverableCollectionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDiscoverableCollections>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDiscoverableCollectionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDiscoverableCollections>>
+  > = ({ signal }) =>
+    listDiscoverableCollections(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDiscoverableCollections>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDiscoverableCollectionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDiscoverableCollections>>
+>;
+export type ListDiscoverableCollectionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Discover shared/official study collections, ranked by popularity or recency
+ */
+
+export function useListDiscoverableCollections<
+  TData = Awaited<ReturnType<typeof listDiscoverableCollections>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListDiscoverableCollectionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDiscoverableCollections>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDiscoverableCollectionsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get a collection with its ordered items
  */
 export const getGetCollectionUrl = (id: string) => {
@@ -6236,6 +6343,174 @@ export const useReorderCollection = <
 };
 
 /**
+ * @summary Follow a study collection
+ */
+export const getFollowCollectionUrl = (id: string) => {
+  return `/api/collections/${id}/follow`;
+};
+
+export const followCollection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getFollowCollectionUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getFollowCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof followCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof followCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["followCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof followCollection>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return followCollection(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FollowCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof followCollection>>
+>;
+
+export type FollowCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Follow a study collection
+ */
+export const useFollowCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof followCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof followCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getFollowCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Unfollow a study collection
+ */
+export const getUnfollowCollectionUrl = (id: string) => {
+  return `/api/collections/${id}/follow`;
+};
+
+export const unfollowCollection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getUnfollowCollectionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnfollowCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfollowCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unfollowCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["unfollowCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unfollowCollection>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unfollowCollection(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnfollowCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unfollowCollection>>
+>;
+
+export type UnfollowCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unfollow a study collection
+ */
+export const useUnfollowCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unfollowCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unfollowCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getUnfollowCollectionMutationOptions(options));
+};
+
+/**
  * @summary Set the current user's study progress on a document
  */
 export const getSetDocumentProgressUrl = (id: string) => {
@@ -6464,6 +6739,85 @@ export function useListRecommendations<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListRecommendationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Recommended study bundles by course for the current user (US-62)
+ */
+export const getListRecommendedCollectionsUrl = () => {
+  return `/api/me/recommended-collections`;
+};
+
+export const listRecommendedCollections = async (
+  options?: RequestInit,
+): Promise<StudyCollectionSummary[]> => {
+  return customFetch<StudyCollectionSummary[]>(
+    getListRecommendedCollectionsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRecommendedCollectionsQueryKey = () => {
+  return [`/api/me/recommended-collections`] as const;
+};
+
+export const getListRecommendedCollectionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRecommendedCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listRecommendedCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListRecommendedCollectionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRecommendedCollections>>
+  > = ({ signal }) => listRecommendedCollections({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRecommendedCollections>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRecommendedCollectionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRecommendedCollections>>
+>;
+export type ListRecommendedCollectionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Recommended study bundles by course for the current user (US-62)
+ */
+
+export function useListRecommendedCollections<
+  TData = Awaited<ReturnType<typeof listRecommendedCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listRecommendedCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRecommendedCollectionsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

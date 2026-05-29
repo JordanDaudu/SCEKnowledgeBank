@@ -793,8 +793,15 @@ export interface StudyCollectionSummary {
   description: string;
   kind: StudyCollectionSummaryKind;
   visibility: StudyCollectionSummaryVisibility;
+  courseId?: string | null;
+  isOfficial: boolean;
   examDate?: string;
   itemCount: number;
+  completedCount: number;
+  progressPercent: number;
+  followerCount: number;
+  isFollowing: boolean;
+  popularityScore: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -826,6 +833,15 @@ export const CreateCollectionRequestKind = {
   exam_prep: "exam_prep",
   revision: "revision",
   semester: "semester",
+  learning_path: "learning_path",
+} as const;
+
+export type CreateCollectionRequestVisibility =
+  (typeof CreateCollectionRequestVisibility)[keyof typeof CreateCollectionRequestVisibility];
+
+export const CreateCollectionRequestVisibility = {
+  private: "private",
+  shared: "shared",
 } as const;
 
 export interface CreateCollectionRequest {
@@ -834,6 +850,7 @@ export interface CreateCollectionRequest {
   description?: string;
   kind?: CreateCollectionRequestKind;
   courseId?: string;
+  visibility?: CreateCollectionRequestVisibility;
   examDate?: string;
 }
 
@@ -845,12 +862,22 @@ export const UpdateCollectionRequestKind = {
   exam_prep: "exam_prep",
   revision: "revision",
   semester: "semester",
+  learning_path: "learning_path",
+} as const;
+
+export type UpdateCollectionRequestVisibility =
+  (typeof UpdateCollectionRequestVisibility)[keyof typeof UpdateCollectionRequestVisibility];
+
+export const UpdateCollectionRequestVisibility = {
+  private: "private",
+  shared: "shared",
 } as const;
 
 export interface UpdateCollectionRequest {
   title?: string;
   description?: string;
   kind?: UpdateCollectionRequestKind;
+  visibility?: UpdateCollectionRequestVisibility;
   examDate?: string;
 }
 
@@ -1189,3 +1216,17 @@ export type ListActivityParams = {
    */
   mine?: boolean;
 };
+
+export type ListDiscoverableCollectionsParams = {
+  sort?: ListDiscoverableCollectionsSort;
+  courseId?: string;
+  limit?: number;
+};
+
+export type ListDiscoverableCollectionsSort =
+  (typeof ListDiscoverableCollectionsSort)[keyof typeof ListDiscoverableCollectionsSort];
+
+export const ListDiscoverableCollectionsSort = {
+  popular: "popular",
+  recent: "recent",
+} as const;

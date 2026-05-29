@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { db, Prisma } from "@workspace/db";
 
 export interface CollectionRow {
   id: string;
@@ -9,6 +9,7 @@ export interface CollectionRow {
   isOfficial: boolean;
   courseId: string | null;
   visibility: string;
+  popularityScore: number;
   examDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -156,4 +157,166 @@ async function touch(collectionId: string): Promise<void> {
     where: { id: collectionId },
     data: { updatedAt: new Date() },
   });
+}
+
+// ─── Followers (US-56) ────────────────────────────────────────────
+
+/** Follow a collection. Idempotent on (collection, user) — returns true only
+ *  when a new follow row was created. */
+export async function followCollection(
+  collectionId: string,
+  userId: string,
+): Promise<boolean> {
+  const r = await db.studyCollectionFollower.createMany({
+    data: [{ collectionId, userId }],
+    skipDuplicates: true,
+  });
+  return r.count > 0;
+}
+
+/** Unfollow a collection. Returns true if a follow row was removed. */
+export async function unfollowCollection(
+  collectionId: string,
+  userId: string,
+): Promise<boolean> {
+  const r = await db.studyCollectionFollower.deleteMany({
+    where: { collectionId, userId },
+  });
+  return r.count > 0;
+}
+
+export async function isFollowing(
+  collectionId: string,
+  userId: string,
+): Promise<boolean> {
+  const row = await db.studyCollectionFollower.findUnique({
+    where: { collectionId_userId: { collectionId, userId } },
+    select: { id: true },
+  });
+  return !!row;
+}
+
+export async function countFollowers(collectionId: string): Promise<number> {
+  return db.studyCollectionFollower.count({ where: { collectionId } });
+}
+
+/** Batch follower counts keyed by collection id (0 omitted). */
+export async function countFollowersForCollections(
+  collectionIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (collectionIds.length === 0) return map;
+  const rows = await db.studyCollectionFollower.groupBy({
+    by: ["collectionId"],
+    where: { collectionId: { in: collectionIds } },
+    _count: { _all: true },
+  });
+  for (const r of rows) map.set(r.collectionId, r._count._all);
+  return map;
+}
+
+/** Collection ids the user follows (from a candidate set, or all). */
+export async function listFollowedCollectionIds(
+  userId: string,
+  within?: string[],
+): Promise<Set<string>> {
+  const rows = await db.studyCollectionFollower.findMany({
+    where: { userId, ...(within ? { collectionId: { in: within } } : {}) },
+    select: { collectionId: true },
+  });
+  return new Set(rows.map((r) => r.collectionId));
+}
+
+export async function countItems(collectionId: string): Promise<number> {
+  return db.studyCollectionItem.count({ where: { collectionId } });
+}
+
+export async function setPopularityScore(
+  collectionId: string,
+  score: number,
+): Promise<void> {
+  await db.studyCollection.update({
+    where: { id: collectionId },
+    data: { popularityScore: score },
+  });
+}
+
+// ─── Per-collection completed-item counts (US-61 progress %) ──────
+
+/** Map collectionId → number of its items the user has marked "completed". */
+export async function countCompletedForCollections(
+  userId: string,
+  collectionIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (collectionIds.length === 0) return map;
+  const rows = await db.$queryRaw<
+    { collection_id: string; completed: bigint }[]
+  >(Prisma.sql`
+    SELECT sci.collection_id, COUNT(*) AS completed
+    FROM study_collection_items sci
+    JOIN study_progress sp
+      ON sp.document_id = sci.document_id
+     AND sp.user_id = ${userId}::uuid
+     AND sp.status = 'completed'
+    WHERE sci.collection_id IN (${Prisma.join(
+      collectionIds.map((id) => Prisma.sql`${id}::uuid`),
+    )})
+    GROUP BY sci.collection_id
+  `);
+  for (const r of rows) map.set(r.collection_id, Number(r.completed));
+  return map;
+}
+
+// ─── Discovery & recommendations (US-55 / US-62) ──────────────────
+
+export type DiscoverSort = "popular" | "recent";
+
+/** Collections discoverable by other users: shared OR official, not deleted.
+ *  Optionally course-scoped. Sorted by popularity or recency. */
+export async function listDiscoverable(opts: {
+  sort: DiscoverSort;
+  courseId?: string;
+  limit: number;
+}): Promise<Array<CollectionRow & { itemCount: number }>> {
+  const rows = await db.studyCollection.findMany({
+    where: {
+      deletedAt: null,
+      OR: [{ visibility: "shared" }, { isOfficial: true }],
+      ...(opts.courseId ? { courseId: opts.courseId } : {}),
+    },
+    orderBy:
+      opts.sort === "popular"
+        ? [{ popularityScore: "desc" }, { updatedAt: "desc" }]
+        : [{ updatedAt: "desc" }],
+    take: opts.limit,
+    include: { _count: { select: { items: true } } },
+  });
+  return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
+}
+
+/** Recommend shared/official collections in the given courses, excluding the
+ *  viewer's own collections and any ids already known (e.g. followed). */
+export async function recommendCollections(opts: {
+  courseIds: string[];
+  excludeOwnerId: string;
+  excludeIds?: string[];
+  limit: number;
+}): Promise<Array<CollectionRow & { itemCount: number }>> {
+  if (opts.courseIds.length === 0) return [];
+  const rows = await db.studyCollection.findMany({
+    where: {
+      deletedAt: null,
+      OR: [{ visibility: "shared" }, { isOfficial: true }],
+      courseId: { in: opts.courseIds },
+      ownerId: { not: opts.excludeOwnerId },
+      ...(opts.excludeIds && opts.excludeIds.length > 0
+        ? { id: { notIn: opts.excludeIds } }
+        : {}),
+    },
+    orderBy: [{ popularityScore: "desc" }, { updatedAt: "desc" }],
+    take: opts.limit,
+    include: { _count: { select: { items: true } } },
+  });
+  return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
 }

@@ -83,6 +83,7 @@ model User {
   commentReactions      CommentReaction[] @relation("CommentReactionUser")
   documentFavorites     DocumentFavorite[]
   studyCollections      StudyCollection[]
+  collectionFollows     StudyCollectionFollower[]
   studyProgress         StudyProgress[]
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
@@ -577,18 +578,38 @@ model StudyCollection {
   courseId    String?   @map("course_id") @db.Uuid
   // private | shared (sharing is a 6d feature; default private).
   visibility  String    @default("private")
+  // Denormalised ranking signal (followers + items), recomputed on change.
+  popularityScore Int   @default(0) @map("popularity_score")
   examDate    DateTime? @map("exam_date") @db.Timestamptz()
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
 
-  owner  User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  course Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  items  StudyCollectionItem[]
+  owner     User                      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  course    Course?                   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  items     StudyCollectionItem[]
+  followers StudyCollectionFollower[]
 
   @@index([ownerId], map: "study_collections_owner_idx")
   @@index([isOfficial, courseId], map: "study_collections_official_course_idx")
+  @@index([visibility, popularityScore(sort: Desc)], map: "study_collections_visibility_popularity_idx")
   @@map("study_collections")
+}
+
+// Followers of a (shared/official) collection — drives follower counts,
+// the "following" state, and the popularity score (US-55/US-56).
+model StudyCollectionFollower {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  collection StudyCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId], map: "study_collection_followers_unique")
+  @@index([userId], map: "study_collection_followers_user_idx")
+  @@map("study_collection_followers")
 }
 
 model StudyCollectionItem {
