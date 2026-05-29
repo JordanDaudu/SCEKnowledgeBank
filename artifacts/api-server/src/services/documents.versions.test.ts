@@ -10,6 +10,7 @@ vi.mock("../repositories/documents.repo", () => ({
   findVersionsByDocument: vi.fn(),
   findVersionByIdAndDocument: vi.fn(),
   insertNewVersionFile: vi.fn(),
+  updateDocumentByIdIfStatus: vi.fn(),
 }));
 vi.mock("./quota.service", () => ({
   effectiveQuotaForUser: vi.fn(),
@@ -72,6 +73,7 @@ const findDoc = vi.mocked(docsRepo.findByIdAlive);
 const findVersions = vi.mocked(docsRepo.findVersionsByDocument);
 const findVersionById = vi.mocked(docsRepo.findVersionByIdAndDocument);
 const insertVersion = vi.mocked(docsRepo.insertNewVersionFile);
+const updateIfStatus = vi.mocked(docsRepo.updateDocumentByIdIfStatus);
 const effQuotaForUser = vi.mocked(quotaService.effectiveQuotaForUser);
 const canManageVersions = vi.mocked(permissions.canManageVersions);
 const canView = vi.mocked(permissions.canView);
@@ -152,6 +154,70 @@ beforeEach(() => {
     checksum: a.precomputedChecksum ?? "deadbeef",
     driver: "local",
   }));
+});
+
+describe("uploadNewVersion — uploader bypass + re-review", () => {
+  beforeEach(() => {
+    effQuotaForUser.mockResolvedValue({
+      usedBytes: 0n,
+      quotaBytes: 1_000_000n,
+    } as never);
+    insertVersion.mockResolvedValue(
+      fakeVersionRow({ versionNumber: 2, isCurrent: true }),
+    );
+    updateIfStatus.mockResolvedValue(1);
+  });
+
+  it("lets the original uploader add a version to their own doc without manage rights", async () => {
+    canManageVersions.mockReturnValue(false);
+    findDoc.mockResolvedValue(
+      fakeDoc({ uploaderId: student.id, ownerId: student.id, status: "approved" }),
+    );
+    await expect(
+      uploadNewVersion("doc-1", { file: fakeFile() }, student),
+    ).resolves.toBeTruthy();
+    expect(insertVersion).toHaveBeenCalled();
+  });
+
+  it("re-enters review when a non-manager uploader versions an already-approved doc", async () => {
+    canManageVersions.mockReturnValue(false);
+    findDoc.mockResolvedValue(
+      fakeDoc({ uploaderId: student.id, ownerId: student.id, status: "approved" }),
+    );
+    await uploadNewVersion("doc-1", { file: fakeFile() }, student);
+    expect(updateIfStatus).toHaveBeenCalledWith(
+      "doc-1",
+      "approved",
+      expect.objectContaining({ status: "pending_review" }),
+    );
+  });
+
+  it("does NOT change status when the uploader's doc is still a draft", async () => {
+    canManageVersions.mockReturnValue(false);
+    findDoc.mockResolvedValue(
+      fakeDoc({ uploaderId: student.id, ownerId: student.id, status: "draft" }),
+    );
+    await uploadNewVersion("doc-1", { file: fakeFile() }, student);
+    expect(updateIfStatus).not.toHaveBeenCalled();
+  });
+
+  it("does NOT re-review when a manager versions an approved doc", async () => {
+    canManageVersions.mockReturnValue(true);
+    findDoc.mockResolvedValue(fakeDoc({ status: "approved" }));
+    await uploadNewVersion("doc-1", { file: fakeFile() }, lecturer);
+    expect(updateIfStatus).not.toHaveBeenCalled();
+  });
+
+  it("still rejects a non-uploader who cannot manage versions", async () => {
+    canManageVersions.mockReturnValue(false);
+    findDoc.mockResolvedValue(
+      fakeDoc({ uploaderId: "someone-else", ownerId: "someone-else", status: "approved" }),
+    );
+    await expect(
+      uploadNewVersion("doc-1", { file: fakeFile() }, student),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(insertVersion).not.toHaveBeenCalled();
+  });
 });
 
 describe("listVersions", () => {

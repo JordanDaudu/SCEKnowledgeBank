@@ -1176,7 +1176,14 @@ export async function uploadNewVersion(
 ): Promise<DocumentVersionDTO> {
   const doc = await docsRepo.findByIdAlive(documentId);
   if (!doc) throw notFound("Document not found");
-  if (!permissions.canManageVersions(doc, user))
+  // Course managers (lecturer/admin) can always version a doc. Additionally,
+  // the ORIGINAL UPLOADER may add a new version to their own document even if
+  // they can't otherwise edit it (e.g. a student's course upload) — uploading
+  // a corrected file is the author's prerogative. A non-manager's new version
+  // of an already-public doc is re-routed through review below.
+  const isManager = permissions.canManageVersions(doc, user);
+  const isUploader = doc.uploaderId === user.id;
+  if (!isManager && !isUploader)
     throw forbidden("Cannot upload a new version of this document");
 
   const file = input.file;
@@ -1282,6 +1289,28 @@ export async function uploadNewVersion(
     documentId,
     { versionNumber: inserted.versionNumber, sizeBytes: file.size },
   );
+
+  // Re-review: a non-manager (the uploader-bypass case) adding a new version
+  // to an already-public document sends it back through review so the swapped
+  // content is re-checked before it's public again. Drafts / pending / rejected
+  // need no transition (they're still pre-approval). CAS on the read status so
+  // a concurrent transition can't double-apply.
+  if (!isManager && (doc.status === "approved" || doc.status === "published")) {
+    await docsRepo.updateDocumentByIdIfStatus(documentId, doc.status, {
+      status: "pending_review",
+      submittedForReviewAt: new Date(),
+      reviewReason: null,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    });
+    await auditService.record(
+      user.id,
+      "document.submit_for_review",
+      "document",
+      documentId,
+      { reason: "new_version" },
+    );
+  }
 
   const [dto] = await toVersionDTOs([inserted]);
   return dto;

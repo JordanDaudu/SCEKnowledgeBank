@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
   useGetCurrentUser,
@@ -6,10 +6,12 @@ import {
   getSearchDocumentsV2QueryKey,
   useListDocumentVersions,
   getListDocumentVersionsQueryKey,
+  useUploadDocumentVersion,
   getDocumentDownloadToken,
   type SearchDocumentsV2Params,
   type DocumentVersion,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +27,8 @@ import {
   Eye,
   Heart,
   FileStack,
+  Upload,
+  Loader2,
 } from "lucide-react";
 
 /**
@@ -110,8 +114,78 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
   );
 }
 
+/**
+ * "Upload new version" for one of the user's own documents. Asks for a file
+ * only — the new file becomes the next version of the existing document, so
+ * all of its metadata (title/course/tags/…) is kept and the version bumps
+ * automatically. Reuses the same endpoint as the document-detail Versions
+ * panel; the server enforces canManageVersions.
+ */
+function UploadVersionButton({
+  documentId,
+  onUploaded,
+}: {
+  documentId: string;
+  onUploaded: () => void;
+}) {
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadMut = useUploadDocumentVersion();
+
+  const handlePick: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    if (inputRef.current) inputRef.current.value = ""; // allow re-picking same file
+    if (!file) return;
+    uploadMut.mutate(
+      { id: documentId, data: { file } },
+      {
+        onSuccess: () => {
+          toast({ title: "New version uploaded" });
+          onUploaded();
+        },
+        onError: (err) =>
+          toast({
+            variant: "destructive",
+            title: "Could not upload new version",
+            description: err instanceof Error ? err.message : undefined,
+          }),
+      },
+    );
+  };
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        onChange={handlePick}
+        disabled={uploadMut.isPending}
+        data-testid="upload-version-input"
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1"
+        disabled={uploadMut.isPending}
+        onClick={() => inputRef.current?.click()}
+        data-testid="upload-version"
+        title="Upload a new version of this document"
+      >
+        {uploadMut.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Upload className="h-4 w-4" />
+        )}
+        New version
+      </Button>
+    </>
+  );
+}
+
 export default function UploadHistory() {
   const { data: user } = useGetCurrentUser();
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const params = useMemo<SearchDocumentsV2Params>(
@@ -125,6 +199,15 @@ export default function UploadHistory() {
       staleTime: 30_000,
     },
   });
+
+  // After a new version uploads, refresh the list (version badge) and the
+  // document's versions timeline.
+  const onVersionUploaded = (documentId: string) => {
+    queryClient.invalidateQueries({ queryKey: getSearchDocumentsV2QueryKey(params) });
+    queryClient.invalidateQueries({
+      queryKey: getListDocumentVersionsQueryKey(documentId),
+    });
+  };
 
   const docs = page?.items ?? [];
   const totalVersions = docs.reduce((n, d) => n + (d.currentVersion ?? 1), 0);
@@ -233,21 +316,27 @@ export default function UploadHistory() {
                           </span>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="gap-1"
-                        onClick={() => toggle(doc.id)}
-                        aria-expanded={isOpen}
-                        data-testid="toggle-versions"
-                      >
-                        {isOpen ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                        {versionCount > 1 ? `${versionCount} versions` : "History"}
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <UploadVersionButton
+                          documentId={doc.id}
+                          onUploaded={() => onVersionUploaded(doc.id)}
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1"
+                          onClick={() => toggle(doc.id)}
+                          aria-expanded={isOpen}
+                          data-testid="toggle-versions"
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          {versionCount > 1 ? `${versionCount} versions` : "History"}
+                        </Button>
+                      </div>
                     </div>
 
                     {isOpen && (
