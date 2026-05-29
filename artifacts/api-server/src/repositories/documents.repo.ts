@@ -1107,6 +1107,51 @@ export async function findVersionByIdAndDocument(
 }
 
 /**
+ * Hard-delete a single version (DocumentFile) row and reconcile quota in one
+ * transaction. Releases the row's bytes from the document uploader's quota
+ * only when it was actually billed (`countedTowardQuota`). Returns the row's
+ * `storagePath` and whether the underlying blob is now orphaned (no remaining
+ * DocumentFile references it — restore rows can share a blob), so the caller
+ * can delete it from storage. Returns null if the version no longer exists.
+ *
+ * Deleting the *current* version is the caller's concern to forbid — this
+ * helper does not touch `documents.current_version`.
+ */
+export async function deleteVersionAndReconcileQuota(
+  documentId: string,
+  versionId: string,
+): Promise<{ storagePath: string; blobOrphaned: boolean } | null> {
+  return db.$transaction(async (tx) => {
+    const row = await tx.documentFile.findFirst({
+      where: { id: versionId, documentId },
+      select: {
+        sizeBytes: true,
+        storagePath: true,
+        countedTowardQuota: true,
+      },
+    });
+    if (!row) return null;
+    const doc = await tx.document.findUnique({
+      where: { id: documentId },
+      select: { uploaderId: true },
+    });
+    await tx.documentFile.delete({ where: { id: versionId } });
+    if (row.countedTowardQuota && doc) {
+      await tx.$executeRaw`
+        UPDATE "users"
+        SET "used_bytes" = GREATEST(0, "used_bytes" - ${row.sizeBytes}::bigint)
+        WHERE "id" = ${doc.uploaderId}::uuid
+      `;
+    }
+    // The blob is safe to delete only if no surviving row still points at it.
+    const remaining = await tx.documentFile.count({
+      where: { storagePath: row.storagePath },
+    });
+    return { storagePath: row.storagePath, blobOrphaned: remaining === 0 };
+  });
+}
+
+/**
  * Insert a brand-new version of `documentId`. Performs in one tx:
  *   1. compute next version number = MAX(version_number) + 1,
  *   2. insert DocumentFile,

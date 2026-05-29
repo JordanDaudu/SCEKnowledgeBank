@@ -588,6 +588,20 @@ router.post(
   },
 );
 
+router.delete(
+  "/documents/:id/versions/:versionId",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { id, versionId } = RestoreDocumentVersionParams.parse(req.params);
+      await documentsService.deleteVersion(id, versionId, req.authUser!);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 router.get("/documents/:id/preview", async (req, res, next) => {
   try {
     const { id } = PreviewDocumentParams.parse(req.params);

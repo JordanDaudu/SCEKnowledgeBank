@@ -214,7 +214,12 @@ export default function DocumentDetail() {
   };
 
   const handleDeleteDoc = () => {
-    if (!confirm("Are you sure you want to delete this document? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Delete this document? This permanently deletes the entire document and ALL its versions (every uploaded file) — not just the current version. This cannot be undone.",
+      )
+    )
+      return;
     deleteDocMutation.mutate({ id }, {
       onSuccess: () => {
         // US-10: deleting a doc releases its bytes from the uploader's

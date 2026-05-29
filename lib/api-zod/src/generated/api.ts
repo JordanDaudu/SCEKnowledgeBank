@@ -1580,6 +1580,14 @@ export const RestoreDocumentVersionResponse = zod.object({
     .describe("True for the row whose versionNumber is highest."),
 });
 
+/**
+ * @summary Delete an older version (the current version cannot be deleted)
+ */
+export const DeleteDocumentVersionParams = zod.object({
+  id: zod.coerce.string().uuid(),
+  versionId: zod.coerce.string().uuid(),
+});
+
 export const ListDocumentCommentsParams = zod.object({
   id: zod.coerce.string().uuid(),
 });

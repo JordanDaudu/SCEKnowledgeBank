@@ -7,6 +7,7 @@ import {
   useListDocumentVersions,
   getListDocumentVersionsQueryKey,
   useUploadDocumentVersion,
+  useDeleteDocumentVersion,
   getDocumentDownloadToken,
   type SearchDocumentsV2Params,
   type DocumentVersion,
@@ -29,6 +30,7 @@ import {
   FileStack,
   Upload,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 /**
@@ -41,9 +43,37 @@ import {
  */
 function RevisionTimeline({ documentId }: { documentId: string }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const versionsKey = getListDocumentVersionsQueryKey(documentId);
   const { data: versions, isLoading } = useListDocumentVersions(documentId, {
-    query: { queryKey: getListDocumentVersionsQueryKey(documentId) },
+    query: { queryKey: versionsKey },
   });
+  const deleteMut = useDeleteDocumentVersion();
+
+  const handleDelete = (v: DocumentVersion) => {
+    if (
+      !confirm(
+        `Delete ${formatVersion(v.versionNumber)}? This permanently removes this version. The current version is unaffected.`,
+      )
+    ) {
+      return;
+    }
+    deleteMut.mutate(
+      { id: documentId, versionId: v.id },
+      {
+        onSuccess: () => {
+          toast({ title: `Deleted ${formatVersion(v.versionNumber)}` });
+          queryClient.invalidateQueries({ queryKey: versionsKey });
+        },
+        onError: (err) =>
+          toast({
+            variant: "destructive",
+            title: "Could not delete version",
+            description: err instanceof Error ? err.message : undefined,
+          }),
+      },
+    );
+  };
 
   const downloadVersion = async (v: DocumentVersion) => {
     try {
@@ -100,6 +130,20 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
               <Download className="h-3 w-3" />
               Download
             </Button>
+            {!v.isCurrent && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
+                disabled={deleteMut.isPending}
+                onClick={() => handleDelete(v)}
+                data-testid="delete-version"
+                title="Delete this version"
+              >
+                <Trash2 className="h-3 w-3" />
+                Delete
+              </Button>
+            )}
           </div>
           <p className="truncate text-xs text-muted-foreground">{v.originalFilename}</p>
           <p className="text-xs text-muted-foreground">

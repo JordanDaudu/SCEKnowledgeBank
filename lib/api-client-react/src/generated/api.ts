@@ -2497,6 +2497,91 @@ export const useRestoreDocumentVersion = <
   return useMutation(getRestoreDocumentVersionMutationOptions(options));
 };
 
+/**
+ * @summary Delete an older version (the current version cannot be deleted)
+ */
+export const getDeleteDocumentVersionUrl = (id: string, versionId: string) => {
+  return `/api/documents/${id}/versions/${versionId}`;
+};
+
+export const deleteDocumentVersion = async (
+  id: string,
+  versionId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteDocumentVersionUrl(id, versionId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteDocumentVersionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDocumentVersion>>,
+    TError,
+    { id: string; versionId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDocumentVersion>>,
+  TError,
+  { id: string; versionId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteDocumentVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDocumentVersion>>,
+    { id: string; versionId: string }
+  > = (props) => {
+    const { id, versionId } = props ?? {};
+
+    return deleteDocumentVersion(id, versionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDocumentVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDocumentVersion>>
+>;
+
+export type DeleteDocumentVersionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Delete an older version (the current version cannot be deleted)
+ */
+export const useDeleteDocumentVersion = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDocumentVersion>>,
+    TError,
+    { id: string; versionId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDocumentVersion>>,
+  TError,
+  { id: string; versionId: string },
+  TContext
+> => {
+  return useMutation(getDeleteDocumentVersionMutationOptions(options));
+};
+
 export const getListDocumentCommentsUrl = (id: string) => {
   return `/api/documents/${id}/comments`;
 };

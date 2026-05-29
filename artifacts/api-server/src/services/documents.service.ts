@@ -1374,6 +1374,54 @@ export async function restoreVersion(
   return dto;
 }
 
+/**
+ * Delete a single older version. Authorised like uploadNewVersion (course
+ * manager or the document's uploader). The CURRENT version cannot be deleted
+ * — to remove everything, delete the document. Releases the version's quota
+ * (if billed) and removes its storage blob when no other version shares it.
+ */
+export async function deleteVersion(
+  documentId: string,
+  versionId: string,
+  user: AuthenticatedUser,
+): Promise<void> {
+  const doc = await docsRepo.findByIdAlive(documentId);
+  if (!doc) throw notFound("Document not found");
+  const isManager = permissions.canManageVersions(doc, user);
+  const isUploader = doc.uploaderId === user.id;
+  if (!isManager && !isUploader)
+    throw forbidden("Cannot delete versions of this document");
+
+  const version = await docsRepo.findVersionByIdAndDocument(versionId, documentId);
+  if (!version) throw notFound("Version not found");
+  if (version.isCurrent) {
+    throw badRequest(
+      "Cannot delete the current version. Delete the document to remove it.",
+    );
+  }
+
+  const result = await docsRepo.deleteVersionAndReconcileQuota(
+    documentId,
+    versionId,
+  );
+  // Best-effort blob cleanup — only when no surviving version references it.
+  if (result?.blobOrphaned) {
+    try {
+      await getStorage().delete(result.storagePath);
+    } catch {
+      /* leave the orphaned blob; the row is already gone */
+    }
+  }
+
+  await auditService.record(
+    user.id,
+    "document.version.delete",
+    "document",
+    documentId,
+    { versionId, versionNumber: version.versionNumber },
+  );
+}
+
 // ─── Signed tokens ─────────────────────────────────────────────────
 export interface SignedTokenDTO {
   token: string;

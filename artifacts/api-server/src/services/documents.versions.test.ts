@@ -11,6 +11,7 @@ vi.mock("../repositories/documents.repo", () => ({
   findVersionByIdAndDocument: vi.fn(),
   insertNewVersionFile: vi.fn(),
   updateDocumentByIdIfStatus: vi.fn(),
+  deleteVersionAndReconcileQuota: vi.fn(),
 }));
 vi.mock("./quota.service", () => ({
   effectiveQuotaForUser: vi.fn(),
@@ -48,13 +49,14 @@ vi.mock("./documents/metadata.service", () => ({
 }));
 
 const storagePut = vi.fn();
+const storageDelete = vi.fn();
 vi.mock("../lib/storage", () => ({
   getStorage: () => ({
     put: storagePut,
     get: vi.fn(),
     getStream: vi.fn(),
     head: vi.fn(),
-    delete: vi.fn(),
+    delete: storageDelete,
     driver: "local",
   }),
 }));
@@ -66,6 +68,7 @@ import {
   uploadNewVersion,
   restoreVersion,
   listVersions,
+  deleteVersion,
 } from "./documents.service";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -74,6 +77,7 @@ const findVersions = vi.mocked(docsRepo.findVersionsByDocument);
 const findVersionById = vi.mocked(docsRepo.findVersionByIdAndDocument);
 const insertVersion = vi.mocked(docsRepo.insertNewVersionFile);
 const updateIfStatus = vi.mocked(docsRepo.updateDocumentByIdIfStatus);
+const deleteVersionRepo = vi.mocked(docsRepo.deleteVersionAndReconcileQuota);
 const effQuotaForUser = vi.mocked(quotaService.effectiveQuotaForUser);
 const canManageVersions = vi.mocked(permissions.canManageVersions);
 const canView = vi.mocked(permissions.canView);
@@ -217,6 +221,69 @@ describe("uploadNewVersion — uploader bypass + re-review", () => {
       uploadNewVersion("doc-1", { file: fakeFile() }, student),
     ).rejects.toMatchObject({ status: 403 });
     expect(insertVersion).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteVersion", () => {
+  beforeEach(() => {
+    deleteVersionRepo.mockResolvedValue({
+      storagePath: "documents/do/doc-1.v1",
+      blobOrphaned: true,
+    });
+  });
+
+  it("refuses to delete the current version", async () => {
+    canManageVersions.mockReturnValue(true);
+    findDoc.mockResolvedValue(fakeDoc({ currentVersion: 2 }));
+    findVersionById.mockResolvedValue(
+      fakeVersionRow({ versionNumber: 2, isCurrent: true }),
+    );
+    await expect(
+      deleteVersion("doc-1", "ver-id", lecturer),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(deleteVersionRepo).not.toHaveBeenCalled();
+  });
+
+  it("lets the uploader delete an older version of their own doc, releasing storage", async () => {
+    canManageVersions.mockReturnValue(false);
+    findDoc.mockResolvedValue(
+      fakeDoc({ uploaderId: student.id, ownerId: student.id, currentVersion: 2 }),
+    );
+    findVersionById.mockResolvedValue(
+      fakeVersionRow({ versionNumber: 1, isCurrent: false }),
+    );
+    await deleteVersion("doc-1", "ver-1", student);
+    expect(deleteVersionRepo).toHaveBeenCalledWith("doc-1", "ver-1");
+    // Orphaned blob is removed from storage.
+    expect(storageDelete).toHaveBeenCalledWith("documents/do/doc-1.v1");
+  });
+
+  it("does NOT delete the blob when another version still shares it", async () => {
+    canManageVersions.mockReturnValue(true);
+    findDoc.mockResolvedValue(fakeDoc({ currentVersion: 2 }));
+    findVersionById.mockResolvedValue(
+      fakeVersionRow({ versionNumber: 1, isCurrent: false }),
+    );
+    deleteVersionRepo.mockResolvedValue({
+      storagePath: "documents/do/doc-1.v1",
+      blobOrphaned: false,
+    });
+    await deleteVersion("doc-1", "ver-1", lecturer);
+    expect(storageDelete).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-uploader who cannot manage versions", async () => {
+    canManageVersions.mockReturnValue(false);
+    findDoc.mockResolvedValue(
+      fakeDoc({ uploaderId: "someone-else", ownerId: "someone-else" }),
+    );
+    findVersionById.mockResolvedValue(
+      fakeVersionRow({ versionNumber: 1, isCurrent: false }),
+    );
+    await expect(
+      deleteVersion("doc-1", "ver-1", student),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(deleteVersionRepo).not.toHaveBeenCalled();
   });
 });
 
