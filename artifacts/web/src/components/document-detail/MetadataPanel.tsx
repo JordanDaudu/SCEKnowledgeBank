@@ -2,7 +2,7 @@ import type { DocumentDetail as DocumentDetailDto } from "@workspace/api-client-
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Download, User, Clock, Send, Check, X } from "lucide-react";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatVersion } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
 import { StatusBadge } from "./StatusBadge";
 
@@ -58,7 +58,16 @@ export default function MetadataPanel({
   return (
     <div>
       <div className="flex justify-between items-start mb-2 gap-2">
-        <h1 className="text-2xl font-serif font-bold">{doc.title}</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-serif font-bold">{doc.title}</h1>
+          <span
+            className="mt-1 inline-flex items-center rounded border px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground"
+            title="Current version"
+            data-testid="doc-version"
+          >
+            {formatVersion(doc.currentVersion)}
+          </span>
+        </div>
         {canEdit && (
           <div className="flex gap-1 ml-2 shrink-0">
             <Button

@@ -9,7 +9,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/document-detail/StatusBadge";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatVersion } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
 import { apiUrl } from "@/lib/api-url";
 import {
@@ -172,6 +172,13 @@ export default function DocumentCards({ items, favoritedIds }: Props) {
                   <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                     <span className="material-tag inline-flex items-center rounded border px-2 py-0.5 text-xs capitalize">
                       {formatMaterialType(doc.materialType)}
+                    </span>
+                    <span
+                      className="inline-flex items-center rounded border px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground"
+                      title="Current version"
+                      data-testid="doc-version"
+                    >
+                      {formatVersion(doc.currentVersion)}
                     </span>
                     {showStatus && <StatusBadge status={doc.status} />}
                   </div>

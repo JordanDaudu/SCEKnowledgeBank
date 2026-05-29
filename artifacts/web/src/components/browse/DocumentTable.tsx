@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatVersion } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
 import { apiUrl } from "@/lib/api-url";
 import {
@@ -114,11 +114,12 @@ function SortHeader({
   );
 }
 
-type ColumnKey = "course" | "type" | "status" | "uploaded";
+type ColumnKey = "course" | "type" | "version" | "status" | "uploaded";
 
 const COLUMNS: { key: ColumnKey; label: string }[] = [
   { key: "course", label: "Course" },
   { key: "type", label: "Type" },
+  { key: "version", label: "Version" },
   { key: "status", label: "Status" },
   { key: "uploaded", label: "Uploaded" },
 ];
@@ -405,6 +406,7 @@ export default function DocumentTable({
               </TableHead>
               {isVisible("course") && <TableHead>Course</TableHead>}
               {isVisible("type") && <TableHead>Type</TableHead>}
+              {isVisible("version") && <TableHead>Version</TableHead>}
               {isVisible("status") && <TableHead>Status</TableHead>}
               {isVisible("uploaded") && (
                 <TableHead>
@@ -491,6 +493,11 @@ export default function DocumentTable({
                         <Badge variant="secondary" className="capitalize text-xs font-normal">
                           {formatMaterialType(doc.materialType)}
                         </Badge>
+                      </TableCell>
+                    )}
+                    {isVisible("version") && (
+                      <TableCell className="text-muted-foreground text-xs tabular-nums">
+                        {formatVersion(doc.currentVersion)}
                       </TableCell>
                     )}
                     {isVisible("status") && (

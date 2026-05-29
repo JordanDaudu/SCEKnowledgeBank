@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api-url";
+import { formatVersion } from "@/lib/format";
 
 interface Props {
   documentId: string;
@@ -86,7 +87,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
   const handleRestore = (v: DocumentVersion) => {
     if (
       !confirm(
-        `Restore version ${v.versionNumber}? A new version pointing at the same file will become the current one. History is preserved.`,
+        `Restore ${formatVersion(v.versionNumber)}? A new version pointing at the same file will become the current one. History is preserved.`,
       )
     ) {
       return;
@@ -95,7 +96,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
       { id: documentId, versionId: v.id },
       {
         onSuccess: () => {
-          toast({ title: `Restored version ${v.versionNumber}` });
+          toast({ title: `Restored ${formatVersion(v.versionNumber)}` });
           invalidateAfterMutation();
         },
         onError: (err) => {
@@ -180,7 +181,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="font-medium">v{v.versionNumber}</span>
+                  <span className="font-medium">{formatVersion(v.versionNumber)}</span>
                   {v.isCurrent && (
                     <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
                       Current

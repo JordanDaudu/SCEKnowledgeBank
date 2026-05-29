@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/document-detail/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
-import { formatBytes, formatDateTime } from "@/lib/format";
+import { formatBytes, formatDateTime, formatVersion } from "@/lib/format";
 import { apiUrl } from "@/lib/api-url";
 import {
   History,
@@ -78,7 +78,7 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
             aria-hidden
           />
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-medium">v{v.versionNumber}</span>
+            <span className="font-medium">{formatVersion(v.versionNumber)}</span>
             {v.isCurrent && (
               <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
                 Current
@@ -211,7 +211,7 @@ export default function UploadHistory() {
                             className="rounded bg-secondary px-1.5 py-0.5 text-xs font-medium tabular-nums"
                             title="Current version"
                           >
-                            v{versionCount}
+                            {formatVersion(versionCount)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
