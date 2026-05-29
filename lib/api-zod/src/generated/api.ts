@@ -2047,7 +2047,7 @@ export const UpdateRequestParams = zod.object({
 
 export const UpdateRequestBody = zod.object({
   status: zod.enum(["open", "in_progress", "fulfilled", "closed"]).optional(),
-  fulfillingDocumentId: zod.string().uuid().optional(),
+  fulfillingDocumentId: zod.string().uuid().nullish(),
   title: zod.string().optional(),
   description: zod.string().optional(),
 });
@@ -3512,6 +3512,7 @@ export const CreateCollectionBody = zod.object({
   courseId: zod.string().uuid().optional(),
   visibility: zod.enum(["private", "shared"]).optional(),
   examDate: zod.coerce.date().optional(),
+  documentIds: zod.array(zod.string().uuid()).optional(),
 });
 
 /**

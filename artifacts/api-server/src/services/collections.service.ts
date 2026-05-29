@@ -156,6 +156,8 @@ export async function createCollection(
     courseId?: string | null;
     visibility?: string;
     examDate?: Date | null;
+    /** Optionally seed the bundle with these documents at creation (US-51). */
+    documentIds?: string[];
   },
 ): Promise<CollectionSummaryDTO> {
   const title = input.title?.trim();
@@ -169,6 +171,23 @@ export async function createCollection(
   ) {
     throw badRequest(`Unknown visibility. Allowed: ${VISIBILITIES.join(", ")}`);
   }
+
+  // Validate every selected material up front (US-51): they must exist and be
+  // visible to the user, so we never create a bundle then half-fill it.
+  const documentIds = Array.from(new Set(input.documentIds ?? []));
+  if (documentIds.length > 0) {
+    const docs = await docsRepo.findManyByIdsAlive(documentIds);
+    const allowed = new Set(
+      docs.filter((d) => permissions.canView(d, user)).map((d) => d.id),
+    );
+    const invalid = documentIds.filter((id) => !allowed.has(id));
+    if (invalid.length > 0) {
+      throw badRequest(
+        "One or more selected materials don't exist or aren't accessible to you",
+      );
+    }
+  }
+
   const created = await collectionsRepo.createCollection({
     ownerId: user.id,
     title,
@@ -178,7 +197,11 @@ export async function createCollection(
     visibility: input.visibility ?? "private",
     examDate: input.examDate ?? null,
   });
-  return toSummary({ ...created, itemCount: 0 });
+  for (const documentId of documentIds) {
+    await collectionsRepo.addItem(created.id, documentId);
+  }
+  if (documentIds.length > 0) await recomputePopularity(created.id);
+  return toSummary({ ...created, itemCount: documentIds.length });
 }
 
 export async function listMyCollections(

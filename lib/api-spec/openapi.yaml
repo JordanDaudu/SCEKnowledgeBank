@@ -1995,7 +1995,7 @@ components:
       type: object
       properties:
         status: { type: string, enum: [open, in_progress, fulfilled, closed] }
-        fulfillingDocumentId: { type: string, format: uuid }
+        fulfillingDocumentId: { type: string, format: uuid, nullable: true }
         title: { type: string }
         description: { type: string }
 
@@ -2259,6 +2259,9 @@ components:
         courseId: { type: string, format: uuid }
         visibility: { type: string, enum: [private, shared] }
         examDate: { type: string, format: date-time }
+        documentIds:
+          type: array
+          items: { type: string, format: uuid }
     UpdateCollectionRequest:
       type: object
       properties:

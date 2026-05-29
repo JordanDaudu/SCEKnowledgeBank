@@ -16,4 +16,5 @@ export interface CreateCollectionRequest {
   courseId?: string;
   visibility?: CreateCollectionRequestVisibility;
   examDate?: Date;
+  documentIds?: string[];
 }

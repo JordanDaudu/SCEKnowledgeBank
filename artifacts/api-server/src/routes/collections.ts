@@ -20,6 +20,7 @@ const CreateBody = z.object({
   courseId: z.string().uuid().optional(),
   visibility: z.enum(["private", "shared"]).optional(),
   examDate: z.coerce.date().optional(),
+  documentIds: z.array(z.string().uuid()).optional(),
 });
 const UpdateBody = z.object({
   title: z.string().optional(),

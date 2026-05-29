@@ -9,7 +9,7 @@ import type { UpdateRequestRequestStatus } from "./updateRequestRequestStatus";
 
 export interface UpdateRequestRequest {
   status?: UpdateRequestRequestStatus;
-  fulfillingDocumentId?: string;
+  fulfillingDocumentId?: string | null;
   title?: string;
   description?: string;
 }

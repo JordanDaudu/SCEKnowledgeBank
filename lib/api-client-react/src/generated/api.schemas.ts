@@ -595,7 +595,7 @@ export const UpdateRequestRequestStatus = {
 
 export interface UpdateRequestRequest {
   status?: UpdateRequestRequestStatus;
-  fulfillingDocumentId?: string;
+  fulfillingDocumentId?: string | null;
   title?: string;
   description?: string;
 }
@@ -852,6 +852,7 @@ export interface CreateCollectionRequest {
   courseId?: string;
   visibility?: CreateCollectionRequestVisibility;
   examDate?: string;
+  documentIds?: string[];
 }
 
 export type UpdateCollectionRequestKind =
