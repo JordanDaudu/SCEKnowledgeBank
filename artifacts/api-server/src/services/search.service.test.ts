@@ -164,6 +164,38 @@ describe("searchDocuments — typed filter DSL", () => {
     expect(titleHit?.headline).toMatch(/\[\[KBMARK]].*\[\[\/KBMARK]]/i);
   });
 
+  it("matches a partial prefix term (plank → Plankton)", async () => {
+    const page = await searchService.searchDocuments(
+      { q: "plank", sort: "newest", page: 1, pageSize: 20 },
+      ctx.adminUser,
+    );
+    const ids = page.items.map((i) => i.id);
+    expect(ids).toContain(ctx.docTitleId);
+    // tag name is "plankton-tag…", so the tag-haystack doc matches too
+    expect(ids).toContain(ctx.docTagId);
+    expect(ids).not.toContain(ctx.docOtherId);
+    // count and page agree (same prefix tsquery on both sides)
+    expect(page.total).toBeGreaterThanOrEqual(2);
+  });
+
+  it("matches a multi-word query whose last term is a prefix (plankton cens)", async () => {
+    const page = await searchService.searchDocuments(
+      { q: "plankton cens", sort: "newest", page: 1, pageSize: 20 },
+      ctx.adminUser,
+    );
+    const ids = page.items.map((i) => i.id);
+    expect(ids).toContain(ctx.docTitleId);
+  });
+
+  it("tolerates a small typo via fuzzy fallback (plankton → plankron)", async () => {
+    const page = await searchService.searchDocuments(
+      { q: "plankron", sort: "newest", page: 1, pageSize: 20 },
+      ctx.adminUser,
+    );
+    const ids = page.items.map((i) => i.id);
+    expect(ids).toContain(ctx.docTitleId);
+  });
+
   it("returns a plain page (no headline) when q is empty", async () => {
     const page = await searchService.searchDocuments(
       { courseId: ctx.courseId, sort: "newest", page: 1, pageSize: 20 },

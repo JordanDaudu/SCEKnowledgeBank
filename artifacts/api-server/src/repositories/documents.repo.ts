@@ -303,6 +303,28 @@ function buildFilterFragmentsSql(filters: DocumentListFilters): Prisma.Sql[] {
   return parts;
 }
 
+/**
+ * Build a prefix-aware tsquery from raw user input.
+ *
+ * We tokenise the raw string into plain word tokens (Unicode letters/digits
+ * only — this is what makes it injection-safe: nothing but `[\p{L}\p{N}]`,
+ * `:*`, ` & ` ever reaches `to_tsquery`), append `:*` to each, and let the
+ * `english` config stem + prefix-match them. A partial/trailing word then
+ * matches by prefix: "lect" → stem "lect" → `lect:*` matches the stored
+ * lexeme "lectur" (from "lecture"); "census" → stem "censu" → `censu:*`.
+ *
+ * Empty / all-punctuation input yields an empty tsquery that matches nothing,
+ * preserving the previous `plainto_tsquery` behaviour.
+ */
+function prefixTsQuery(q: string): Prisma.Sql {
+  const tokens = q
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((t) => t.length > 0)
+    .map((t) => `${t}:*`);
+  return Prisma.sql`to_tsquery('english', ${tokens.join(" & ")})`;
+}
+
 export async function countSearchDocuments(
   q: string,
   filters: DocumentListFilters,
@@ -312,7 +334,7 @@ export async function countSearchDocuments(
     [
       ...buildFilterFragmentsSql(filters),
       visibilitySql,
-      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+      Prisma.sql`d.search_vector @@ ${prefixTsQuery(q)}`,
     ],
     " AND ",
   );
@@ -334,7 +356,7 @@ export async function searchDocumentsRanked(
     [
       ...buildFilterFragmentsSql(filters),
       visibilitySql,
-      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+      Prisma.sql`d.search_vector @@ ${prefixTsQuery(q)}`,
     ],
     " AND ",
   );
@@ -352,7 +374,7 @@ export async function searchDocumentsRanked(
     SELECT d.id
     FROM documents d
     WHERE ${where}
-    ORDER BY ts_rank(d.search_vector, plainto_tsquery('english', ${q})) DESC,
+    ORDER BY ts_rank(d.search_vector, ${prefixTsQuery(q)}) DESC,
              ${tieBreaker}
     LIMIT ${options.pageSize} OFFSET ${offset}
   `;
@@ -391,7 +413,7 @@ export async function searchDocumentsRankedWithSnippets(
     [
       ...buildFilterFragmentsSql(filters),
       visibilitySql,
-      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+      Prisma.sql`d.search_vector @@ ${prefixTsQuery(q)}`,
     ],
     " AND ",
   );
@@ -408,12 +430,12 @@ export async function searchDocumentsRankedWithSnippets(
     SELECT d.id,
            ts_headline('english',
              coalesce(d.search_text, d.title || ' ' || coalesce(d.description, '')),
-             plainto_tsquery('english', ${q}),
+             ${prefixTsQuery(q)},
              ${HEADLINE_OPTIONS}
            ) AS headline
     FROM documents d
     WHERE ${where}
-    ORDER BY ts_rank(d.search_vector, plainto_tsquery('english', ${q})) DESC,
+    ORDER BY ts_rank(d.search_vector, ${prefixTsQuery(q)}) DESC,
              ${tieBreaker}
     LIMIT ${options.pageSize} OFFSET ${offset}
   `;
@@ -427,6 +449,78 @@ export async function searchDocumentsRankedWithSnippets(
   const order = new Map(ids.map((id, i) => [id, i]));
   docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return { rows: docs, headlines };
+}
+
+// ─── Fuzzy (trigram) fallback ────────────────────────────────────
+//
+// Typo tolerance. The FTS path (prefix tsquery) is exact-stem + prefix:
+// it can't recover from a misspelling ("plankron" → "plankton"). When the
+// FTS path returns zero hits, the service retries through these trigram
+// `word_similarity` helpers. `word_similarity` finds the best-matching word
+// extent inside the haystack, so a long `search_text` doesn't dilute the
+// score the way plain `similarity` would. The function form (not the `<%`
+// operator) is used so the threshold is explicit and not dependent on the
+// connection-level `pg_trgm.word_similarity_threshold` GUC; this means a
+// sequential scan over the *already filtered* candidate set, which is
+// acceptable because the fallback only runs when FTS found nothing.
+
+const FUZZY_THRESHOLD = 0.4;
+
+function fuzzyMatchSql(q: string): Prisma.Sql {
+  return Prisma.sql`(
+    word_similarity(${q}, d.title) >= ${FUZZY_THRESHOLD}
+    OR word_similarity(${q}, coalesce(d.search_text, d.title)) >= ${FUZZY_THRESHOLD}
+  )`;
+}
+
+export async function countFuzzyDocuments(
+  q: string,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+): Promise<number> {
+  const where = Prisma.join(
+    [...buildFilterFragmentsSql(filters), visibilitySql, fuzzyMatchSql(q)],
+    " AND ",
+  );
+  const rows = await db.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM documents d
+    WHERE ${where}
+  `;
+  return Number(rows[0]?.count ?? 0n);
+}
+
+export async function searchDocumentsFuzzy(
+  q: string,
+  filters: DocumentListFilters,
+  visibilitySql: Prisma.Sql,
+  options: { sort: DocumentSort; page: number; pageSize: number },
+): Promise<DocumentRow[]> {
+  const where = Prisma.join(
+    [...buildFilterFragmentsSql(filters), visibilitySql, fuzzyMatchSql(q)],
+    " AND ",
+  );
+  const tieBreaker =
+    options.sort === "oldest"
+      ? Prisma.sql`d.created_at ASC`
+      : options.sort === "title"
+        ? Prisma.sql`d.title ASC`
+        : Prisma.sql`d.created_at DESC`;
+  const offset = (options.page - 1) * options.pageSize;
+  const idRows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT d.id
+    FROM documents d
+    WHERE ${where}
+    ORDER BY word_similarity(${q}, coalesce(d.search_text, d.title)) DESC,
+             ${tieBreaker}
+    LIMIT ${options.pageSize} OFFSET ${offset}
+  `;
+  if (idRows.length === 0) return [];
+  const ids = idRows.map((r) => r.id);
+  const docs = await db.document.findMany({ where: { id: { in: ids } } });
+  const order = new Map(ids.map((id, i) => [id, i]));
+  docs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return docs;
 }
 
 export interface FacetCount {
@@ -462,7 +556,7 @@ export async function computeFacetCounts(
   const whereParts = [...buildFilterFragmentsSql(filters), visibilitySql];
   if (q) {
     whereParts.push(
-      Prisma.sql`d.search_vector @@ plainto_tsquery('english', ${q})`,
+      Prisma.sql`d.search_vector @@ ${prefixTsQuery(q)}`,
     );
   }
   const where = Prisma.join(whereParts, " AND ");

@@ -97,8 +97,8 @@ async function setup(): Promise<Ctx> {
   await db.documentFile.create({
     data: {
       documentId: docText.id,
-      originalFilename: "ridges.pdf",
-      displayFilename: "ridges.pdf",
+      originalFilename: `zephyrnotes${SUFFIX}.pdf`,
+      displayFilename: `zephyrnotes${SUFFIX}.pdf`,
       storedFilename: "ridges.pdf",
       mimeType: "application/pdf",
       sizeBytes: 1n,
@@ -106,6 +106,7 @@ async function setup(): Promise<Ctx> {
       checksum: `sha${SUFFIX}-c`,
       extractedText:
         "Detailed analysis of plankton blooms near the ridge.",
+      keywords: ["bioluminescence"],
     },
   });
   // Doc D: a control row that should never match.
@@ -203,6 +204,40 @@ describe("documents FTS — ranked search via Postgres tsvector", () => {
   it("finds documents matching by extracted text", async () => {
     const rows = await searchDocumentsRanked(
       "blooms",
+      filtersWithDocIds([
+        ctx.docTitleId,
+        ctx.docTagId,
+        ctx.docTextId,
+        ctx.docOtherId,
+      ]),
+      ADMIN_VISIBILITY,
+      { sort: "newest", page: 1, pageSize: 20 },
+    );
+    const ids = rows.map((r) => r.id);
+    expect(ids).toContain(ctx.docTextId);
+    expect(ids).not.toContain(ctx.docOtherId);
+  });
+
+  it("finds documents matching by filename", async () => {
+    const rows = await searchDocumentsRanked(
+      `zephyrnotes${SUFFIX}`,
+      filtersWithDocIds([
+        ctx.docTitleId,
+        ctx.docTagId,
+        ctx.docTextId,
+        ctx.docOtherId,
+      ]),
+      ADMIN_VISIBILITY,
+      { sort: "newest", page: 1, pageSize: 20 },
+    );
+    const ids = rows.map((r) => r.id);
+    expect(ids).toContain(ctx.docTextId);
+    expect(ids).not.toContain(ctx.docOtherId);
+  });
+
+  it("finds documents matching by extracted keyword metadata", async () => {
+    const rows = await searchDocumentsRanked(
+      "bioluminescence",
       filtersWithDocIds([
         ctx.docTitleId,
         ctx.docTagId,

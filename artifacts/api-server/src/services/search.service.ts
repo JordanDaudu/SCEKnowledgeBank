@@ -109,6 +109,26 @@ export async function searchDocuments(
         pageSize: q.pageSize,
       }),
     ]);
+    // Typo tolerance: when the exact/prefix FTS path finds nothing, retry
+    // through the trigram fuzzy fallback (same filters + visibility). The
+    // fuzzy path has no FTS headline, so hits come back without snippets.
+    if (total === 0) {
+      const [fuzzyTotal, fuzzyRows] = await Promise.all([
+        docsRepo.countFuzzyDocuments(q.q, filters, visibilitySql),
+        docsRepo.searchDocumentsFuzzy(q.q, filters, visibilitySql, {
+          sort: q.sort,
+          page: q.page,
+          pageSize: q.pageSize,
+        }),
+      ]);
+      const fuzzyDtos = await documentsService.assembleDocuments(fuzzyRows, user);
+      return {
+        items: fuzzyDtos,
+        total: fuzzyTotal,
+        page: q.page,
+        pageSize: q.pageSize,
+      };
+    }
     const dtos = await documentsService.assembleDocuments(rows, user);
     const items: SearchHit[] = dtos.map((d) => {
       const h = headlines.get(d.id);
