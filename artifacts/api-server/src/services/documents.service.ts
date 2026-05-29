@@ -17,6 +17,7 @@ import { signToken, verifyToken } from "../lib/sign-url";
 import { getStorage } from "../lib/storage";
 import { env } from "../lib/env";
 import { mimeMatchesContent } from "../lib/mime-sniff";
+import { contentDisposition } from "../lib/filename";
 import type { AuthenticatedUser } from "../middlewares/auth";
 import {
   extractMetadata,
@@ -1515,10 +1516,9 @@ async function streamFile(
   }
   res.setHeader("Content-Type", file.mimeType);
   res.setHeader("Content-Length", String(file.sizeBytes));
-  const safeName = file.originalFilename.replace(/[^A-Za-z0-9._-]/g, "_");
   res.setHeader(
     "Content-Disposition",
-    `${disposition}; filename="${safeName}"`,
+    contentDisposition(disposition, file.originalFilename),
   );
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (disposition === "inline") {

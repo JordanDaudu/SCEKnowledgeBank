@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import multer from "multer";
+import { decodeMultipartFilename } from "../lib/filename";
 import { z } from "zod";
 import {
   GetDocumentDownloadTokenParams,
@@ -102,6 +103,23 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: env.maxUploadMb * 1024 * 1024 },
 });
+
+// multer/busboy hand us `originalname` as latin1-decoded bytes, so UTF-8
+// filenames (e.g. Hebrew) arrive mojibake'd. Normalise every uploaded file's
+// name right after parsing so all downstream consumers (storage, DTO,
+// filename-intel) see the correct UTF-8 name.
+const normalizeUploadFilenames: RequestHandler = (req, _res, next) => {
+  const fix = (f?: Express.Multer.File) => {
+    if (f) f.originalname = decodeMultipartFilename(f.originalname);
+  };
+  fix(req.file);
+  if (Array.isArray(req.files)) {
+    req.files.forEach(fix);
+  } else if (req.files) {
+    for (const arr of Object.values(req.files)) arr.forEach(fix);
+  }
+  next();
+};
 
 router.get("/documents", requireAuth, async (req, res, next) => {
   try {
@@ -263,6 +281,7 @@ router.post(
     next();
   },
   upload.single("file"),
+  normalizeUploadFilenames,
   async (req, res, next) => {
     try {
       const file = req.file;
@@ -315,6 +334,7 @@ router.post(
     next();
   },
   upload.array("files"),
+  normalizeUploadFilenames,
   async (req, res, next) => {
     try {
       const files = (req.files as Express.Multer.File[] | undefined) ?? [];
@@ -545,6 +565,7 @@ router.post(
   "/documents/:id/versions",
   requireAuth,
   upload.single("file"),
+  normalizeUploadFilenames,
   async (req, res, next) => {
     try {
       const { id } = UploadDocumentVersionParams.parse(req.params);
