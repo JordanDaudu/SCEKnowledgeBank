@@ -30,7 +30,7 @@ export function RecentActivity() {
           Recent activity
         </h2>
         <Link
-          href="/activity"
+          href="/admin/analytics"
           className="text-sm font-medium text-primary hover:underline"
         >
           View all

@@ -15,7 +15,6 @@ import PrepHub from "@/pages/prep-hub";
 import CollectionDetail from "@/pages/collection-detail";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
-import Activity from "@/pages/activity";
 import AdminUsers from "@/pages/admin-users";
 import AdminAnalytics from "@/pages/admin-analytics";
 import CourseAnalytics from "@/pages/course-analytics";
@@ -123,14 +122,6 @@ function Router() {
         <AuthGuard>
           <Layout>
             <Notifications />
-          </Layout>
-        </AuthGuard>
-      </Route>
-
-      <Route path="/activity">
-        <AuthGuard>
-          <Layout>
-            <Activity />
           </Layout>
         </AuthGuard>
       </Route>

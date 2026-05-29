@@ -15,15 +15,21 @@ import {
   Loader2,
   ShieldCheck,
   BarChart3,
-  Activity,
   History,
   GraduationCap,
   Menu,
   X,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./logo";
 import { Button } from "./ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "./notification-bell";
 import {
@@ -59,15 +65,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
     label: string;
   }
 
-  const navItems: NavItem[] = user
+  // Primary items stay inline on desktop; the rest live behind a "More"
+  // dropdown to keep the bar uncluttered. The mobile sheet shows everything.
+  // Prep Hub is for students/lecturers (admins manage, not study); Activity
+  // logs live inside the admin Analytics page rather than a top-level item.
+  const primaryNav: NavItem[] = user
     ? [
         { href: "/", icon: BookOpen, label: "Home" },
         { href: "/browse", icon: Search, label: "Browse" },
-        { href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" },
+        ...(!isAdmin
+          ? [{ href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" }]
+          : []),
         { href: "/requests", icon: MessageSquare, label: "Requests" },
         { href: "/upload", icon: Upload, label: "Upload" },
+      ]
+    : [];
+
+  const moreNav: NavItem[] = user
+    ? [
         { href: "/uploads", icon: History, label: "My Uploads" },
-        { href: "/activity", icon: Activity, label: "Activity" },
         ...(isLecturerOrAdmin
           ? [{ href: "/review-queue", icon: ShieldCheck, label: "Review" }]
           : []),
@@ -79,6 +95,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           : []),
       ]
     : [];
+
+  const allNav: NavItem[] = [...primaryNav, ...moreNav];
 
   const NavLink = ({
     href,
@@ -119,12 +137,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="sm:hidden">KB</span>
             </Link>
 
-            {/* Desktop nav */}
+            {/* Desktop nav: primary items inline + a "More" dropdown. */}
             {user && (
               <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
-                {navItems.map((item) => (
+                {primaryNav.map((item) => (
                   <NavLink key={item.href} {...item} />
                 ))}
+                {moreNav.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        data-testid="nav-more"
+                      >
+                        More
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {moreNav.map((item) => (
+                        <DropdownMenuItem key={item.href} asChild>
+                          <Link
+                            href={item.href}
+                            className="flex items-center gap-2.5 cursor-pointer"
+                          >
+                            <item.icon className="h-4 w-4 shrink-0" />
+                            {item.label}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </nav>
             )}
           </div>
@@ -203,9 +248,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     </div>
                   </div>
 
-                  {/* Nav links */}
+                  {/* Nav links — the sheet shows everything (no "More"). */}
                   <nav className="flex flex-col gap-1 p-3 flex-1" aria-label="Mobile navigation">
-                    {navItems.map((item) => (
+                    {allNav.map((item) => (
                       <SheetClose asChild key={item.href}>
                         <NavLink
                           {...item}

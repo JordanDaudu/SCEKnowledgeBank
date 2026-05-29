@@ -16,15 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Activity as ActivityIcon,
-  Inbox,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Inbox, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDateTime } from "@/lib/format";
 import { describeAction, iconForEntity } from "@/lib/activity-format";
 
+/**
+ * Reusable activity-log feed (scope + entity filters, list, pagination).
+ * Embedded in the admin Analytics page. Header-less so the host provides the
+ * surrounding context.
+ */
 const PAGE_SIZE = 20;
 
 const ENTITY_FILTERS: { value: string; label: string }[] = [
@@ -73,7 +73,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
   );
 }
 
-export default function Activity() {
+export function ActivityFeed() {
   const [page, setPage] = useState(1);
   const [entityType, setEntityType] = useState("all");
   const [mine, setMine] = useState(false);
@@ -82,69 +82,52 @@ export default function Activity() {
     page,
     pageSize: PAGE_SIZE,
     ...(entityType !== "all" ? { entityType } : {}),
-    // Omit `mine` entirely when off — the API coerces any present value to
-    // true, so sending mine=false would wrongly filter to self.
+    // Omit `mine` when off — the API coerces any present value to true.
     ...(mine ? { mine: true } : {}),
   };
 
   const { data, isLoading, isError, refetch } = useListActivity(params, {
-    query: {
-      queryKey: getListActivityQueryKey(params),
-      staleTime: 15_000,
-    },
+    query: { queryKey: getListActivityQueryKey(params), staleTime: 15_000 },
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
-              <ActivityIcon className="h-5 w-5 text-primary" />
-            </div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Activity</h1>
-          </div>
-          <p className="text-muted-foreground">
-            A running log of recent actions you can see.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select
-            value={mine ? "mine" : "all"}
-            onValueChange={(v) => {
-              setMine(v === "mine");
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-36" data-testid="activity-scope">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Everyone</SelectItem>
-              <SelectItem value="mine">Just me</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={entityType}
-            onValueChange={(v) => {
-              setEntityType(v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-44" data-testid="activity-filter">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ENTITY_FILTERS.map((f) => (
-                <SelectItem key={f.value} value={f.value}>
-                  {f.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        <Select
+          value={mine ? "mine" : "all"}
+          onValueChange={(v) => {
+            setMine(v === "mine");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-36" data-testid="activity-scope">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Everyone</SelectItem>
+            <SelectItem value="mine">Just me</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={entityType}
+          onValueChange={(v) => {
+            setEntityType(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-44" data-testid="activity-filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ENTITY_FILTERS.map((f) => (
+              <SelectItem key={f.value} value={f.value}>
+                {f.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>

@@ -468,8 +468,8 @@ export default function Home() {
         {/* Trending assets (Phase 8 / deferred Phase 2) */}
         <TrendingDocuments />
 
-        {/* Recent activity (Phase 5) */}
-        <RecentActivity />
+        {/* Recent activity — admin only (activity logs live in Analytics) */}
+        {user && isAdmin && <RecentActivity />}
       </div>
     </div>
   );

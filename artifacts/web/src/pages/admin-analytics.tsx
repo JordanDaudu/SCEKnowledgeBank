@@ -28,6 +28,13 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
+import { ActivityFeed } from "@/components/activity-feed";
 import { cn } from "@/lib/utils";
 
 function WoW({ now, prev }: { now: number; prev: number }) {
@@ -121,6 +128,13 @@ export default function AdminAnalytics() {
           </Link>
         )}
       </div>
+
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="activity">Activity logs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="space-y-6 mt-4">
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
@@ -306,6 +320,12 @@ export default function AdminAnalytics() {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-4">
+          <ActivityFeed />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
