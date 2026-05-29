@@ -20,6 +20,19 @@ export function formatVersion(versionNumber: number | null | undefined): string 
   return `v${n}.0`;
 }
 
+/**
+ * Whether a storage quota should be shown as "Unlimited" rather than a number.
+ *
+ * Local dev (STORAGE_DRIVER=local) reports an absurd quota (~8 million TB),
+ * which renders as a meaningless figure and a flat progress bar. Any quota at
+ * or above 1 PB — far beyond a realistic per-user allowance — is treated as
+ * effectively unlimited, as are non-finite values.
+ */
+export function isUnlimitedQuota(quotaBytes: number): boolean {
+  if (!Number.isFinite(quotaBytes)) return true;
+  return quotaBytes >= 1024 ** 5; // 1 PB
+}
+
 export function formatDate(dateString: string) {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',

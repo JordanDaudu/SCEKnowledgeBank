@@ -12,6 +12,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api-url";
 import { formatVersion } from "@/lib/format";
@@ -156,12 +157,32 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
             ref={fileInputRef}
             type="file"
             onChange={handleFilePicked}
-            className="block w-full text-sm"
+            className="hidden"
             disabled={uploadMut.isPending}
           />
-          {uploadMut.isPending && (
-            <p className="text-xs text-muted-foreground">Uploading…</p>
-          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={uploadMut.isPending}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploadMut.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Uploading…
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload new version
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Uploads a new version with the same details — just pick a file.
+          </p>
         </div>
       )}
 

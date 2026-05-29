@@ -23,7 +23,7 @@ export default function PreviewFallback({ doc, onDownload, message }: Props) {
   const mime = doc.file?.mimeType;
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center text-center p-8"
+      className="flex h-full min-h-[300px] flex-col items-center justify-center text-center p-8"
       data-testid="preview-unavailable"
     >
       {doc.thumbnailUrl ? (

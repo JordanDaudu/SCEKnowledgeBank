@@ -28,10 +28,10 @@ const STATUS_CFG: Record<string, {
   border: string;
   icon?: typeof Clock;
 }> = {
-  open:        { label: "Open",        pill: "bg-sky-50 text-sky-700 border-sky-200",           border: "border-l-sky-400",     icon: undefined     },
-  in_progress: { label: "In Progress", pill: "bg-amber-50 text-amber-700 border-amber-200",     border: "border-l-amber-400",   icon: Loader2       },
-  fulfilled:   { label: "Fulfilled",   pill: "bg-emerald-50 text-emerald-700 border-emerald-200", border: "border-l-emerald-500", icon: CheckCircle2  },
-  closed:      { label: "Closed",      pill: "bg-slate-50 text-slate-500 border-slate-200",     border: "border-l-slate-300",   icon: XCircle       },
+  open:        { label: "Open",        pill: "bg-primary/10 text-primary border-primary/20",                                                 border: "border-l-primary",     icon: undefined     },
+  in_progress: { label: "In Progress", pill: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50",       border: "border-l-amber-400",   icon: Loader2       },
+  fulfilled:   { label: "Fulfilled",   pill: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50", border: "border-l-emerald-500", icon: CheckCircle2  },
+  closed:      { label: "Closed",      pill: "bg-muted text-muted-foreground border-border",                                                 border: "border-l-border",      icon: XCircle       },
 };
 
 function StatusPill({ status }: { status: string }) {
@@ -258,12 +258,10 @@ export default function Requests() {
                       <div className="flex flex-wrap justify-between items-start gap-2 mb-1.5">
                         <h3 className="font-serif font-semibold text-[1rem] leading-snug">{req.title}</h3>
                         <div className="flex flex-wrap items-center gap-2 shrink-0">
-                          {/* Static status pill */}
-                          <StatusPill status={req.status} data-testid={`status-pill-${req.id}`} />
-
-                          {/* Status change select — only for author/reviewer on mutable statuses */}
+                          {/* Editors get the status dropdown; everyone else
+                              sees a read-only pill — never both at once. */}
                           {(isLecturerOrAdmin || req.requestedBy.id === user?.id) &&
-                            (req.status === "open" || req.status === "in_progress") && (
+                          (req.status === "open" || req.status === "in_progress") ? (
                               <Select
                                 value={req.status}
                                 onValueChange={(next) => {
@@ -306,6 +304,8 @@ export default function Requests() {
                                   <SelectItem value="closed">Closed</SelectItem>
                                 </SelectContent>
                               </Select>
+                            ) : (
+                              <StatusPill status={req.status} />
                             )}
                         </div>
                       </div>

@@ -29,13 +29,27 @@ export default function PreviewPanel({
   // Either way we wait for the token request before deciding the URL is absent.
   const usesIframe = kind === "pdf" || kind === "image";
 
+  // Text grows to fit its content (a 3-line note shouldn't leave a tall void);
+  // pdf/image/sheet/docx use a full-height pane; the download fallback gets a
+  // shorter pane so its centred CTA stays balanced.
+  const flowText = kind === "text";
+  const heightClass = flowText
+    ? ""
+    : kind === "unsupported"
+      ? "h-[420px]"
+      : "h-[700px]";
+
   function renderBody() {
     if (kind === "unsupported") {
       return <PreviewFallback doc={doc} onDownload={onDownload} />;
     }
 
     if (isPreviewLoading) {
-      return (
+      return flowText ? (
+        <div className="p-4">
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : (
         <div className="absolute inset-0 flex items-center justify-center">
           <Skeleton className="w-full h-full" />
         </div>
@@ -83,7 +97,9 @@ export default function PreviewPanel({
   }
 
   return (
-    <div className="bg-card border rounded-xl overflow-hidden shadow-sm flex flex-col h-[700px]">
+    <div
+      className={`bg-card border rounded-xl overflow-hidden shadow-sm flex flex-col ${heightClass}`}
+    >
       <div className="border-b p-3 bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium">
           <FileText className="h-4 w-4 text-primary" />
@@ -98,7 +114,13 @@ export default function PreviewPanel({
           </div>
         )}
       </div>
-      <div className="flex-1 bg-secondary/20 relative">{renderBody()}</div>
+      <div
+        className={
+          flowText ? "bg-secondary/20" : "flex-1 bg-secondary/20 relative"
+        }
+      >
+        {renderBody()}
+      </div>
     </div>
   );
 }

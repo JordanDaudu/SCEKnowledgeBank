@@ -18,8 +18,8 @@ export default function TextPreview({ doc, previewUrl, onDownload }: Props) {
 
   if (loading) {
     return (
-      <div className="absolute inset-0 p-4">
-        <Skeleton className="w-full h-full" />
+      <div className="p-4">
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
@@ -34,10 +34,12 @@ export default function TextPreview({ doc, previewUrl, onDownload }: Props) {
     );
   }
 
+  // Grows to fit the content up to a max, then scrolls — short notes don't
+  // leave a tall empty void.
   return (
     <pre
       data-testid="text-preview"
-      className="absolute inset-0 overflow-auto p-4 text-sm leading-relaxed whitespace-pre-wrap break-words font-mono bg-background"
+      className="max-h-[640px] overflow-auto p-4 text-sm leading-relaxed whitespace-pre-wrap break-words font-mono bg-background"
     >
       {data}
     </pre>

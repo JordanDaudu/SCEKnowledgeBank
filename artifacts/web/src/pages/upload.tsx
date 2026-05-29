@@ -24,6 +24,7 @@ import { UploadCloud, X, File as FileIcon, CheckCircle2, AlertCircle, Loader2, C
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { apiEndpoints } from "@/lib/api-url";
+import { isUnlimitedQuota } from "@/lib/format";
 import { MATERIAL_TYPES } from "@/lib/material-types";
 
 type Visibility = "public" | "restricted" | "private";
@@ -495,23 +496,33 @@ export default function Upload() {
               <div className="flex-1 space-y-2 min-w-0">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">Storage quota</span>
-                  <span className="text-muted-foreground text-xs tabular-nums">
-                    <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
-                    {" / "}
-                    <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
-                    {" · "}
-                    <span data-testid="quota-remaining" className="text-primary/80 font-medium">{formatBytes(quota.remainingBytes)}</span>
-                    {" free"}
-                  </span>
+                  {isUnlimitedQuota(quota.quotaBytes) ? (
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
+                      {" used · "}
+                      <span data-testid="quota-total" className="text-primary/80 font-medium">Unlimited</span>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
+                      {" / "}
+                      <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
+                      {" · "}
+                      <span data-testid="quota-remaining" className="text-primary/80 font-medium">{formatBytes(quota.remainingBytes)}</span>
+                      {" free"}
+                    </span>
+                  )}
                 </div>
-                <Progress
-                  value={
-                    quota.quotaBytes > 0
-                      ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
-                      : 0
-                  }
-                  className="h-1.5"
-                />
+                {!isUnlimitedQuota(quota.quotaBytes) && (
+                  <Progress
+                    value={
+                      quota.quotaBytes > 0
+                        ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
+                        : 0
+                    }
+                    className="h-1.5"
+                  />
+                )}
               </div>
             </div>
           </CardContent>
