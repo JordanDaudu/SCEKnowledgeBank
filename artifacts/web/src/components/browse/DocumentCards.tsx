@@ -21,6 +21,9 @@ interface Props {
   items: (Document & { headline?: string })[];
   /** Ids the current user has favorited, so cards can show toggle state. */
   favoritedIds?: Set<string>;
+  /** Max columns at the widest breakpoint. 4 (default) for dense grids; 3 for
+   *  a promoted band with larger cards. */
+  columns?: 3 | 4;
 }
 
 /**
@@ -82,9 +85,18 @@ function CardFavoriteButton({
   );
 }
 
-export default function DocumentCards({ items, favoritedIds }: Props) {
+export default function DocumentCards({
+  items,
+  favoritedIds,
+  columns = 4,
+}: Props) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div
+      className={cn(
+        "grid grid-cols-1 sm:grid-cols-2 gap-4",
+        columns === 3 ? "lg:grid-cols-3" : "lg:grid-cols-3 xl:grid-cols-4",
+      )}
+    >
       {items.map((doc) => {
         const typeStyle = materialTypeStyle(doc.materialType);
         const TypeIcon = typeStyle.icon;

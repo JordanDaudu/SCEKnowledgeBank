@@ -6,19 +6,19 @@ import {
   useSearchDocumentsV2,
   useGetMyStorageQuota,
   getSearchDocumentsV2QueryKey,
-  type Document,
 } from "@workspace/api-client-react";
 import { SearchBar } from "@/components/search-bar";
 import { RecentActivity } from "@/components/recent-activity";
 import { TrendingDocuments } from "@/components/dashboard/trending-documents";
 import { ContinueStudyingWidget } from "@/components/dashboard/continue-studying-widget";
 import { AdminInsights } from "@/components/dashboard/admin-insights";
+import DocumentCards from "@/components/browse/DocumentCards";
+import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
-  FileText,
   ChevronRight,
   Clock,
   Library,
@@ -28,79 +28,12 @@ import {
   ShieldCheck,
   BarChart3,
   AlertCircle,
-  CheckCircle,
   XCircle,
   HardDrive,
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "wouter";
-import { formatDateTime, formatBytes } from "@/lib/format";
-
-const STATUS_BADGE: Record<string, { label: string; className: string; icon?: LucideIcon }> = {
-  draft: {
-    label: "Draft",
-    className: "bg-muted text-muted-foreground",
-  },
-  pending_review: {
-    label: "Pending review",
-    className: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-    icon: Clock,
-  },
-  rejected: {
-    label: "Rejected",
-    className: "bg-destructive/15 text-destructive",
-    icon: XCircle,
-  },
-  approved: {
-    label: "Approved",
-    className: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
-    icon: CheckCircle,
-  },
-  archived: {
-    label: "Archived",
-    className: "bg-muted text-muted-foreground",
-  },
-};
-
-function renderDocumentCard(doc: Document) {
-  const badge = doc.status && doc.status !== "published" ? STATUS_BADGE[doc.status] : null;
-  const StatusIcon = badge?.icon;
-  return (
-    <Link key={doc.id} href={`/documents/${doc.id}`}>
-      <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full hover-elevate focus-within:ring-2 focus-within:ring-primary/40">
-        <CardContent className="p-5 flex flex-col h-full">
-          <div className="flex justify-between items-start mb-3 gap-2">
-            <div className="bg-secondary p-2 rounded-md text-primary shrink-0">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div className="flex flex-wrap justify-end gap-1.5">
-              {badge && (
-                <span
-                  className={`inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide px-2 py-1 rounded ${badge.className}`}
-                >
-                  {StatusIcon && <StatusIcon className="h-3 w-3" />}
-                  {badge.label}
-                </span>
-              )}
-              {doc.course && (
-                <span className="text-xs font-mono bg-secondary/50 px-2 py-1 rounded text-muted-foreground">
-                  {doc.course.code}
-                </span>
-              )}
-            </div>
-          </div>
-          <h3 className="font-serif font-semibold text-base sm:text-lg line-clamp-2 mb-1">
-            {doc.title}
-          </h3>
-          <div className="text-sm text-muted-foreground mt-auto flex justify-between items-center pt-4 gap-2 flex-wrap">
-            <span className="capitalize">{doc.materialType.replace(/[-_]/g, " ")}</span>
-            <span className="text-xs">{formatDateTime(doc.createdAt)}</span>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
+import { formatBytes } from "@/lib/format";
 
 interface QuickAction {
   href: string;
@@ -373,7 +306,7 @@ export default function Home() {
   return (
     <div className="space-y-8 pb-12">
       {/* Hero */}
-      <section className="bg-gradient-to-b from-primary/8 via-primary/4 to-transparent -mx-4 px-4 py-10 sm:py-14 rounded-b-[2.5rem] border-b border-primary/10">
+      <section className="bg-gradient-to-b from-primary/8 via-primary/4 to-transparent -mx-4 px-4 py-8 sm:py-12 rounded-b-[2.5rem] border-b border-primary/10">
         <div className="max-w-3xl mx-auto text-center space-y-5">
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-foreground tracking-tight">
             The Knowledge Bank
@@ -387,42 +320,51 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Quick actions */}
-        {user && <QuickActions actions={actions} />}
+      <div className="max-w-6xl mx-auto">
+        {/* ── Utility zone: tools + contextual status, kept visually light
+              and tightly grouped directly under the hero. ──────────────── */}
+        <div className="space-y-4">
+          {user && <QuickActions actions={actions} />}
 
-        {/* Student: pending/rejected submission alerts */}
-        {user && isStudent && <MySubmissions userId={user.id} />}
+          {/* Student: pending/rejected submission alerts */}
+          {user && isStudent && <MySubmissions userId={user.id} />}
 
-        {/* Lecturer/admin: review queue summary */}
-        {user && isLecturerOrAdmin && <ReviewQueueSummary />}
+          {/* Lecturer/admin: review queue summary */}
+          {user && isLecturerOrAdmin && <ReviewQueueSummary />}
 
-        {/* Admin: operational platform intelligence (Phase 8) */}
-        {user && isAdmin && <AdminInsights />}
+          {/* Admin: operational platform intelligence (Phase 8) */}
+          {user && isAdmin && <AdminInsights />}
 
-        {/* Storage usage — shown to anyone who can upload */}
-        {user && canUpload && <StorageCard />}
+          {/* Storage usage — shown to anyone who can upload */}
+          {user && canUpload && <StorageCard />}
 
-        {/* Continue studying — Prep Hub progress (renders only when non-empty) */}
-        {user && <ContinueStudyingWidget />}
+          {/* Continue studying — Prep Hub progress (renders only when non-empty) */}
+          {user && <ContinueStudyingWidget />}
+        </div>
 
-        {/* Continue reading */}
-        <section>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
-              <Clock className="h-6 w-6 text-primary" />
-              Continue reading
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ── Discovery zone: the content the page is really about, set apart
+              by larger top spacing and a clear header hierarchy. ────────── */}
+        <div className="mt-12 space-y-10">
+          {/* Continue reading — promoted primary band */}
+          <section>
+            <SectionHeader
+              icon={Clock}
+              title="Continue reading"
+              subtitle="Pick up where you left off."
+              size="lg"
+            />
             {isLoadingRecent ? (
-              Array(4)
-                .fill(0)
-                .map((_, i) => <CardSkeleton key={i} />)
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array(3)
+                  .fill(0)
+                  .map((_, i) => (
+                    <CardSkeleton key={i} />
+                  ))}
+              </div>
             ) : recentDocs && recentDocs.length > 0 ? (
-              recentDocs.map(renderDocumentCard)
+              <DocumentCards items={recentDocs} columns={3} />
             ) : (
-              <div className="col-span-full text-center py-12 bg-card rounded-xl border border-dashed">
+              <div className="text-center py-12 bg-card rounded-xl border border-dashed">
                 <BookOpen className="h-8 w-8 mx-auto text-muted-foreground mb-3 opacity-50" />
                 <p className="text-muted-foreground">
                   Nothing here yet — open a document and it'll show up next time.
@@ -432,44 +374,39 @@ export default function Home() {
                 </Button>
               </div>
             )}
-          </div>
-        </section>
+          </section>
 
-        {/* Latest additions */}
-        <section>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
-              <Library className="h-6 w-6 text-primary" />
-              Latest additions
-            </h2>
-            <Link
-              href="/browse"
-              className="text-primary font-medium hover:underline flex items-center text-sm"
-            >
-              View all <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Latest additions — secondary band */}
+          <section>
+            <SectionHeader
+              icon={Library}
+              title="Latest additions"
+              actionHref="/browse"
+            />
             {isLoadingLatest ? (
-              Array(4)
-                .fill(0)
-                .map((_, i) => <CardSkeleton key={i} />)
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array(4)
+                  .fill(0)
+                  .map((_, i) => (
+                    <CardSkeleton key={i} />
+                  ))}
+              </div>
             ) : latestDocsPage?.items && latestDocsPage.items.length > 0 ? (
-              latestDocsPage.items.map(renderDocumentCard)
+              <DocumentCards items={latestDocsPage.items} />
             ) : (
-              <div className="col-span-full text-center py-12 bg-card rounded-xl border border-dashed">
+              <div className="text-center py-12 bg-card rounded-xl border border-dashed">
                 <BookOpen className="h-8 w-8 mx-auto text-muted-foreground mb-3 opacity-50" />
                 <p className="text-muted-foreground">No documents have been added yet.</p>
               </div>
             )}
-          </div>
-        </section>
+          </section>
 
-        {/* Trending assets (Phase 8 / deferred Phase 2) */}
-        <TrendingDocuments />
+          {/* Trending assets (Phase 8 / deferred Phase 2) — secondary band */}
+          <TrendingDocuments />
 
-        {/* Recent activity — admin only (activity logs live in Analytics) */}
-        {user && isAdmin && <RecentActivity />}
+          {/* Recent activity — admin only (activity logs live in Analytics) */}
+          {user && isAdmin && <RecentActivity />}
+        </div>
       </div>
     </div>
   );
