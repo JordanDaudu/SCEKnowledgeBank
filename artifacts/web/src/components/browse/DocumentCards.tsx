@@ -1,5 +1,12 @@
+import type { MouseEvent } from "react";
 import { Link } from "wouter";
-import type { Document } from "@workspace/api-client-react";
+import {
+  type Document,
+  useFavoriteDocument,
+  useUnfavoriteDocument,
+  getListMyFavoritesQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/document-detail/StatusBadge";
 import { formatDateTime } from "@/lib/format";
@@ -15,9 +22,70 @@ import { Eye, Download, Heart } from "lucide-react";
 
 interface Props {
   items: (Document & { headline?: string })[];
+  /** Ids the current user has favorited, so cards can show toggle state. */
+  favoritedIds?: Set<string>;
 }
 
-export default function DocumentCards({ items }: Props) {
+/**
+ * Per-card favorite (heart) toggle. Lives inside the card's <Link>, so it
+ * stops click propagation to avoid navigating when toggling. Invalidates the
+ * document lists (to refresh favorite counts) and the favorites query.
+ */
+function CardFavoriteButton({
+  documentId,
+  favoriteCount,
+  favorited,
+}: {
+  documentId: string;
+  favoriteCount: number;
+  favorited: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const favoriteMutation = useFavoriteDocument();
+  const unfavoriteMutation = useUnfavoriteDocument();
+  const pending = favoriteMutation.isPending || unfavoriteMutation.isPending;
+
+  const toggle = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pending) return;
+    const action = favorited ? unfavoriteMutation : favoriteMutation;
+    action.mutate(
+      { id: documentId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            predicate: (query) =>
+              typeof query.queryKey[0] === "string" &&
+              query.queryKey[0].includes("documents"),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getListMyFavoritesQueryKey(),
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-pressed={favorited}
+      title={favorited ? "Remove from favorites" : "Add to favorites"}
+      data-testid="card-favorite-toggle"
+      className="inline-flex items-center gap-1 rounded hover:text-primary transition-colors disabled:opacity-50"
+    >
+      <Heart
+        className={"h-3.5 w-3.5 " + (favorited ? "fill-current text-primary" : "")}
+      />
+      {favoriteCount}
+    </button>
+  );
+}
+
+export default function DocumentCards({ items, favoritedIds }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {items.map((doc) => {
@@ -92,10 +160,11 @@ export default function DocumentCards({ items }: Props) {
                     <Download className="h-3.5 w-3.5" />
                     {doc.downloadCount ?? 0}
                   </span>
-                  <span className="inline-flex items-center gap-1" title="Favorites">
-                    <Heart className="h-3.5 w-3.5" />
-                    {doc.favoriteCount ?? 0}
-                  </span>
+                  <CardFavoriteButton
+                    documentId={doc.id}
+                    favoriteCount={doc.favoriteCount ?? 0}
+                    favorited={favoritedIds?.has(doc.id) ?? false}
+                  />
                 </div>
 
                 {/* Footer: material type + status + date */}

@@ -264,13 +264,18 @@ export default function Browse() {
   // set is small. We invalidate via the favorites query key whenever
   // the detail page toggles a star.
   const [tab, setTab] = useState<"library" | "following">("library");
+  // Fetched regardless of tab so Library cards can show favorite state on
+  // their heart toggle (not just the Following tab). Small, cached payload.
   const { data: favorites, isLoading: favoritesLoading } = useListMyFavorites({
     query: {
-      enabled: tab === "following",
       queryKey: getListMyFavoritesQueryKey(),
       staleTime: 30_000,
     },
   });
+  const favoritedIds = useMemo(
+    () => new Set((favorites ?? []).map((d) => d.id)),
+    [favorites],
+  );
 
   return (
     <div className="space-y-8">
@@ -302,7 +307,7 @@ export default function Browse() {
           {favoritesLoading ? (
             <BrowseLoading view={view} />
           ) : favorites && favorites.length > 0 ? (
-            <DocumentCards items={favorites} />
+            <DocumentCards items={favorites} favoritedIds={favoritedIds} />
           ) : (
             <div
               className="text-center py-20 bg-card rounded-xl border border-dashed"
@@ -417,7 +422,7 @@ export default function Browse() {
 
             {view === "table"
               ? <DocumentTable items={viewData.items} />
-              : <DocumentCards items={viewData.items} />}
+              : <DocumentCards items={viewData.items} favoritedIds={favoritedIds} />}
 
             {viewData.total > viewData.pageSize && (
               <BrowsePagination page={page} totalPages={totalPages} onChange={setPage} />

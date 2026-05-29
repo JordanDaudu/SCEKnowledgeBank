@@ -29,6 +29,7 @@ import VersionsPanel from "@/components/document-detail/VersionsPanel";
 import {
   getGetMyStorageQuotaQueryKey,
 } from "@workspace/api-client-react";
+import { Heart } from "lucide-react";
 
 // Recently-viewed history is server-backed (task #29): visiting a
 // document calls `GET /documents/:id`, which records a row in
@@ -260,26 +261,37 @@ export default function DocumentDetail() {
 
       {/* Right Column: Metadata & Comments */}
       <div className="space-y-6">
-        <button
-          type="button"
-          onClick={handleToggleFavorite}
-          disabled={isFavoritePending}
-          aria-pressed={!!doc.isFavorited}
-          data-testid="favorite-toggle"
-          className={
-            "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors " +
-            (doc.isFavorited
-              ? "bg-primary/10 border-primary/40 text-primary"
-              : "bg-background hover:bg-accent")
-          }
-        >
-          <span aria-hidden>{doc.isFavorited ? "★" : "☆"}</span>
-          <span>
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            disabled={isFavoritePending}
+            aria-pressed={!!doc.isFavorited}
+            data-testid="favorite-toggle"
+            title={
+              doc.isFavorited
+                ? "Remove from favorites"
+                : "Add to favorites (also notifies you of new comments)"
+            }
+            className={
+              "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors " +
+              (doc.isFavorited
+                ? "bg-primary/10 border-primary/40 text-primary"
+                : "bg-background hover:bg-accent")
+            }
+          >
+            <Heart
+              className={"h-4 w-4 " + (doc.isFavorited ? "fill-current" : "")}
+              aria-hidden
+            />
+            <span>{doc.isFavorited ? "Favorited" : "Favorite"}</span>
+          </button>
+          <p className="px-1 text-xs text-muted-foreground">
             {doc.isFavorited
-              ? "Following — you'll be notified of new comments"
-              : "Follow this document"}
-          </span>
-        </button>
+              ? "Saved to your favorites — you'll be notified of new comments."
+              : "Save to your favorites and get notified of new comments."}
+          </p>
+        </div>
         <MetadataPanel
           doc={doc}
           canEdit={canEdit}
