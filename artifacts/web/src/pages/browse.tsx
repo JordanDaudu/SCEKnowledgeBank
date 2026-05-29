@@ -322,7 +322,7 @@ export default function Browse() {
         </TabsContent>
 
         <TabsContent value="library" className="mt-6 space-y-8">
-      <div className="bg-card border rounded-xl p-4 space-y-4 shadow-sm">
+      <div className="bg-card border rounded-xl p-4 space-y-4 shadow-sm sticky top-16 z-30">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
@@ -421,7 +421,16 @@ export default function Browse() {
             </div>
 
             {view === "table"
-              ? <DocumentTable items={viewData.items} />
+              ? <DocumentTable
+                  items={viewData.items}
+                  tags={tags}
+                  categories={categories}
+                  sort={sort}
+                  onSortChange={(s) => {
+                    setSort(s as Sort);
+                    setPage(1);
+                  }}
+                />
               : <DocumentCards items={viewData.items} favoritedIds={favoritedIds} />}
 
             {viewData.total > viewData.pageSize && (

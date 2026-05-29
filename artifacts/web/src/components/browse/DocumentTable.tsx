@@ -54,12 +54,64 @@ import {
   Trash2,
   Loader2,
   X,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUpDown,
 } from "lucide-react";
 
 interface Props {
   items: (Document & { headline?: string })[];
   tags?: Tag[];
   categories?: Category[];
+  /** Current sort value (from Browse) — drives the column-header indicators. */
+  sort?: string;
+  /** Called when a sortable column header is clicked. */
+  onSortChange?: (sort: string) => void;
+}
+
+/** A clickable, sort-aware column header. `asc`/`desc` name the sort values
+ *  this column toggles between (desc omitted for title, which is asc-only). */
+function SortHeader({
+  label,
+  asc,
+  desc,
+  sort,
+  onSortChange,
+  className,
+}: {
+  label: string;
+  asc: string;
+  desc?: string;
+  sort?: string;
+  onSortChange?: (s: string) => void;
+  className?: string;
+}) {
+  if (!onSortChange) return <span className={className}>{label}</span>;
+  const isAsc = sort === asc;
+  const isDesc = desc != null && sort === desc;
+  const active = isAsc || isDesc;
+  const next = desc == null ? asc : isDesc ? asc : desc;
+  return (
+    <button
+      type="button"
+      onClick={() => onSortChange(next)}
+      className={
+        "inline-flex items-center gap-1 hover:text-foreground " +
+        (active ? "text-foreground font-medium" : "") +
+        (className ? ` ${className}` : "")
+      }
+      data-testid={`sort-${label.toLowerCase()}`}
+    >
+      {label}
+      {isAsc ? (
+        <ArrowUp className="h-3.5 w-3.5" />
+      ) : isDesc ? (
+        <ArrowDown className="h-3.5 w-3.5" />
+      ) : (
+        <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" />
+      )}
+    </button>
+  );
 }
 
 type ColumnKey = "course" | "type" | "status" | "uploaded";
@@ -87,7 +139,13 @@ function readHiddenCols(): ColumnKey[] {
   }
 }
 
-export default function DocumentTable({ items, tags, categories }: Props) {
+export default function DocumentTable({
+  items,
+  tags,
+  categories,
+  sort,
+  onSortChange,
+}: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const bulk = useBulkDocumentAction();
@@ -337,11 +395,28 @@ export default function DocumentTable({ items, tags, categories }: Props) {
                   data-testid="select-all"
                 />
               </TableHead>
-              <TableHead>Title</TableHead>
+              <TableHead>
+                <SortHeader
+                  label="Title"
+                  asc="title"
+                  sort={sort}
+                  onSortChange={onSortChange}
+                />
+              </TableHead>
               {isVisible("course") && <TableHead>Course</TableHead>}
               {isVisible("type") && <TableHead>Type</TableHead>}
               {isVisible("status") && <TableHead>Status</TableHead>}
-              {isVisible("uploaded") && <TableHead>Uploaded</TableHead>}
+              {isVisible("uploaded") && (
+                <TableHead>
+                  <SortHeader
+                    label="Uploaded"
+                    asc="oldest"
+                    desc="recent"
+                    sort={sort}
+                    onSortChange={onSortChange}
+                  />
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
