@@ -1242,6 +1242,7 @@ components:
         - downloadCount
         - favoriteCount
         - commentCount
+        - currentVersion
         - tags
         - permissions
       properties:
@@ -1268,6 +1269,7 @@ components:
         downloadCount: { type: integer }
         favoriteCount: { type: integer }
         commentCount: { type: integer }
+        currentVersion: { type: integer }
         tags:
           type: array
           items: { $ref: "#/components/schemas/Tag" }

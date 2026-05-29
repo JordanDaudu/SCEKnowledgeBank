@@ -194,6 +194,7 @@ export const ListDocumentsResponse = zod.object({
       downloadCount: zod.number(),
       favoriteCount: zod.number(),
       commentCount: zod.number(),
+      currentVersion: zod.number(),
       tags: zod.array(
         zod.object({
           id: zod.string().uuid(),
@@ -447,6 +448,7 @@ export const ListRecentDocumentsResponseItem = zod.object({
   downloadCount: zod.number(),
   favoriteCount: zod.number(),
   commentCount: zod.number(),
+  currentVersion: zod.number(),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),
@@ -691,6 +693,7 @@ export const SearchDocumentsV2Response = zod.object({
         downloadCount: zod.number(),
         favoriteCount: zod.number(),
         commentCount: zod.number(),
+        currentVersion: zod.number(),
         tags: zod.array(
           zod.object({
             id: zod.string().uuid(),
@@ -1067,6 +1070,7 @@ export const GetDocumentResponse = zod.object({
   downloadCount: zod.number(),
   favoriteCount: zod.number(),
   commentCount: zod.number(),
+  currentVersion: zod.number(),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),
@@ -1277,6 +1281,7 @@ export const UpdateDocumentResponse = zod.object({
   downloadCount: zod.number(),
   favoriteCount: zod.number(),
   commentCount: zod.number(),
+  currentVersion: zod.number(),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),
@@ -1850,6 +1855,7 @@ export const ListMyFavoritesResponseItem = zod.object({
   downloadCount: zod.number(),
   favoriteCount: zod.number(),
   commentCount: zod.number(),
+  currentVersion: zod.number(),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),
@@ -2342,6 +2348,7 @@ export const ListPendingReviewDocumentsResponse = zod.object({
       downloadCount: zod.number(),
       favoriteCount: zod.number(),
       commentCount: zod.number(),
+      currentVersion: zod.number(),
       tags: zod.array(
         zod.object({
           id: zod.string().uuid(),
@@ -2553,6 +2560,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
   downloadCount: zod.number(),
   favoriteCount: zod.number(),
   commentCount: zod.number(),
+  currentVersion: zod.number(),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),
@@ -2759,6 +2767,7 @@ export const ApproveDocumentResponse = zod.object({
   downloadCount: zod.number(),
   favoriteCount: zod.number(),
   commentCount: zod.number(),
+  currentVersion: zod.number(),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),
@@ -2971,6 +2980,7 @@ export const RejectDocumentResponse = zod.object({
   downloadCount: zod.number(),
   favoriteCount: zod.number(),
   commentCount: zod.number(),
+  currentVersion: zod.number(),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),

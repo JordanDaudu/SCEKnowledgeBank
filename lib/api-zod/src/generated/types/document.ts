@@ -35,6 +35,7 @@ export interface Document {
   downloadCount: number;
   favoriteCount: number;
   commentCount: number;
+  currentVersion: number;
   tags: Tag[];
   file?: DocumentFileMeta;
   /** Signed URL to a server-generated thumbnail when one exists. Issued by `assembleDocuments` after visibility checks; goes through the same signed-URL pathway as preview/download. */

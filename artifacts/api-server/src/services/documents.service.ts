@@ -47,6 +47,8 @@ export interface DocumentDTO {
   downloadCount: number;
   favoriteCount: number;
   commentCount: number;
+  /** Current version number (Phase 4 — surfaced for upload history). */
+  currentVersion: number;
   tags: { id: string; name: string }[];
   file?: {
     id: string;
@@ -190,6 +192,7 @@ export async function assembleDocuments(
       downloadCount: d.downloadCount ?? 0,
       favoriteCount: d.favoriteCount ?? 0,
       commentCount: commentCounts.get(d.id) ?? 0,
+      currentVersion: d.currentVersion ?? 1,
       tags: tagsByDoc.get(d.id) ?? [],
       fallbackIconType: "unknown",
       permissions: {

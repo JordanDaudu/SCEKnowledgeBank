@@ -10,6 +10,7 @@ import Home from "@/pages/home";
 import Browse from "@/pages/browse";
 import DocumentDetail from "@/pages/document-detail";
 import Upload from "@/pages/upload";
+import UploadHistory from "@/pages/upload-history";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
 import Activity from "@/pages/activity";
@@ -80,6 +81,14 @@ function Router() {
         <AuthGuard>
           <Layout>
             <Upload />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/uploads">
+        <AuthGuard>
+          <Layout>
+            <UploadHistory />
           </Layout>
         </AuthGuard>
       </Route>

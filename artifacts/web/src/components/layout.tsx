@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   BarChart3,
   Activity,
+  History,
   Menu,
   X,
   type LucideIcon,
@@ -63,6 +64,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/browse", icon: Search, label: "Browse" },
         { href: "/requests", icon: MessageSquare, label: "Requests" },
         { href: "/upload", icon: Upload, label: "Upload" },
+        { href: "/uploads", icon: History, label: "My Uploads" },
         { href: "/activity", icon: Activity, label: "Activity" },
         ...(isLecturerOrAdmin
           ? [{ href: "/review-queue", icon: ShieldCheck, label: "Review" }]
