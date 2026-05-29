@@ -384,6 +384,29 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /documents/bulk:
+    post:
+      operationId: bulkDocumentAction
+      tags: [documents]
+      summary: Apply a bulk action to multiple documents
+      description: >-
+        Run delete / add-tag / assign-category across a set of documents.
+        Each id is processed through the same audited single-document
+        path; a per-id result list reports partial success.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkDocumentActionRequest" }
+      responses:
+        "200":
+          description: Per-document results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BulkDocumentActionResult" }
+        "400": { description: Invalid request, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
   /documents/{id}/thumbnail:
     get:
       operationId: getDocumentThumbnail
@@ -1053,6 +1076,27 @@ paths:
         "403": { description: Forbidden, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
         "404": { description: Course not found, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
+  /activity:
+    get:
+      operationId: listActivity
+      tags: [activity]
+      summary: Role-scoped activity feed over the audit trail
+      description: >-
+        Reads the existing audit log. Admins see all activity; lecturers
+        see their own actions plus document actions in courses they teach;
+        everyone else sees only their own actions.
+      parameters:
+        - { in: query, name: page, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: entityType, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Activity page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ActivityPage" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
 components:
   schemas:
     HealthStatus:
@@ -1370,6 +1414,7 @@ components:
       required: [keywords, tags]
       properties:
         title: { type: string }
+        titleSource: { type: string, enum: [metadata, filename] }
         language: { type: string }
         keywords:
           type: array
@@ -1825,6 +1870,8 @@ components:
         - topDocumentsByDownloads
         - activeUploaders
         - uploadsLast14Days
+        - topCategories
+        - duplicateGroups
         - generatedAt
       properties:
         totals: { $ref: "#/components/schemas/AnalyticsOverviewTotals" }
@@ -1840,7 +1887,96 @@ components:
         uploadsLast14Days:
           type: array
           items: { $ref: "#/components/schemas/AnalyticsDailyCount" }
+        topCategories:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsTopCategory" }
+        duplicateGroups:
+          type: array
+          items: { $ref: "#/components/schemas/AnalyticsDuplicateGroup" }
         generatedAt: { type: string, format: date-time }
+
+    AnalyticsTopCategory:
+      type: object
+      required: [categoryId, name, documentCount]
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string }
+        documentCount: { type: integer }
+
+    AnalyticsDuplicateGroup:
+      type: object
+      required: [checksum, count, sampleTitle, sampleDocumentId]
+      properties:
+        checksum: { type: string }
+        count: { type: integer }
+        sampleTitle: { type: string }
+        sampleDocumentId: { type: string, format: uuid }
+
+    BulkDocumentActionRequest:
+      type: object
+      required: [action, ids]
+      properties:
+        action: { type: string, enum: [delete, add_tag, assign_category] }
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: string, format: uuid }
+        tagId: { type: string, format: uuid, nullable: true }
+        categoryId: { type: string, format: uuid, nullable: true }
+
+    BulkDocumentActionResultEntry:
+      type: object
+      required: [id, success]
+      properties:
+        id: { type: string, format: uuid }
+        success: { type: boolean }
+        error: { type: string }
+
+    BulkDocumentActionResult:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/BulkDocumentActionResultEntry" }
+
+    ActivityEntry:
+      type: object
+      required: [id, action, entityType, entityId, actor, target, metadata, createdAt]
+      properties:
+        id: { type: string }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: string }
+        actor:
+          nullable: true
+          type: object
+          required: [id, displayName]
+          properties:
+            id: { type: string, format: uuid }
+            displayName: { type: string }
+        target:
+          nullable: true
+          type: object
+          required: [title]
+          properties:
+            title: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
+
+    ActivityPage:
+      type: object
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ActivityEntry" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
 
     AnalyticsCourseInfo:
       type: object

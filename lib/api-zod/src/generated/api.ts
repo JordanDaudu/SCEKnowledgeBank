@@ -908,6 +908,7 @@ export const SuggestDocumentMetadataBody = zod.object({
 
 export const SuggestDocumentMetadataResponse = zod.object({
   title: zod.string().optional(),
+  titleSource: zod.enum(["metadata", "filename"]).optional(),
   language: zod.string().optional(),
   keywords: zod.array(zod.string()),
   tags: zod.array(
@@ -1378,6 +1379,29 @@ export const UpdateDocumentResponse = zod.object({
 
 export const DeleteDocumentParams = zod.object({
   id: zod.coerce.string().uuid(),
+});
+
+/**
+ * Run delete / add-tag / assign-category across a set of documents. Each id is processed through the same audited single-document path; a per-id result list reports partial success.
+ * @summary Apply a bulk action to multiple documents
+ */
+export const bulkDocumentActionBodyIdsMax = 100;
+
+export const BulkDocumentActionBody = zod.object({
+  action: zod.enum(["delete", "add_tag", "assign_category"]),
+  ids: zod.array(zod.string().uuid()).min(1).max(bulkDocumentActionBodyIdsMax),
+  tagId: zod.string().uuid().nullish(),
+  categoryId: zod.string().uuid().nullish(),
+});
+
+export const BulkDocumentActionResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      success: zod.boolean(),
+      error: zod.string().optional(),
+    }),
+  ),
 });
 
 /**
@@ -3209,6 +3233,21 @@ export const GetAdminAnalyticsOverviewResponse = zod.object({
         .min(getAdminAnalyticsOverviewResponseUploadsLast14DaysItemCountMin),
     }),
   ),
+  topCategories: zod.array(
+    zod.object({
+      categoryId: zod.string().uuid(),
+      name: zod.string(),
+      documentCount: zod.number(),
+    }),
+  ),
+  duplicateGroups: zod.array(
+    zod.object({
+      checksum: zod.string(),
+      count: zod.number(),
+      sampleTitle: zod.string(),
+      sampleDocumentId: zod.string().uuid(),
+    }),
+  ),
   generatedAt: zod.coerce.date(),
 });
 
@@ -3313,4 +3352,50 @@ export const GetCourseAnalyticsResponse = zod.object({
     }),
   ),
   generatedAt: zod.coerce.date(),
+});
+
+/**
+ * Reads the existing audit log. Admins see all activity; lecturers see their own actions plus document actions in courses they teach; everyone else sees only their own actions.
+ * @summary Role-scoped activity feed over the audit trail
+ */
+export const listActivityQueryPageDefault = 1;
+
+export const listActivityQueryPageSizeDefault = 20;
+export const listActivityQueryPageSizeMax = 100;
+
+export const ListActivityQueryParams = zod.object({
+  page: zod.coerce.number().min(1).default(listActivityQueryPageDefault),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listActivityQueryPageSizeMax)
+    .default(listActivityQueryPageSizeDefault),
+  entityType: zod.coerce.string().optional(),
+});
+
+export const ListActivityResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      action: zod.string(),
+      entityType: zod.string(),
+      entityId: zod.string(),
+      actor: zod
+        .object({
+          id: zod.string().uuid(),
+          displayName: zod.string(),
+        })
+        .nullable(),
+      target: zod
+        .object({
+          title: zod.string(),
+        })
+        .nullable(),
+      metadata: zod.record(zod.string(), zod.unknown()),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
 });

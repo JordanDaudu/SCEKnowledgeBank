@@ -28,6 +28,13 @@ export interface SuggestionInput {
 export interface SuggestionResult {
   /** Best-guess title — PDF metadata title, else filename stem. */
   title?: string;
+  /**
+   * Where `title` came from, so the UI can convey confidence:
+   *   - "metadata" → extracted from the file's embedded title (high)
+   *   - "filename" → derived from the filename stem (low)
+   * Undefined when no title could be suggested.
+   */
+  titleSource?: "metadata" | "filename";
   /** ISO-639-1 short code; undefined when undetected. */
   language?: string;
   /** Top content terms by frequency; empty when nothing extractable. */
@@ -127,8 +134,17 @@ export async function suggestForUpload(
   ]);
 
   const result: SuggestionResult = { keywords, tags };
-  const title = extracted.detectedTitle?.trim() || humaniseFilename(input.filename);
-  if (title) result.title = title;
+  const metadataTitle = extracted.detectedTitle?.trim();
+  if (metadataTitle) {
+    result.title = metadataTitle;
+    result.titleSource = "metadata";
+  } else {
+    const fromName = humaniseFilename(input.filename);
+    if (fromName) {
+      result.title = fromName;
+      result.titleSource = "filename";
+    }
+  }
   if (extracted.language) result.language = extracted.language;
   if (category) result.category = category;
   if (duplicate) result.duplicate = duplicate;

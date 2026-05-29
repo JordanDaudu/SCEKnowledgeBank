@@ -11,6 +11,7 @@ import usersRouter from "./users";
 import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
 import analyticsRouter from "./analytics";
+import activityRouter from "./activity";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(usersRouter);
 router.use(storageRouter);
 router.use(notificationsRouter);
 router.use(analyticsRouter);
+router.use(activityRouter);
 
 export default router;

@@ -875,6 +875,26 @@ export default function Upload() {
                       <span className="font-medium" data-testid="suggestion-title">
                         {suggestion.title}
                       </span>
+                      {suggestion.titleSource && (
+                        <Badge
+                          variant="outline"
+                          className={
+                            suggestion.titleSource === "metadata"
+                              ? "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 font-normal text-[10px]"
+                              : "border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400 font-normal text-[10px]"
+                          }
+                          data-testid="suggestion-title-confidence"
+                          title={
+                            suggestion.titleSource === "metadata"
+                              ? "Read from the file's embedded title — high confidence."
+                              : "Derived from the filename — please double-check."
+                          }
+                        >
+                          {suggestion.titleSource === "metadata"
+                            ? "from file metadata"
+                            : "from filename"}
+                        </Badge>
+                      )}
                       <Button
                         type="button"
                         variant={title === suggestion.title ? "default" : "outline"}

@@ -279,6 +279,14 @@ export interface DuplicateCheckResponse {
   duplicate: DuplicateDocument | null;
 }
 
+export type SuggestMetadataResponseTitleSource =
+  (typeof SuggestMetadataResponseTitleSource)[keyof typeof SuggestMetadataResponseTitleSource];
+
+export const SuggestMetadataResponseTitleSource = {
+  metadata: "metadata",
+  filename: "filename",
+} as const;
+
 export type SuggestMetadataResponseTagsItem = {
   id: string;
   name: string;
@@ -291,6 +299,7 @@ export type SuggestMetadataResponseCategory = {
 
 export interface SuggestMetadataResponse {
   title?: string;
+  titleSource?: SuggestMetadataResponseTitleSource;
   language?: string;
   keywords: string[];
   tags: SuggestMetadataResponseTagsItem[];
@@ -653,13 +662,87 @@ export interface AnalyticsCourseTotals {
   uploadsThisWeek: number;
 }
 
+export interface AnalyticsTopCategory {
+  categoryId: string;
+  name: string;
+  documentCount: number;
+}
+
+export interface AnalyticsDuplicateGroup {
+  checksum: string;
+  count: number;
+  sampleTitle: string;
+  sampleDocumentId: string;
+}
+
 export interface AdminAnalyticsOverview {
   totals: AnalyticsOverviewTotals;
   topDocumentsByViews: AnalyticsTopDocument[];
   topDocumentsByDownloads: AnalyticsTopDocument[];
   activeUploaders: AnalyticsActiveUploader[];
   uploadsLast14Days: AnalyticsDailyCount[];
+  topCategories: AnalyticsTopCategory[];
+  duplicateGroups: AnalyticsDuplicateGroup[];
   generatedAt: string;
+}
+
+export type BulkDocumentActionRequestAction =
+  (typeof BulkDocumentActionRequestAction)[keyof typeof BulkDocumentActionRequestAction];
+
+export const BulkDocumentActionRequestAction = {
+  delete: "delete",
+  add_tag: "add_tag",
+  assign_category: "assign_category",
+} as const;
+
+export interface BulkDocumentActionRequest {
+  action: BulkDocumentActionRequestAction;
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  ids: string[];
+  tagId?: string | null;
+  categoryId?: string | null;
+}
+
+export interface BulkDocumentActionResultEntry {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface BulkDocumentActionResult {
+  results: BulkDocumentActionResultEntry[];
+}
+
+export type ActivityEntryActor = {
+  id: string;
+  displayName: string;
+} | null;
+
+export type ActivityEntryTarget = {
+  title: string;
+} | null;
+
+export type ActivityEntryMetadata = { [key: string]: unknown };
+
+export interface ActivityEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  actor: ActivityEntryActor;
+  target: ActivityEntryTarget;
+  metadata: ActivityEntryMetadata;
+  createdAt: string;
+}
+
+export interface ActivityPage {
+  items: ActivityEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface AnalyticsCourseInfo {
@@ -928,4 +1011,17 @@ export type ListNotificationsParams = {
    */
   limit?: number;
   unreadOnly?: boolean;
+};
+
+export type ListActivityParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+  entityType?: string;
 };

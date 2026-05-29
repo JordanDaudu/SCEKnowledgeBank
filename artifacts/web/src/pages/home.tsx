@@ -4,6 +4,7 @@ import {
   useGetCurrentUser,
   useListPendingReviewDocuments,
   useSearchDocumentsV2,
+  useGetMyStorageQuota,
   getSearchDocumentsV2QueryKey,
   type Document,
 } from "@workspace/api-client-react";
@@ -25,10 +26,11 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  HardDrive,
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "wouter";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatBytes } from "@/lib/format";
 
 const STATUS_BADGE: Record<string, { label: string; className: string; icon?: LucideIcon }> = {
   draft: {
@@ -179,6 +181,58 @@ function ReviewQueueSummary() {
           </CardContent>
         </Card>
       </Link>
+    </section>
+  );
+}
+
+function StorageCard() {
+  const { data: quota } = useGetMyStorageQuota();
+  if (!quota) return null;
+  const pct =
+    quota.quotaBytes > 0
+      ? Math.min(100, (quota.usedBytes / quota.quotaBytes) * 100)
+      : 0;
+  const tone =
+    pct >= 90
+      ? "bg-destructive"
+      : pct >= 70
+      ? "bg-amber-500"
+      : "bg-primary";
+  return (
+    <section>
+      <Card>
+        <CardContent className="py-4 px-5">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-secondary text-muted-foreground">
+                <HardDrive className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Your storage</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  <span data-testid="home-quota-used">{formatBytes(quota.usedBytes)}</span>
+                  {" of "}
+                  <span data-testid="home-quota-total">{formatBytes(quota.quotaBytes)}</span>
+                  {" used"}
+                </div>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              {formatBytes(quota.remainingBytes)} left
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${tone}`}
+              style={{ width: `${pct}%` }}
+              role="progressbar"
+              aria-valuenow={Math.round(pct)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            />
+          </div>
+        </CardContent>
+      </Card>
     </section>
   );
 }
@@ -338,6 +392,9 @@ export default function Home() {
 
         {/* Lecturer/admin: review queue summary */}
         {user && isLecturerOrAdmin && <ReviewQueueSummary />}
+
+        {/* Storage usage — shown to anyone who can upload */}
+        {user && canUpload && <StorageCard />}
 
         {/* Continue reading */}
         <section>

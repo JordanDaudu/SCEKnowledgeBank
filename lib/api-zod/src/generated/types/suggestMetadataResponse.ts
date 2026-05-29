@@ -8,9 +8,11 @@
 import type { DuplicateDocument } from "./duplicateDocument";
 import type { SuggestMetadataResponseCategory } from "./suggestMetadataResponseCategory";
 import type { SuggestMetadataResponseTagsItem } from "./suggestMetadataResponseTagsItem";
+import type { SuggestMetadataResponseTitleSource } from "./suggestMetadataResponseTitleSource";
 
 export interface SuggestMetadataResponse {
   title?: string;
+  titleSource?: SuggestMetadataResponseTitleSource;
   language?: string;
   keywords: string[];
   tags: SuggestMetadataResponseTagsItem[];

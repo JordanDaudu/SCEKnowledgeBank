@@ -52,6 +52,8 @@ export interface AdminAnalyticsOverview {
   topDocumentsByDownloads: analyticsRepo.TopDocumentRow[];
   activeUploaders: analyticsRepo.ActiveUploaderRow[];
   uploadsLast14Days: analyticsRepo.DailyCountRow[];
+  topCategories: analyticsRepo.TopCategoryRow[];
+  duplicateGroups: analyticsRepo.DuplicateGroupRow[];
   generatedAt: string;
 }
 
@@ -81,12 +83,16 @@ export async function getAdminOverview(
       topDocumentsByDownloads,
       activeUploaders,
       uploadsLast14Days,
+      topCategories,
+      duplicateGroups,
     ] = await Promise.all([
       analyticsRepo.fetchOverviewTotals(),
       analyticsRepo.fetchTopDocumentsByViews(10),
       analyticsRepo.fetchTopDocumentsByDownloads(10),
       analyticsRepo.fetchActiveUploaders(10),
       analyticsRepo.fetchDailyUploads(14),
+      analyticsRepo.fetchTopCategories(8),
+      analyticsRepo.fetchDuplicateGroups(10),
     ]);
     return {
       totals,
@@ -94,6 +100,8 @@ export async function getAdminOverview(
       topDocumentsByDownloads,
       activeUploaders,
       uploadsLast14Days,
+      topCategories,
+      duplicateGroups,
       generatedAt: new Date().toISOString(),
     };
   });

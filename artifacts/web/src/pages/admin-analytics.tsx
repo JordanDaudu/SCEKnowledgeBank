@@ -18,9 +18,11 @@ import {
 } from "recharts";
 import {
   BarChart3,
+  Copy,
   Download,
   Eye,
   FileText,
+  FolderTree,
   Loader2,
   MessageSquare,
   ShieldCheck,
@@ -233,6 +235,77 @@ export default function AdminAnalytics() {
           )}
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FolderTree className="h-4 w-4" /> Top categories
+            </CardTitle>
+            <CardDescription>Published documents grouped by category.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data.topCategories.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No categorised documents yet.</p>
+            ) : (
+              <ol className="divide-y divide-border/60">
+                {data.topCategories.map((c, idx) => (
+                  <li
+                    key={c.categoryId}
+                    className="flex items-center gap-3 py-2 first:pt-0 last:pb-0 text-sm"
+                  >
+                    <span className="text-muted-foreground w-4 shrink-0 tabular-nums">{idx + 1}.</span>
+                    <Link
+                      href={`/browse?categoryId=${c.categoryId}`}
+                      className="flex-1 truncate hover:underline hover:text-primary transition-colors"
+                      title={c.name}
+                    >
+                      {c.name}
+                    </Link>
+                    <span className="text-muted-foreground tabular-nums shrink-0">
+                      {c.documentCount}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Copy className="h-4 w-4" /> Possible duplicates
+            </CardTitle>
+            <CardDescription>Files that share identical content checksums.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data.duplicateGroups.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No duplicate files detected.</p>
+            ) : (
+              <ul className="divide-y divide-border/60">
+                {data.duplicateGroups.map((g) => (
+                  <li
+                    key={g.checksum}
+                    className="flex items-center gap-3 py-2 first:pt-0 last:pb-0 text-sm"
+                  >
+                    <Link
+                      href={`/documents/${g.sampleDocumentId}`}
+                      className="flex-1 truncate hover:underline hover:text-primary transition-colors"
+                      title={g.sampleTitle}
+                    >
+                      {g.sampleTitle}
+                    </Link>
+                    <span className="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700 shrink-0 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+                      {g.count} copies
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

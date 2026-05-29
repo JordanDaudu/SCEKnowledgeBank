@@ -482,6 +482,84 @@ export async function deleteDocument(
   await auditService.record(user.id, "document.delete", "document", id);
 }
 
+// ─── Bulk operations (Sprint-3 refinement) ──────────────────────────
+//
+// Batch actions for the browse table. Each item is processed through
+// the *existing* audited single-document service paths (deleteDocument /
+// updateDocument) so per-item permission checks, quota release, and
+// audit logging stay identical to the single-document flows. A failure
+// on one id never aborts the batch — callers get a per-id result list
+// so the UI can show partial success.
+
+export type BulkAction = "delete" | "add_tag" | "assign_category";
+
+export interface BulkActionInput {
+  action: BulkAction;
+  ids: string[];
+  /** Required when action === "add_tag". */
+  tagId?: string | null;
+  /**
+   * Required when action === "assign_category". Pass null to clear the
+   * category on every selected document.
+   */
+  categoryId?: string | null;
+}
+
+export interface BulkActionResultEntry {
+  id: string;
+  success: boolean;
+  error?: string;
+}
+
+const BULK_MAX_IDS = 100;
+
+export async function bulkDocumentAction(
+  input: BulkActionInput,
+  user: AuthenticatedUser,
+): Promise<BulkActionResultEntry[]> {
+  const ids = Array.from(new Set(input.ids));
+  if (ids.length === 0) throw badRequest("No documents selected");
+  if (ids.length > BULK_MAX_IDS) {
+    throw badRequest(`Cannot act on more than ${BULK_MAX_IDS} documents at once`);
+  }
+  if (input.action === "add_tag" && !input.tagId) {
+    throw badRequest("tagId is required for add_tag");
+  }
+  if (input.action === "assign_category" && input.categoryId === undefined) {
+    throw badRequest("categoryId is required for assign_category");
+  }
+
+  const results: BulkActionResultEntry[] = [];
+  for (const id of ids) {
+    try {
+      switch (input.action) {
+        case "delete":
+          await deleteDocument(id, user);
+          break;
+        case "assign_category":
+          await updateDocument(id, { categoryId: input.categoryId }, user);
+          break;
+        case "add_tag": {
+          const existing = await docsRepo.getDocumentTagIds(id);
+          const next = existing.includes(input.tagId!)
+            ? existing
+            : [...existing, input.tagId!];
+          await updateDocument(id, { tagIds: next }, user);
+          break;
+        }
+      }
+      results.push({ id, success: true });
+    } catch (err) {
+      results.push({
+        id,
+        success: false,
+        error: err instanceof Error ? err.message : "Operation failed",
+      });
+    }
+  }
+  return results;
+}
+
 // ─── Review & approval workflow (Sprint-3 M2) ───────────────────────
 //
 // State machine (additive — existing `draft|published|archived` is left

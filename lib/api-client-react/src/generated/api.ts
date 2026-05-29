@@ -17,8 +17,11 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActivityPage,
   AdminAnalyticsOverview,
   ApiError,
+  BulkDocumentActionRequest,
+  BulkDocumentActionResult,
   Category,
   CheckDuplicateDocumentParams,
   Comment,
@@ -37,6 +40,7 @@ import type {
   FavoriteStatus,
   GetDocumentThumbnailParams,
   HealthStatus,
+  ListActivityParams,
   ListDocumentsParams,
   ListNotificationsParams,
   ListPendingReviewDocumentsParams,
@@ -1640,6 +1644,94 @@ export const useDeleteDocument = <
   TContext
 > => {
   return useMutation(getDeleteDocumentMutationOptions(options));
+};
+
+/**
+ * Run delete / add-tag / assign-category across a set of documents. Each id is processed through the same audited single-document path; a per-id result list reports partial success.
+ * @summary Apply a bulk action to multiple documents
+ */
+export const getBulkDocumentActionUrl = () => {
+  return `/api/documents/bulk`;
+};
+
+export const bulkDocumentAction = async (
+  bulkDocumentActionRequest: BulkDocumentActionRequest,
+  options?: RequestInit,
+): Promise<BulkDocumentActionResult> => {
+  return customFetch<BulkDocumentActionResult>(getBulkDocumentActionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkDocumentActionRequest),
+  });
+};
+
+export const getBulkDocumentActionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDocumentAction>>,
+    TError,
+    { data: BodyType<BulkDocumentActionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkDocumentAction>>,
+  TError,
+  { data: BodyType<BulkDocumentActionRequest> },
+  TContext
+> => {
+  const mutationKey = ["bulkDocumentAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkDocumentAction>>,
+    { data: BodyType<BulkDocumentActionRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkDocumentAction(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkDocumentActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkDocumentAction>>
+>;
+export type BulkDocumentActionMutationBody =
+  BodyType<BulkDocumentActionRequest>;
+export type BulkDocumentActionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Apply a bulk action to multiple documents
+ */
+export const useBulkDocumentAction = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDocumentAction>>,
+    TError,
+    { data: BodyType<BulkDocumentActionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkDocumentAction>>,
+  TError,
+  { data: BodyType<BulkDocumentActionRequest> },
+  TContext
+> => {
+  return useMutation(getBulkDocumentActionMutationOptions(options));
 };
 
 /**
@@ -5210,6 +5302,101 @@ export function useGetCourseAnalytics<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetCourseAnalyticsQueryOptions(courseId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Reads the existing audit log. Admins see all activity; lecturers see their own actions plus document actions in courses they teach; everyone else sees only their own actions.
+ * @summary Role-scoped activity feed over the audit trail
+ */
+export const getListActivityUrl = (params?: ListActivityParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/activity?${stringifiedParams}`
+    : `/api/activity`;
+};
+
+export const listActivity = async (
+  params?: ListActivityParams,
+  options?: RequestInit,
+): Promise<ActivityPage> => {
+  return customFetch<ActivityPage>(getListActivityUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListActivityQueryKey = (params?: ListActivityParams) => {
+  return [`/api/activity`, ...(params ? [params] : [])] as const;
+};
+
+export const getListActivityQueryOptions = <
+  TData = Awaited<ReturnType<typeof listActivity>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListActivityQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listActivity>>> = ({
+    signal,
+  }) => listActivity(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listActivity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListActivityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listActivity>>
+>;
+export type ListActivityQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Role-scoped activity feed over the audit trail
+ */
+
+export function useListActivity<
+  TData = Awaited<ReturnType<typeof listActivity>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActivityQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

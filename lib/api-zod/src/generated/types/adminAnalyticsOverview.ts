@@ -7,7 +7,9 @@
  */
 import type { AnalyticsActiveUploader } from "./analyticsActiveUploader";
 import type { AnalyticsDailyCount } from "./analyticsDailyCount";
+import type { AnalyticsDuplicateGroup } from "./analyticsDuplicateGroup";
 import type { AnalyticsOverviewTotals } from "./analyticsOverviewTotals";
+import type { AnalyticsTopCategory } from "./analyticsTopCategory";
 import type { AnalyticsTopDocument } from "./analyticsTopDocument";
 
 export interface AdminAnalyticsOverview {
@@ -16,5 +18,7 @@ export interface AdminAnalyticsOverview {
   topDocumentsByDownloads: AnalyticsTopDocument[];
   activeUploaders: AnalyticsActiveUploader[];
   uploadsLast14Days: AnalyticsDailyCount[];
+  topCategories: AnalyticsTopCategory[];
+  duplicateGroups: AnalyticsDuplicateGroup[];
   generatedAt: Date;
 }

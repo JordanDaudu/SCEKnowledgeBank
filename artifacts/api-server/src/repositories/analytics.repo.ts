@@ -229,6 +229,79 @@ export async function fetchDailyUploads(
   }));
 }
 
+export interface TopCategoryRow {
+  categoryId: string;
+  name: string;
+  documentCount: number;
+}
+
+export async function fetchTopCategories(
+  limit = 8,
+): Promise<TopCategoryRow[]> {
+  const rows = await db.$queryRaw<
+    Array<{ category_id: string; name: string; document_count: bigint }>
+  >`
+    SELECT cat.id::text AS category_id, cat.name,
+           COUNT(*)::bigint AS document_count
+    FROM documents d
+    JOIN categories cat ON cat.id = d.category_id
+    WHERE d.deleted_at IS NULL
+      AND d.category_id IS NOT NULL
+    GROUP BY cat.id, cat.name
+    ORDER BY document_count DESC, cat.name ASC
+    LIMIT ${limit}
+  `;
+  return rows.map((r) => ({
+    categoryId: r.category_id,
+    name: r.name,
+    documentCount: Number(r.document_count),
+  }));
+}
+
+export interface DuplicateGroupRow {
+  checksum: string;
+  count: number;
+  sampleTitle: string;
+  sampleDocumentId: string;
+}
+
+/**
+ * Find content-identical document groups: alive documents whose file
+ * shares a sha-256 checksum with at least one other alive document.
+ * Surfaces a representative title + id per group so an admin can jump
+ * in and merge/clean up.
+ */
+export async function fetchDuplicateGroups(
+  limit = 10,
+): Promise<DuplicateGroupRow[]> {
+  const rows = await db.$queryRaw<
+    Array<{
+      checksum: string;
+      count: bigint;
+      sample_title: string;
+      sample_document_id: string;
+    }>
+  >`
+    SELECT f.checksum,
+           COUNT(*)::bigint AS count,
+           MIN(d.title) AS sample_title,
+           MIN(d.id::text) AS sample_document_id
+    FROM document_files f
+    JOIN documents d ON d.id = f.document_id
+    WHERE d.deleted_at IS NULL
+    GROUP BY f.checksum
+    HAVING COUNT(*) > 1
+    ORDER BY count DESC, sample_title ASC
+    LIMIT ${limit}
+  `;
+  return rows.map((r) => ({
+    checksum: r.checksum,
+    count: Number(r.count),
+    sampleTitle: r.sample_title,
+    sampleDocumentId: r.sample_document_id,
+  }));
+}
+
 // ─── Per-course (lecturer or admin) ───────────────────────────────
 
 export async function fetchCourseInfo(

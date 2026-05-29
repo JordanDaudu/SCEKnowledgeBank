@@ -24,6 +24,7 @@ import {
   ListDocumentVersionsParams,
   UploadDocumentVersionParams,
   RestoreDocumentVersionParams,
+  BulkDocumentActionBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { forbidden } from "../lib/errors";
@@ -458,6 +459,19 @@ router.delete("/documents/:id", requireAuth, async (req, res, next) => {
     const { id } = DeleteDocumentParams.parse(req.params);
     await documentsService.deleteDocument(id, req.authUser!);
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/documents/bulk", requireAuth, async (req, res, next) => {
+  try {
+    const body = BulkDocumentActionBody.parse(req.body);
+    const results = await documentsService.bulkDocumentAction(
+      body,
+      req.authUser!,
+    );
+    res.json({ results });
   } catch (err) {
     next(err);
   }

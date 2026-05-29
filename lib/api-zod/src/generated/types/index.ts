@@ -6,18 +6,29 @@
  * OpenAPI spec version: 0.2.0
  */
 
+export * from "./activityEntry";
+export * from "./activityEntryActor";
+export * from "./activityEntryMetadata";
+export * from "./activityEntryTarget";
+export * from "./activityPage";
 export * from "./adminAnalyticsOverview";
 export * from "./analyticsActiveUploader";
 export * from "./analyticsCourseInfo";
 export * from "./analyticsCourseTotals";
 export * from "./analyticsDailyCount";
+export * from "./analyticsDuplicateGroup";
 export * from "./analyticsOverviewTotals";
+export * from "./analyticsTopCategory";
 export * from "./analyticsTopDocument";
 export * from "./apiError";
 export * from "./apiErrorError";
 export * from "./autocompleteCourseHit";
 export * from "./autocompleteTagHit";
 export * from "./autocompleteUploaderHit";
+export * from "./bulkDocumentActionRequest";
+export * from "./bulkDocumentActionRequestAction";
+export * from "./bulkDocumentActionResult";
+export * from "./bulkDocumentActionResultEntry";
 export * from "./category";
 export * from "./checkDuplicateDocumentParams";
 export * from "./comment";
@@ -46,6 +57,7 @@ export * from "./extractedFileMetadata";
 export * from "./favoriteStatus";
 export * from "./getDocumentThumbnailParams";
 export * from "./healthStatus";
+export * from "./listActivityParams";
 export * from "./listDocumentsParams";
 export * from "./listDocumentsSemester";
 export * from "./listDocumentsSort";
@@ -86,6 +98,7 @@ export * from "./suggestDocumentMetadataBody";
 export * from "./suggestMetadataResponse";
 export * from "./suggestMetadataResponseCategory";
 export * from "./suggestMetadataResponseTagsItem";
+export * from "./suggestMetadataResponseTitleSource";
 export * from "./tag";
 export * from "./updateCommentRequest";
 export * from "./updateDocumentRequest";

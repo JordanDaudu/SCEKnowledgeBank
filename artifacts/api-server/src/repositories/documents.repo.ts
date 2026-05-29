@@ -1165,6 +1165,16 @@ export async function addDocumentTags(
   });
 }
 
+export async function getDocumentTagIds(
+  documentId: string,
+): Promise<string[]> {
+  const rows = await db.documentTag.findMany({
+    where: { documentId },
+    select: { tagId: true },
+  });
+  return rows.map((r) => r.tagId);
+}
+
 export async function findDocumentIdsByTagIds(
   tagIds: string[],
 ): Promise<string[]> {
