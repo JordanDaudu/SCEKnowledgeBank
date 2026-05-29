@@ -34,6 +34,7 @@ import {
   CheckCircle2,
   Heart,
   Users,
+  TrendingUp,
 } from "lucide-react";
 
 const KIND_LABEL: Record<string, string> = {
@@ -153,6 +154,13 @@ export default function CollectionDetail() {
             <span className="inline-flex items-center gap-1" title="Followers">
               <Users className="h-3.5 w-3.5" />
               {col.followerCount}
+            </span>
+            <span
+              className="inline-flex items-center gap-1 text-primary/80"
+              title="Popularity score (followers × 3 + materials)"
+            >
+              <TrendingUp className="h-3.5 w-3.5" />
+              {col.popularityScore}
             </span>
           </p>
         </div>

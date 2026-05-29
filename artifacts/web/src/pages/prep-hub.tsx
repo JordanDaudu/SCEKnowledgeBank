@@ -56,6 +56,7 @@ import {
   Compass,
   Search,
   X,
+  TrendingUp,
 } from "lucide-react";
 
 const KIND_LABEL: Record<string, string> = {
@@ -102,9 +103,16 @@ function BundleCard({ c }: { c: StudyCollectionSummary }) {
               />
             </div>
           )}
-          <div className="mt-auto flex items-center gap-3 pt-2 text-xs text-muted-foreground tabular-nums">
+          <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground tabular-nums">
             <span>
               {c.itemCount} {c.itemCount === 1 ? "document" : "documents"}
+            </span>
+            <span
+              className="inline-flex items-center gap-1 text-primary/80"
+              title="Popularity score (followers × 3 + materials)"
+            >
+              <TrendingUp className="h-3 w-3" />
+              {c.popularityScore}
             </span>
             {c.followerCount > 0 && (
               <span className="inline-flex items-center gap-1" title="Followers">
