@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./logo";
+import { ThemeToggle } from "./theme-toggle";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -177,6 +178,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {/* Right side controls */}
           {user && (
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <NotificationBell />
 
               {/* User info — hidden on very small screens */}

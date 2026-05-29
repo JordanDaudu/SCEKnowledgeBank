@@ -16,6 +16,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Apply the saved/system theme before first paint so dark-mode users
+      // don't see a white flash. Mirrors next-themes (storageKey "kb-theme",
+      // class strategy). The provider takes over once React mounts.
+      (function () {
+        try {
+          var t = localStorage.getItem("kb-theme");
+          var dark =
+            t === "dark" ||
+            ((!t || t === "system") &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
