@@ -11,11 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/document-detail/StatusBadge";
 import { formatDateTime, formatVersion } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
+import { materialTypeStyle } from "@/lib/material-type-style";
 import { apiUrl } from "@/lib/api-url";
-import {
-  iconForFallbackType,
-  type FallbackIconType,
-} from "@/lib/fallback-icon";
 import { renderSnippetHtml } from "@/lib/snippet";
 import { cn } from "@/lib/utils";
 import { Eye, Download, Heart } from "lucide-react";
@@ -89,9 +86,8 @@ export default function DocumentCards({ items, favoritedIds }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {items.map((doc) => {
-        const Icon = iconForFallbackType(
-          doc.fallbackIconType as FallbackIconType | undefined,
-        );
+        const typeStyle = materialTypeStyle(doc.materialType);
+        const TypeIcon = typeStyle.icon;
         const showStatus = doc.status && doc.status !== "published";
         return (
           <Link key={doc.id} href={`/documents/${doc.id}`}>
@@ -116,10 +112,13 @@ export default function DocumentCards({ items, favoritedIds }: Props) {
                     />
                   ) : (
                     <div
-                      className="bg-primary/8 p-2 rounded-md text-primary group-hover:bg-primary/12 transition-colors"
+                      className={cn(
+                        "p-2 rounded-md transition-colors",
+                        typeStyle.tile,
+                      )}
                       data-testid="doc-fallback-icon"
                     >
-                      <Icon className="h-5 w-5" />
+                      <TypeIcon className="h-5 w-5" />
                     </div>
                   )}
                   {doc.course && (
@@ -170,7 +169,13 @@ export default function DocumentCards({ items, favoritedIds }: Props) {
                 {/* Footer: material type + status + date */}
                 <div className="mt-auto flex justify-between items-center pt-2 gap-2 border-t border-border/50">
                   <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-                    <span className="material-tag inline-flex items-center rounded border px-2 py-0.5 text-xs capitalize">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs",
+                        typeStyle.tag,
+                      )}
+                    >
+                      <TypeIcon className="h-3 w-3 shrink-0" />
                       {formatMaterialType(doc.materialType)}
                     </span>
                     <span

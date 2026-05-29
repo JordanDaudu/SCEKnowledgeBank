@@ -22,5 +22,12 @@ const LABEL_BY_VALUE: Record<string, string> = Object.fromEntries(
 );
 
 export function formatMaterialType(value: string): string {
-  return LABEL_BY_VALUE[value] ?? value.replace(/-/g, " ");
+  if (LABEL_BY_VALUE[value]) return LABEL_BY_VALUE[value];
+  // Title-case unknown values (e.g. "assignment" → "Assignment",
+  // "lecture_notes" → "Lecture Notes") so they don't read as raw lowercase.
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
