@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api-url";
 import PreviewPanel from "@/components/document-detail/PreviewPanel";
+import { previewKindForMime } from "@/lib/preview-kind";
 import MetadataPanel from "@/components/document-detail/MetadataPanel";
 import EditMetadataModal from "@/components/document-detail/EditMetadataModal";
 import { RejectDialog } from "@/components/document-detail/RejectDialog";
@@ -69,13 +70,6 @@ function appendRecentlyViewedFallback(item: RecentItem) {
   }
 }
 
-function isPreviewableInIframe(mime: string | undefined): boolean {
-  if (!mime) return false;
-  if (mime === "application/pdf") return true;
-  if (mime.startsWith("image/")) return true;
-  return false;
-}
-
 export default function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -89,11 +83,13 @@ export default function DocumentDetail() {
 
   const mime = doc?.file?.mimeType;
   const isPdf = mime === "application/pdf";
-  const canIframe = isPreviewableInIframe(mime);
+  // Any previewable kind (pdf/image embed the URL; text/sheet/docx fetch its
+  // bytes) needs a signed token; only "unsupported" skips the request.
+  const canPreview = previewKindForMime(mime) !== "unsupported";
 
   const { data: previewToken, isLoading: isPreviewLoading } = useGetDocumentPreviewToken(id, {
     query: {
-      enabled: !!id && canIframe,
+      enabled: !!id && canPreview,
       queryKey: getGetDocumentPreviewTokenQueryKey(id),
     },
   });
