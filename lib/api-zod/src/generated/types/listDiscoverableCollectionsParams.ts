@@ -11,4 +11,9 @@ export type ListDiscoverableCollectionsParams = {
   sort?: ListDiscoverableCollectionsSort;
   courseId?: string;
   limit?: number;
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  q?: string;
 };

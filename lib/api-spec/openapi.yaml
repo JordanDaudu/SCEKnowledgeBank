@@ -1252,8 +1252,22 @@ paths:
       tags: [prep-hub]
       summary: Discover public/official study collections, ranked by popularity or recency
       parameters:
-        - { in: query, name: sort, required: false, schema: { type: string, enum: [popular, recent] } }
+        - { in: query, name: sort, required: false, schema: { type: string, enum: [popular, recent, new, rating, views, trending, exam] } }
         - { in: query, name: courseId, required: false, schema: { type: string, format: uuid } }
+        - { in: query, name: limit, required: false, schema: { type: integer } }
+        - { in: query, name: q, required: false, schema: { type: string, minLength: 1, maxLength: 100 } }
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
+  /prep-hub/trending:
+    get:
+      operationId: listTrendingCollections
+      tags: [prep-hub]
+      summary: Trending public study collections
+      parameters:
         - { in: query, name: limit, required: false, schema: { type: integer } }
       responses:
         "200":

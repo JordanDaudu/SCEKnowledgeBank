@@ -12,4 +12,9 @@ export type ListDiscoverableCollectionsSort =
 export const ListDiscoverableCollectionsSort = {
   popular: "popular",
   recent: "recent",
+  new: "new",
+  rating: "rating",
+  views: "views",
+  trending: "trending",
+  exam: "exam",
 } as const;

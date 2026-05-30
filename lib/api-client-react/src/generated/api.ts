@@ -51,6 +51,7 @@ import type {
   ListPendingReviewDocumentsParams,
   ListRecentDocumentsParams,
   ListRequestsParams,
+  ListTrendingCollectionsParams,
   LoginRequest,
   MaterialRequest,
   Notification,
@@ -6422,6 +6423,109 @@ export function useListDiscoverableCollections<
     params,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Trending public study collections
+ */
+export const getListTrendingCollectionsUrl = (
+  params?: ListTrendingCollectionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/prep-hub/trending?${stringifiedParams}`
+    : `/api/prep-hub/trending`;
+};
+
+export const listTrendingCollections = async (
+  params?: ListTrendingCollectionsParams,
+  options?: RequestInit,
+): Promise<StudyCollectionSummary[]> => {
+  return customFetch<StudyCollectionSummary[]>(
+    getListTrendingCollectionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTrendingCollectionsQueryKey = (
+  params?: ListTrendingCollectionsParams,
+) => {
+  return [`/api/prep-hub/trending`, ...(params ? [params] : [])] as const;
+};
+
+export const getListTrendingCollectionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrendingCollections>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTrendingCollectionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrendingCollections>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListTrendingCollectionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrendingCollections>>
+  > = ({ signal }) =>
+    listTrendingCollections(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrendingCollections>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrendingCollectionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrendingCollections>>
+>;
+export type ListTrendingCollectionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Trending public study collections
+ */
+
+export function useListTrendingCollections<
+  TData = Awaited<ReturnType<typeof listTrendingCollections>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListTrendingCollectionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrendingCollections>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrendingCollectionsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
