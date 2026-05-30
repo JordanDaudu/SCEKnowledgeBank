@@ -2,7 +2,7 @@ import { useGetCurrentUser } from "@workspace/api-client-react";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 
-export function AuthGuard({ children, requireRole }: { children: React.ReactNode, requireRole?: "admin" | "lecturer" | "student" }) {
+export function AuthGuard({ children, requireRole, blockAdmin }: { children: React.ReactNode, requireRole?: "admin" | "lecturer" | "student", blockAdmin?: boolean }) {
   const { data: user, isLoading, error } = useGetCurrentUser();
 
   if (isLoading) {
@@ -20,6 +20,15 @@ export function AuthGuard({ children, requireRole }: { children: React.ReactNode
   // navigating). <Redirect> avoids the loop entirely.
   if (error || !user) {
     return <Redirect to="/login" />;
+  }
+
+  if (blockAdmin && user.roles.includes("admin")) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center text-center">
+        <h2 className="text-2xl font-bold text-foreground">Access Denied</h2>
+        <p className="mt-2 text-muted-foreground">You do not have permission to view this page.</p>
+      </div>
+    );
   }
 
   if (requireRole && user.primaryRole !== "admin") {

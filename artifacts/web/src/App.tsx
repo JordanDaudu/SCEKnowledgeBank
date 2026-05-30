@@ -13,7 +13,9 @@ import DocumentDetail from "@/pages/document-detail";
 import Upload from "@/pages/upload";
 import UploadHistory from "@/pages/upload-history";
 import PrepHub from "@/pages/prep-hub";
-import CollectionDetail from "@/pages/collection-detail";
+import PrepHubCollection from "@/pages/prep-hub-collection";
+import Collections from "@/pages/collections";
+import CollectionManage from "@/pages/collection-manage";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
 import AdminUsers from "@/pages/admin-users";
@@ -95,6 +97,22 @@ function Router() {
         </AuthGuard>
       </Route>
 
+      <Route path="/collections">
+        <AuthGuard blockAdmin>
+          <Layout>
+            <Collections />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/collections/:id">
+        <AuthGuard blockAdmin>
+          <Layout>
+            <CollectionManage />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
       <Route path="/prep-hub">
         <AuthGuard>
           <Layout>
@@ -106,7 +124,7 @@ function Router() {
       <Route path="/prep-hub/:id">
         <AuthGuard>
           <Layout>
-            <CollectionDetail />
+            <PrepHubCollection />
           </Layout>
         </AuthGuard>
       </Route>
