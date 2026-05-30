@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@workspace/db";
 import type { AuthenticatedUser } from "../middlewares/auth";
 import { createCollection } from "./collections.service";
-import { getPublicCollection, listDiscoverable } from "./prep-hub.service";
+import { getPublicCollection, listDiscoverable, followCollection, unfollowCollection } from "./prep-hub.service";
 
 const SX = `_prephub_${Date.now().toString(36)}`;
 let owner: AuthenticatedUser;
@@ -41,5 +41,21 @@ describe("prep-hub.service", () => {
     const ids = (await listDiscoverable(viewer, { sort: "recent", courseId, limit: 50 })).map((c) => c.id);
     expect(ids).toContain(publicId);
     expect(ids).not.toContain(privateId);
+  });
+
+  it("followCollection / unfollowCollection updates isFollowing, followerCount, and popularityScore (I2)", async () => {
+    const followed = await followCollection(publicId, viewer);
+    expect(followed.isFollowing).toBe(true);
+    expect(followed.followerCount).toBe(1);
+    expect(typeof followed.popularityScore).toBe("number");
+    expect(followed.popularityScore).toBeGreaterThan(0);
+
+    const unfollowed = await unfollowCollection(publicId, viewer);
+    expect(unfollowed.isFollowing).toBe(false);
+    expect(unfollowed.followerCount).toBe(0);
+  });
+
+  it("followCollection 404s on a private collection", async () => {
+    await expect(followCollection(privateId, viewer)).rejects.toThrow();
   });
 });

@@ -51,7 +51,8 @@ export async function followCollection(
   if (!c || !isPublic(c)) throw notFound("Collection not found");
   const created = await collectionsRepo.followCollection(id, user.id);
   if (created) await collectionsService.recomputePopularity(id);
-  return collectionsService.assembleDetail(c, user);
+  const fresh = (await collectionsRepo.findCollectionById(id)) ?? c;
+  return collectionsService.assembleDetail(fresh, user);
 }
 
 export async function unfollowCollection(
@@ -62,7 +63,8 @@ export async function unfollowCollection(
   if (!c || !isPublic(c)) throw notFound("Collection not found");
   const removed = await collectionsRepo.unfollowCollection(id, user.id);
   if (removed) await collectionsService.recomputePopularity(id);
-  return collectionsService.assembleDetail(c, user);
+  const fresh = (await collectionsRepo.findCollectionById(id)) ?? c;
+  return collectionsService.assembleDetail(fresh, user);
 }
 
 export async function getRecommendedCollections(

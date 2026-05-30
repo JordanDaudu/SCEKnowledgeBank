@@ -1,22 +1,12 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/auth";
+import { requireCollectionsAccess } from "../middlewares/collections-access";
 import * as collectionsService from "../services/collections.service";
 import * as studyProgressService from "../services/studyProgress.service";
 import * as recommendationsService from "../services/recommendations.service";
-import * as permissions from "../services/permissions.service";
-import { forbidden } from "../lib/errors";
 
 const router: IRouter = Router();
-
-// Collections are a students+lecturers workspace. Admins are blocked here
-// (they get read-only Prep Hub + moderation in Phase 4).
-const requireCollectionsAccess: import("express").RequestHandler = (req, _res, next) => {
-  if (!permissions.canUseCollections(req.authUser)) {
-    return next(forbidden("Collections are not available for your account"));
-  }
-  next();
-};
 
 const IdParams = z.object({ id: z.string().uuid() });
 const ItemParams = z.object({

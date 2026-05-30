@@ -351,9 +351,10 @@ export async function duplicateCollection(
     semester: src.semester,
     academicYear: src.academicYear,
   });
-  for (const it of items) {
-    await collectionsRepo.addItem(created.id, it.documentId, it.note ?? undefined);
-  }
+  await collectionsRepo.bulkAddItems(
+    created.id,
+    items.map((it) => ({ documentId: it.documentId, note: it.note })),
+  );
   if (tagIds.length > 0) await collectionsRepo.setCollectionTags(created.id, tagIds);
   await recomputePopularity(created.id);
   return toSummary({ ...created, itemCount: items.length }, { tagIds });

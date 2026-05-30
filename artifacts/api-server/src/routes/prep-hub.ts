@@ -1,8 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/auth";
-import * as permissions from "../services/permissions.service";
-import { forbidden } from "../lib/errors";
+import { requireCollectionsAccess } from "../middlewares/collections-access";
 import * as prepHubService from "../services/prep-hub.service";
 
 const router: IRouter = Router();
@@ -13,14 +12,6 @@ const DiscoverQuery = z.object({
   courseId: z.string().uuid().optional(),
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
-
-// Following is a personal study affordance — students + lecturers only.
-const requireFollowAccess: import("express").RequestHandler = (req, _res, next) => {
-  if (!permissions.canUseCollections(req.authUser)) {
-    return next(forbidden("Following is not available for your account"));
-  }
-  next();
-};
 
 router.get("/prep-hub/collections", requireAuth, async (req, res, next) => {
   try {
@@ -37,6 +28,9 @@ router.get("/prep-hub/collections", requireAuth, async (req, res, next) => {
   }
 });
 
+// Recommendations are personalized off the caller's course signal. Admins
+// have no enrollments, so the service returns an empty list for them — that
+// is intended (admins browse the discover list, not personalized recs).
 router.get("/prep-hub/recommended", requireAuth, async (req, res, next) => {
   try {
     res.json(await prepHubService.getRecommendedCollections(req.authUser!));
@@ -57,7 +51,7 @@ router.get("/prep-hub/collections/:id", requireAuth, async (req, res, next) => {
 router.post(
   "/prep-hub/collections/:id/follow",
   requireAuth,
-  requireFollowAccess,
+  requireCollectionsAccess,
   async (req, res, next) => {
     try {
       const { id } = IdParams.parse(req.params);
@@ -71,7 +65,7 @@ router.post(
 router.delete(
   "/prep-hub/collections/:id/follow",
   requireAuth,
-  requireFollowAccess,
+  requireCollectionsAccess,
   async (req, res, next) => {
     try {
       const { id } = IdParams.parse(req.params);

@@ -131,6 +131,25 @@ export async function addItem(
   return r.count > 0;
 }
 
+/** Bulk-insert items into a collection at sequential positions (0..n-1).
+ *  Single createMany — atomic, used by duplicate. Idempotent on the
+ *  (collection, document) unique key. */
+export async function bulkAddItems(
+  collectionId: string,
+  items: { documentId: string; note?: string | null }[],
+): Promise<void> {
+  if (items.length === 0) return;
+  await db.studyCollectionItem.createMany({
+    data: items.map((it, index) => ({
+      collectionId,
+      documentId: it.documentId,
+      position: index,
+      note: it.note ?? null,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 export async function removeItem(
   collectionId: string,
   documentId: string,
