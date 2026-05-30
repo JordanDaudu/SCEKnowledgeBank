@@ -24,7 +24,9 @@ const COLLECTION_KINDS = [
   "learning_path",
 ] as const;
 
-const VISIBILITIES = ["private", "shared"] as const;
+const VISIBILITIES = ["private", "public"] as const;
+
+const SEMESTERS = ["fall", "spring", "summer"] as const;
 
 export interface CollectionSummaryDTO {
   id: string;
@@ -33,6 +35,11 @@ export interface CollectionSummaryDTO {
   kind: string;
   visibility: string;
   courseId?: string;
+  categoryId?: string;
+  examName?: string;
+  semester?: string;
+  academicYear?: number;
+  tagIds: string[];
   isOfficial: boolean;
   examDate?: string;
   itemCount: number;
@@ -60,6 +67,7 @@ interface SummaryExtra {
   followerCount?: number;
   isFollowing?: boolean;
   completedCount?: number;
+  tagIds?: string[];
 }
 
 function toSummary(
@@ -74,6 +82,11 @@ function toSummary(
     kind: c.kind,
     visibility: c.visibility,
     courseId: c.courseId ?? undefined,
+    categoryId: c.categoryId ?? undefined,
+    examName: c.examName ?? undefined,
+    semester: c.semester ?? undefined,
+    academicYear: c.academicYear ?? undefined,
+    tagIds: extra.tagIds ?? [],
     isOfficial: c.isOfficial,
     examDate: c.examDate?.toISOString(),
     itemCount: c.itemCount,
@@ -95,16 +108,18 @@ async function summarize(
   user: AuthenticatedUser,
 ): Promise<CollectionSummaryDTO[]> {
   const ids = rows.map((r) => r.id);
-  const [followerCounts, followed, completed] = await Promise.all([
+  const [followerCounts, followed, completed, tagMap] = await Promise.all([
     collectionsRepo.countFollowersForCollections(ids),
     collectionsRepo.listFollowedCollectionIds(user.id, ids),
     collectionsRepo.countCompletedForCollections(user.id, ids),
+    collectionsRepo.listTagIdsForCollections(ids),
   ]);
   return rows.map((r) =>
     toSummary(r, {
       followerCount: followerCounts.get(r.id) ?? 0,
       isFollowing: followed.has(r.id),
       completedCount: completed.get(r.id) ?? 0,
+      tagIds: tagMap.get(r.id) ?? [],
     }),
   );
 }
@@ -141,7 +156,7 @@ async function loadVisible(
 ): Promise<collectionsRepo.CollectionRow> {
   const c = await collectionsRepo.findCollectionById(id);
   if (!c) throw notFound("Collection not found");
-  if (c.ownerId === user.id || c.visibility === "shared" || c.isOfficial) {
+  if (c.ownerId === user.id || c.visibility === "public" || c.isOfficial) {
     return c;
   }
   throw forbidden("This collection is private");
@@ -154,6 +169,11 @@ export async function createCollection(
     description?: string;
     kind?: string;
     courseId?: string | null;
+    categoryId?: string | null;
+    examName?: string | null;
+    semester?: string | null;
+    academicYear?: number | null;
+    tagIds?: string[];
     visibility?: string;
     examDate?: Date | null;
     /** Optionally seed the bundle with these documents at creation (US-51). */
@@ -170,6 +190,9 @@ export async function createCollection(
     !(VISIBILITIES as readonly string[]).includes(input.visibility)
   ) {
     throw badRequest(`Unknown visibility. Allowed: ${VISIBILITIES.join(", ")}`);
+  }
+  if (input.semester && !(SEMESTERS as readonly string[]).includes(input.semester)) {
+    throw badRequest(`Unknown semester. Allowed: ${SEMESTERS.join(", ")}`);
   }
 
   // Validate every selected material up front (US-51): they must exist and be
@@ -194,6 +217,10 @@ export async function createCollection(
     description: input.description?.trim() ?? "",
     kind: input.kind ?? "collection",
     courseId: input.courseId ?? null,
+    categoryId: input.categoryId ?? null,
+    examName: input.examName?.trim() || null,
+    semester: input.semester ?? null,
+    academicYear: input.academicYear ?? null,
     visibility: input.visibility ?? "private",
     examDate: input.examDate ?? null,
   });
@@ -201,7 +228,11 @@ export async function createCollection(
     await collectionsRepo.addItem(created.id, documentId);
   }
   if (documentIds.length > 0) await recomputePopularity(created.id);
-  return toSummary({ ...created, itemCount: documentIds.length });
+  if (input.tagIds && input.tagIds.length > 0) {
+    await collectionsRepo.setCollectionTags(created.id, input.tagIds);
+  }
+  const tagIds = await collectionsRepo.listCollectionTagIds(created.id);
+  return toSummary({ ...created, itemCount: documentIds.length }, { tagIds });
 }
 
 export async function listMyCollections(
@@ -268,13 +299,14 @@ export async function getCollection(
       progress: progress.get(i.documentId),
     }));
   const completedCount = items.filter((i) => i.progress === "completed").length;
-  const [followerCount, following] = await Promise.all([
+  const [followerCount, following, tagIds] = await Promise.all([
     collectionsRepo.countFollowers(id),
     collectionsRepo.isFollowing(id, user.id),
+    collectionsRepo.listCollectionTagIds(id),
   ]);
   const summary = toSummary(
     { ...c, itemCount: items.length },
-    { followerCount, isFollowing: following, completedCount },
+    { followerCount, isFollowing: following, completedCount, tagIds },
   );
   return { ...summary, items };
 }
@@ -310,6 +342,11 @@ export async function updateCollection(
     kind?: string;
     visibility?: string;
     examDate?: Date | null;
+    categoryId?: string | null;
+    examName?: string | null;
+    semester?: string | null;
+    academicYear?: number | null;
+    tagIds?: string[];
   },
 ): Promise<void> {
   await loadOwned(id, user);
@@ -333,7 +370,19 @@ export async function updateCollection(
     data.visibility = patch.visibility;
   }
   if (patch.examDate !== undefined) data.examDate = patch.examDate;
+  if (patch.semester !== undefined) {
+    if (patch.semester !== null && !(SEMESTERS as readonly string[]).includes(patch.semester)) {
+      throw badRequest(`Unknown semester. Allowed: ${SEMESTERS.join(", ")}`);
+    }
+    data.semester = patch.semester;
+  }
+  if (patch.categoryId !== undefined) data.categoryId = patch.categoryId;
+  if (patch.examName !== undefined) data.examName = patch.examName?.trim() || null;
+  if (patch.academicYear !== undefined) data.academicYear = patch.academicYear;
   await collectionsRepo.updateCollection(id, data);
+  if (patch.tagIds !== undefined) {
+    await collectionsRepo.setCollectionTags(id, patch.tagIds);
+  }
 }
 
 export async function deleteCollection(
