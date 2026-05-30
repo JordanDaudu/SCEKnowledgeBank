@@ -1,4 +1,4 @@
-import { db } from "@workspace/db";
+import { db, Prisma } from "@workspace/db";
 
 // ─── Likes ────────────────────────────────────────────────────────
 
@@ -70,8 +70,29 @@ export async function listLikedCollectionIds(
 
 /** Set the caller's rating (1..5). Upsert: a new rating bumps count+sum;
  *  changing an existing one adjusts sum by the delta. Validation of the
- *  range is the service's job. */
+ *  range is the service's job. A single retry covers the rare race where two
+ *  concurrent first-time ratings both try to insert — the retry sees the row
+ *  and takes the update path. */
 export async function setRating(
+  collectionId: string,
+  userId: string,
+  value: number,
+): Promise<void> {
+  try {
+    await applyRating(collectionId, userId, value);
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      await applyRating(collectionId, userId, value);
+    } else {
+      throw err;
+    }
+  }
+}
+
+async function applyRating(
   collectionId: string,
   userId: string,
   value: number,
@@ -80,15 +101,8 @@ export async function setRating(
     const existing = await tx.studyCollectionRating.findUnique({
       where: { collectionId_userId: { collectionId, userId } },
     });
-    if (!existing) {
-      await tx.studyCollectionRating.create({
-        data: { collectionId, userId, value },
-      });
-      await tx.studyCollection.update({
-        where: { id: collectionId },
-        data: { ratingCount: { increment: 1 }, ratingSum: { increment: value } },
-      });
-    } else if (existing.value !== value) {
+    if (existing) {
+      if (existing.value === value) return; // same value — counters unchanged
       await tx.studyCollectionRating.update({
         where: { id: existing.id },
         data: { value, updatedAt: new Date() },
@@ -97,7 +111,15 @@ export async function setRating(
         where: { id: collectionId },
         data: { ratingSum: { increment: value - existing.value } },
       });
+      return;
     }
+    await tx.studyCollectionRating.create({
+      data: { collectionId, userId, value },
+    });
+    await tx.studyCollection.update({
+      where: { id: collectionId },
+      data: { ratingCount: { increment: 1 }, ratingSum: { increment: value } },
+    });
   });
 }
 
@@ -177,12 +199,12 @@ export async function tryRecordView(
   }
 }
 
-/** Unique viewers of a single collection (COUNT DISTINCT user_id). */
+/** Unique viewers of a single collection (DB-side COUNT DISTINCT). */
 export async function countUniqueViews(collectionId: string): Promise<number> {
-  const rows = await db.studyCollectionView.findMany({
-    where: { collectionId },
-    distinct: ["userId"],
-    select: { userId: true },
-  });
-  return rows.length;
+  const rows = await db.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+    SELECT COUNT(DISTINCT user_id) AS count
+    FROM study_collection_views
+    WHERE collection_id = ${collectionId}::uuid
+  `);
+  return Number(rows[0]?.count ?? 0);
 }
