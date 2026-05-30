@@ -9,6 +9,7 @@ import * as collectionsRepo from "../repositories/collections.repo";
 import * as collectionsService from "./collections.service";
 import * as recommendationsService from "./recommendations.service";
 import * as engagement from "./collection-engagement.service";
+import * as permissions from "./permissions.service";
 import { notFound } from "../lib/errors";
 import { COLLECTION_RANKING } from "../lib/collection-ranking";
 import type { AuthenticatedUser } from "../middlewares/auth";
@@ -62,7 +63,10 @@ export async function getPublicCollection(
   // Private collections must never appear in Prep Hub — 404 (not 403) so we
   // don't reveal existence.
   if (!c || !isPublic(c)) throw notFound("Collection not found");
-  await engagement.recordView(c.id, user);
+  // Hidden collections are visible only to admins (to review/unhide them).
+  if (c.hiddenAt && !permissions.isAdmin(user)) throw notFound("Collection not found");
+  // Don't count a moderator's review as a public view.
+  if (!c.hiddenAt) await engagement.recordView(c.id, user);
   return collectionsService.assembleDetail(c, user);
 }
 
