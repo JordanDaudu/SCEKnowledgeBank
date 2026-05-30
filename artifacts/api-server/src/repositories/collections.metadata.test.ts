@@ -14,6 +14,7 @@ let ownerId: string;
 let categoryId: string;
 let tagAId: string;
 let tagBId: string;
+let courseId: string;
 
 beforeAll(async () => {
   const owner = await db.user.create({
@@ -26,10 +27,15 @@ beforeAll(async () => {
   const t2 = await db.tag.create({ data: { name: `t2${SX}` } });
   tagAId = t1.id;
   tagBId = t2.id;
+  const course = await db.course.create({ data: { code: `C${SX}`, title: `Course${SX}`, lecturerName: `Dr${SX}` } });
+  courseId = course.id;
 });
 
 afterAll(async () => {
+  // study_collection_tags rows cascade-delete with their collection (FK
+  // onDelete: Cascade), so deleting the collections clears them too.
   await db.studyCollection.deleteMany({ where: { ownerId } });
+  await db.course.deleteMany({ where: { id: courseId } });
   await db.tag.deleteMany({ where: { id: { in: [tagAId, tagBId] } } });
   await db.category.deleteMany({ where: { id: categoryId } });
   await db.user.deleteMany({ where: { id: ownerId } });
@@ -61,9 +67,9 @@ describe("collections.repo metadata", () => {
   });
 
   it("listDiscoverable returns public collections (not private)", async () => {
-    const pub = await createCollection({ ownerId, title: `Pub${SX}`, visibility: "public" });
-    const priv = await createCollection({ ownerId, title: `Priv${SX}`, visibility: "private" });
-    const ids = (await listDiscoverable({ sort: "recent", limit: 50 })).map((r) => r.id);
+    const pub = await createCollection({ ownerId, title: `Pub${SX}`, visibility: "public", courseId });
+    const priv = await createCollection({ ownerId, title: `Priv${SX}`, visibility: "private", courseId });
+    const ids = (await listDiscoverable({ sort: "recent", courseId, limit: 50 })).map((r) => r.id);
     expect(ids).toContain(pub.id);
     expect(ids).not.toContain(priv.id);
   });

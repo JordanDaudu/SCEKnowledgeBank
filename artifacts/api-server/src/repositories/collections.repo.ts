@@ -347,19 +347,18 @@ export async function setCollectionTags(
   tagIds: string[],
 ): Promise<void> {
   const unique = Array.from(new Set(tagIds));
-  await db.$transaction([
-    db.studyCollectionTag.deleteMany({ where: { collectionId } }),
-    ...(unique.length > 0
-      ? [
-          db.studyCollectionTag.createMany({
-            data: unique.map((tagId) => ({ collectionId, tagId })),
-            skipDuplicates: true,
-          }),
-        ]
-      : []),
-  ]);
+  await db.$transaction(async (tx) => {
+    await tx.studyCollectionTag.deleteMany({ where: { collectionId } });
+    if (unique.length > 0) {
+      await tx.studyCollectionTag.createMany({
+        data: unique.map((tagId) => ({ collectionId, tagId })),
+        skipDuplicates: true,
+      });
+    }
+  });
 }
 
+/** Tag ids attached to a single collection. */
 export async function listCollectionTagIds(
   collectionId: string,
 ): Promise<string[]> {
