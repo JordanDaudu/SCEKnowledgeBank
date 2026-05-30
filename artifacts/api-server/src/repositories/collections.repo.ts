@@ -23,6 +23,9 @@ export interface CollectionRow {
   examDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  hiddenAt: Date | null;
+  hiddenBy: string | null;
+  hiddenReason: string | null;
 }
 
 export interface CollectionItemRow {
@@ -417,7 +420,7 @@ export async function listTrending(opts: {
     FROM study_collections sc
     JOIN (SELECT collection_id, sum(score) AS score FROM activity GROUP BY collection_id) a
       ON a.collection_id = sc.id
-    WHERE sc.deleted_at IS NULL AND (sc.visibility = 'public' OR sc.is_official = true)
+    WHERE sc.deleted_at IS NULL AND (sc.visibility = 'public' OR sc.is_official = true) AND sc.hidden_at IS NULL
     ORDER BY a.score DESC, sc.created_at DESC
     LIMIT ${opts.limit}
   `);
@@ -435,6 +438,7 @@ export async function listDiscoverable(opts: {
   const where: Prisma.Sql[] = [
     Prisma.sql`sc.deleted_at IS NULL`,
     Prisma.sql`(sc.visibility = 'public' OR sc.is_official = true)`,
+    Prisma.sql`sc.hidden_at IS NULL`,
   ];
   if (opts.courseId) where.push(Prisma.sql`sc.course_id = ${opts.courseId}::uuid`);
 
@@ -497,6 +501,7 @@ export async function recommendCollections(opts: {
   const rows = await db.studyCollection.findMany({
     where: {
       deletedAt: null,
+      hiddenAt: null,
       OR: [{ visibility: "public" }, { isOfficial: true }],
       courseId: { in: opts.courseIds },
       ownerId: { not: opts.excludeOwnerId },
@@ -557,4 +562,57 @@ export async function listTagIdsForCollections(
     map.set(r.collectionId, list);
   }
   return map;
+}
+
+// ─── Moderation (Phase 4) ─────────────────────────────────────────
+
+/** Hide a collection from all public surfaces (reversible). */
+export async function hideCollection(
+  id: string,
+  adminId: string,
+  reason: string | null,
+): Promise<void> {
+  await db.studyCollection.update({
+    where: { id },
+    data: { hiddenAt: new Date(), hiddenBy: adminId, hiddenReason: reason, updatedAt: new Date() },
+  });
+}
+
+/** Reverse a hide. */
+export async function unhideCollection(id: string): Promise<void> {
+  await db.studyCollection.update({
+    where: { id },
+    data: { hiddenAt: null, hiddenBy: null, hiddenReason: null, updatedAt: new Date() },
+  });
+}
+
+/** Public/official collections for the admin moderation list. When
+ *  `includeHidden` is false, hidden ones are excluded. Newest first. */
+export async function listForModeration(opts: {
+  includeHidden: boolean;
+  limit: number;
+}): Promise<Array<CollectionRow & { itemCount: number }>> {
+  const rows = await db.studyCollection.findMany({
+    where: {
+      deletedAt: null,
+      OR: [{ visibility: "public" }, { isOfficial: true }],
+      ...(opts.includeHidden ? {} : { hiddenAt: null }),
+    },
+    orderBy: [{ createdAt: "desc" }],
+    take: opts.limit,
+    include: { _count: { select: { items: true } } },
+  });
+  return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
+}
+
+export async function countPublicCollections(): Promise<number> {
+  return db.studyCollection.count({
+    where: { deletedAt: null, OR: [{ visibility: "public" }, { isOfficial: true }] },
+  });
+}
+
+export async function countHiddenCollections(): Promise<number> {
+  return db.studyCollection.count({
+    where: { deletedAt: null, hiddenAt: { not: null } },
+  });
 }
