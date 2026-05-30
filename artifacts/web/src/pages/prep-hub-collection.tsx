@@ -4,6 +4,10 @@ import {
   getGetPublicCollectionQueryKey,
   useFollowCollection,
   useUnfollowCollection,
+  useLikeCollection,
+  useUnlikeCollection,
+  useRateCollection,
+  useClearCollectionRating,
   useGetCurrentUser,
   useListCategories,
   useListTags,
@@ -18,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMaterialType } from "@/lib/material-types";
 import { KIND_LABEL } from "@/components/collections/CollectionCard";
+import { useToast } from "@/hooks/use-toast";
 import {
   ChevronLeft,
   FolderOpen,
@@ -25,6 +30,8 @@ import {
   Heart,
   Users,
   TrendingUp,
+  Star,
+  Eye,
 } from "lucide-react";
 
 export default function PrepHubCollection() {
@@ -41,6 +48,12 @@ export default function PrepHubCollection() {
 
   const followMut = useFollowCollection();
   const unfollowMut = useUnfollowCollection();
+  const likeMut = useLikeCollection();
+  const unlikeMut = useUnlikeCollection();
+  const rateMut = useRateCollection();
+  const clearRatingMut = useClearCollectionRating();
+
+  const { toast } = useToast();
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: key });
@@ -51,6 +64,27 @@ export default function PrepHubCollection() {
     if (!col) return;
     const mut = col.isFollowing ? unfollowMut : followMut;
     mut.mutate({ id }, { onSuccess: refresh });
+  };
+
+  const handleError = (err: unknown) => {
+    const data = (err as { data?: { error?: { message?: string } } })?.data;
+    const message = data?.error?.message ?? (err as Error)?.message ?? "Something went wrong";
+    toast({ variant: "destructive", title: "Action failed", description: message });
+  };
+
+  const toggleLike = () => {
+    if (!col) return;
+    const mut = col.isLiked ? unlikeMut : likeMut;
+    mut.mutate({ id }, { onSuccess: refresh, onError: handleError });
+  };
+
+  const handleRate = (star: number) => {
+    if (!col) return;
+    if (col.myRating === star) {
+      clearRatingMut.mutate({ id }, { onSuccess: refresh, onError: handleError });
+    } else {
+      rateMut.mutate({ id, data: { value: star } }, { onSuccess: refresh, onError: handleError });
+    }
   };
 
   const isAdmin = user?.roles?.includes("admin") ?? false;
@@ -155,21 +189,86 @@ export default function PrepHubCollection() {
               <TrendingUp className="h-3.5 w-3.5" />
               {col.popularityScore}
             </span>
+            <span className="inline-flex items-center gap-1" title="Views">
+              <Eye className="h-3.5 w-3.5" />
+              {col.viewCount} views · {col.uniqueViewCount} unique
+            </span>
           </p>
         </div>
-        {!isAdmin && (
-          <Button
-            variant={col.isFollowing ? "secondary" : "default"}
-            size="sm"
-            className="gap-1.5"
-            disabled={followMut.isPending || unfollowMut.isPending}
-            onClick={toggleFollow}
-            data-testid="collection-follow"
-          >
-            <Heart className={"h-4 w-4 " + (col.isFollowing ? "fill-current" : "")} />
-            {col.isFollowing ? "Following" : "Follow"}
-          </Button>
-        )}
+        <div className="flex flex-col items-end gap-2">
+          {!isAdmin && (
+            <Button
+              variant={col.isFollowing ? "secondary" : "default"}
+              size="sm"
+              className="gap-1.5"
+              disabled={followMut.isPending || unfollowMut.isPending}
+              onClick={toggleFollow}
+              data-testid="collection-follow"
+            >
+              <Heart className={"h-4 w-4 " + (col.isFollowing ? "fill-current" : "")} />
+              {col.isFollowing ? "Following" : "Follow"}
+            </Button>
+          )}
+
+          {/* Rating widget */}
+          <div className="flex items-center gap-1.5" data-testid="collection-rating">
+            {[1, 2, 3, 4, 5].map((star) => {
+              const filled = col.myRating != null
+                ? star <= col.myRating
+                : star <= Math.round(col.ratingAverage);
+              const isRatingPending = rateMut.isPending || clearRatingMut.isPending;
+              return (
+                <button
+                  key={star}
+                  type="button"
+                  aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
+                  disabled={isAdmin || isRatingPending}
+                  onClick={isAdmin ? undefined : () => handleRate(star)}
+                  className={
+                    "transition-colors " +
+                    (isAdmin
+                      ? "cursor-default"
+                      : "cursor-pointer hover:scale-110") +
+                    (filled ? " text-amber-400" : " text-muted-foreground/40")
+                  }
+                >
+                  <Star
+                    className="h-4 w-4"
+                    fill={filled ? "currentColor" : "none"}
+                  />
+                </button>
+              );
+            })}
+            <span className="text-xs text-muted-foreground">
+              {col.ratingAverage > 0
+                ? col.ratingAverage.toFixed(1)
+                : "—"}{" "}
+              ({col.ratingCount})
+            </span>
+          </div>
+
+          {/* Like button — hidden for admins */}
+          {!isAdmin && (
+            <button
+              type="button"
+              aria-label={col.isLiked ? "Unlike collection" : "Like collection"}
+              disabled={likeMut.isPending || unlikeMut.isPending}
+              onClick={toggleLike}
+              data-testid="collection-like"
+              className={
+                "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-sm transition-colors border " +
+                (col.isLiked
+                  ? "bg-primary/10 border-primary/40 text-primary"
+                  : "bg-background border-border text-muted-foreground hover:bg-accent")
+              }
+            >
+              <Heart
+                className={"h-4 w-4 " + (col.isLiked ? "fill-current" : "")}
+              />
+              <span>{col.likeCount}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {items.length === 0 ? (
