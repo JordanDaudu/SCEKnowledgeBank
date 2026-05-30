@@ -148,7 +148,7 @@ async function loadOwned(
   return c;
 }
 
-/** Load a collection the user is allowed to VIEW: their own, or any shared /
+/** Load a collection the user is allowed to VIEW: their own, or any public /
  *  official (curated) collection. Management still requires ownership. */
 async function loadVisible(
   id: string,
@@ -228,10 +228,10 @@ export async function createCollection(
     await collectionsRepo.addItem(created.id, documentId);
   }
   if (documentIds.length > 0) await recomputePopularity(created.id);
-  if (input.tagIds && input.tagIds.length > 0) {
-    await collectionsRepo.setCollectionTags(created.id, input.tagIds);
+  const tagIds = Array.from(new Set(input.tagIds ?? []));
+  if (tagIds.length > 0) {
+    await collectionsRepo.setCollectionTags(created.id, tagIds);
   }
-  const tagIds = await collectionsRepo.listCollectionTagIds(created.id);
   return toSummary({ ...created, itemCount: documentIds.length }, { tagIds });
 }
 

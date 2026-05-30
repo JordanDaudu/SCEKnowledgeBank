@@ -48,6 +48,17 @@ describe("collections.service metadata", () => {
   it("rejects an invalid semester", async () => {
     await expect(
       createCollection(user, { title: `Bad${SX}`, semester: "winter" }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/semester/i);
+  });
+
+  it("persists tags added via updateCollection and clears them on empty update", async () => {
+    const c = await createCollection(user, { title: `UpdateTag${SX}` });
+    await updateCollection(c.id, user, { tagIds: [tagId] });
+    const afterAdd = await getCollection(c.id, user);
+    expect(afterAdd.tagIds).toEqual([tagId]);
+
+    await updateCollection(c.id, user, { tagIds: [] });
+    const afterClear = await getCollection(c.id, user);
+    expect(afterClear.tagIds).toEqual([]);
   });
 });
