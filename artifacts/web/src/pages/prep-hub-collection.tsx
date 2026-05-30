@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMaterialType } from "@/lib/material-types";
 import { KIND_LABEL } from "@/components/collections/CollectionCard";
+import CollectionComments from "@/components/collections/CollectionComments";
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronLeft,
@@ -304,6 +305,14 @@ export default function PrepHubCollection() {
           ))}
         </ul>
       )}
+
+      <div className="border-t pt-6">
+        <CollectionComments
+          collectionId={id}
+          canComment={!isAdmin}
+          onCountChange={refresh}
+        />
+      </div>
     </div>
   );
 }
