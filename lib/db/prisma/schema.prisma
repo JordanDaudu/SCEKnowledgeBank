@@ -585,7 +585,7 @@ model StudyCollection {
   // fall | spring | summer (text, matches the document semester convention).
   semester    String?   @map("semester")
   academicYear Int?     @map("academic_year")
-  // private | shared (sharing is a 6d feature; default private).
+  // private | public (default private). Public => discoverable in Prep Hub.
   visibility  String    @default("private")
   // Denormalised ranking signal (followers + items), recomputed on change.
   popularityScore Int   @default(0) @map("popularity_score")
