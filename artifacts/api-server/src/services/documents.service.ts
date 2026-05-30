@@ -16,6 +16,7 @@ import { badRequest, forbidden, notFound, unauthorized } from "../lib/errors";
 import { signToken, verifyToken } from "../lib/sign-url";
 import { getStorage } from "../lib/storage";
 import { env } from "../lib/env";
+import { buildPreviewFrameAncestors } from "../lib/preview-csp";
 import { mimeMatchesContent } from "../lib/mime-sniff";
 import { contentDisposition } from "../lib/filename";
 import type { AuthenticatedUser } from "../middlewares/auth";
@@ -1538,20 +1539,18 @@ async function streamFile(
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (disposition === "inline") {
     // Inline (preview) responses are loaded inside an <iframe> on the
-    // web app. Without explicit framing permissions Chrome shows its
-    // "This page has been blocked by Chrome" interstitial when any
-    // upstream proxy injects a restrictive X-Frame-Options or COEP
-    // header. We allow:
-    //  - 'self' for production (same-origin web + api behind the
-    //    autoscale router),
-    //  - the Replit workspace/dev domains so the preview also renders
-    //    inside the workspace's nested iframe during development.
-    // Note: we intentionally do NOT set X-Frame-Options — it cannot
-    // express a list of allowed origins and would override the CSP
-    // policy in older browsers, blocking the workspace iframe.
+    // web app. The frame only renders if the embedding page's origin is
+    // allowed by `frame-ancestors`. `'self'` covers production (same-origin
+    // web + api behind the autoscale router); the configured web origins
+    // (env.webOrigins) cover cross-origin setups — notably local dev where
+    // the web app (:5173) and API (:8080) differ, which otherwise yields
+    // Chrome's "refused to connect" frame block; the Replit workspace
+    // domains cover the nested dev iframe. See lib/preview-csp.ts. We
+    // intentionally do NOT set X-Frame-Options — it can't express an origin
+    // list and would override this CSP in older browsers.
     res.setHeader(
       "Content-Security-Policy",
-      "frame-ancestors 'self' https://*.replit.dev https://*.replit.com https://replit.com https://*.replit.app",
+      buildPreviewFrameAncestors(env.webOrigins),
     );
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.setHeader("Cache-Control", "private, no-store");
@@ -1625,11 +1624,13 @@ export async function streamThumbnail(
   res.setHeader("X-Content-Type-Options", "nosniff");
   // Thumbnails are rendered as <img> in the SPA but may also surface
   // inside iframed preview panes (e.g. fallback when in-browser
-  // preview is unsupported). Allow same-origin + Replit workspace
-  // framing so upstream proxy defaults can't block them.
+  // preview is unsupported). Allow same-origin + the configured web
+  // origins + Replit workspace framing so a cross-origin SPA (local
+  // dev: web :5173, api :8080) and upstream proxy defaults can't block
+  // them. See lib/preview-csp.ts.
   res.setHeader(
     "Content-Security-Policy",
-    "frame-ancestors 'self' https://*.replit.dev https://*.replit.com https://replit.com https://*.replit.app",
+    buildPreviewFrameAncestors(env.webOrigins),
   );
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
   stream.pipe(res);
