@@ -89,6 +89,9 @@ const owned = {
   examDate: null,
   createdAt: new Date(),
   updatedAt: new Date(),
+  hiddenAt: null,
+  hiddenBy: null,
+  hiddenReason: null,
 };
 
 beforeEach(() => {

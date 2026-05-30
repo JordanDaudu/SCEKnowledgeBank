@@ -19,6 +19,7 @@ tags:
   - name: analytics
   - name: collections
   - name: prep-hub
+  - name: moderation
 
 paths:
   /healthz:
@@ -1439,6 +1440,62 @@ paths:
       summary: Delete a collection comment
       responses:
         "204": { description: Deleted }
+  /admin/collections/moderation:
+    get:
+      operationId: listCollectionModeration
+      tags: [moderation]
+      summary: Admin — list all public collections with moderation stats
+      parameters:
+        - { in: query, name: limit, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Moderation list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionModerationList" }
+  /admin/collections/{id}/hide:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: hideCollection
+      tags: [moderation]
+      summary: Admin — hide a collection from the Prep Hub
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /admin/collections/{id}/unhide:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: unhideCollection
+      tags: [moderation]
+      summary: Admin — unhide a previously hidden collection
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /admin/collections/comments/{commentId}:
+    parameters:
+      - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: removeCollectionComment
+      tags: [moderation]
+      summary: Admin — delete a collection comment
+      responses:
+        "204": { description: Deleted }
   /documents/{id}/progress:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -2402,6 +2459,8 @@ components:
         commentCount: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        hiddenAt: { type: string, format: date-time, nullable: true }
+        hiddenReason: { type: string, nullable: true }
     StudyCollectionItem:
       type: object
       required: [document, position]
@@ -2498,6 +2557,20 @@ components:
       type: object
       properties:
         status: { type: string, enum: [reviewing, completed], nullable: true }
+
+    CollectionModerationList:
+      type: object
+      required: [collections, stats]
+      properties:
+        collections:
+          type: array
+          items: { $ref: "#/components/schemas/StudyCollectionSummary" }
+        stats:
+          type: object
+          required: [totalPublic, totalHidden]
+          properties:
+            totalPublic: { type: integer }
+            totalHidden: { type: integer }
 
     AnalyticsCourseInfo:
       type: object

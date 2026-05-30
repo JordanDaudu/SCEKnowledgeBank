@@ -13,6 +13,8 @@ import {
   useListTags,
   getListDiscoverableCollectionsQueryKey,
   getListRecommendedCollectionsQueryKey,
+  useHideCollection,
+  useUnhideCollection,
   type StudyCollectionItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,6 +35,7 @@ import {
   TrendingUp,
   Star,
   Eye,
+  EyeOff,
 } from "lucide-react";
 
 export default function PrepHubCollection() {
@@ -53,6 +56,8 @@ export default function PrepHubCollection() {
   const unlikeMut = useUnlikeCollection();
   const rateMut = useRateCollection();
   const clearRatingMut = useClearCollectionRating();
+  const hideMut = useHideCollection();
+  const unhideMut = useUnhideCollection();
 
   const { toast } = useToast();
 
@@ -86,6 +91,20 @@ export default function PrepHubCollection() {
     } else {
       rateMut.mutate({ id, data: { value: star } }, { onSuccess: refresh, onError: handleError });
     }
+  };
+
+  const handleHide = () => {
+    if (!col) return;
+    const reason = prompt("Optional reason for hiding this collection:") ?? "";
+    hideMut.mutate(
+      { id, data: { reason: reason.trim() || undefined } },
+      { onSuccess: refresh, onError: handleError },
+    );
+  };
+
+  const handleUnhide = () => {
+    if (!col) return;
+    unhideMut.mutate({ id }, { onSuccess: refresh, onError: handleError });
   };
 
   const isAdmin = user?.roles?.includes("admin") ?? false;
@@ -136,6 +155,16 @@ export default function PrepHubCollection() {
       >
         <ChevronLeft className="h-4 w-4" /> Prep Hub
       </Link>
+
+      {col.hiddenAt && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <EyeOff className="h-4 w-4 shrink-0" />
+          <span>
+            <span className="font-semibold">Hidden from Prep Hub</span>
+            {col.hiddenReason ? `: ${col.hiddenReason}` : ""}
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -197,7 +226,33 @@ export default function PrepHubCollection() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {!isAdmin && (
+          {isAdmin ? (
+            col.hiddenAt ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={unhideMut.isPending}
+                onClick={handleUnhide}
+                data-testid="collection-unhide"
+              >
+                <Eye className="h-4 w-4" />
+                Unhide
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+                disabled={hideMut.isPending}
+                onClick={handleHide}
+                data-testid="collection-hide"
+              >
+                <EyeOff className="h-4 w-4" />
+                Hide
+              </Button>
+            )
+          ) : (
             <Button
               variant={col.isFollowing ? "secondary" : "default"}
               size="sm"
@@ -310,6 +365,7 @@ export default function PrepHubCollection() {
         <CollectionComments
           collectionId={id}
           canComment={!isAdmin}
+          canModerate={isAdmin}
           onCountChange={refresh}
         />
       </div>

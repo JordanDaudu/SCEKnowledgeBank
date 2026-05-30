@@ -6,6 +6,7 @@
 import * as collectionsRepo from "../repositories/collections.repo";
 import * as commentsRepo from "../repositories/collection-comments.repo";
 import * as notifications from "./notifications.service";
+import * as permissions from "./permissions.service";
 import { badRequest, forbidden, notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -23,11 +24,23 @@ function isPublic(c: collectionsRepo.CollectionRow): boolean {
   return c.visibility === "public" || c.isOfficial;
 }
 
+/** Writable target: public/official AND not hidden (404 otherwise, any role). */
 async function loadEngageable(
   id: string,
 ): Promise<collectionsRepo.CollectionRow> {
   const c = await collectionsRepo.findCollectionById(id);
+  if (!c || !isPublic(c) || c.hiddenAt) throw notFound("Collection not found");
+  return c;
+}
+
+/** Readable target: public/official; hidden ones are visible only to admins. */
+async function loadViewable(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<collectionsRepo.CollectionRow> {
+  const c = await collectionsRepo.findCollectionById(id);
   if (!c || !isPublic(c)) throw notFound("Collection not found");
+  if (c.hiddenAt && !permissions.isAdmin(user)) throw notFound("Collection not found");
   return c;
 }
 
@@ -50,7 +63,7 @@ export async function listComments(
   id: string,
   user: AuthenticatedUser,
 ): Promise<CollectionCommentDTO[]> {
-  await loadEngageable(id);
+  await loadViewable(id, user);
   const rows = await commentsRepo.listComments(id);
   return rows.map((r) => toDTO(r, user));
 }

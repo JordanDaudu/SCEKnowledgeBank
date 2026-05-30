@@ -4,6 +4,7 @@ import {
   useCreateCollectionComment,
   useEditCollectionComment,
   useDeleteCollectionComment,
+  useRemoveCollectionComment,
   getListCollectionCommentsQueryKey,
   type StudyCollectionComment,
 } from "@workspace/api-client-react";
@@ -11,23 +12,26 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, Edit, Trash2 } from "lucide-react";
+import { MessageSquare, Edit, Trash2, ShieldX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 
 interface Props {
   collectionId: string;
   canComment: boolean;
+  canModerate?: boolean;
   onCountChange?: () => void;
 }
 
 interface CommentRowProps {
   comment: StudyCollectionComment;
+  canModerate?: boolean;
   onEdit: (c: StudyCollectionComment) => void;
   onDelete: (commentId: string) => void;
+  onRemove: (commentId: string) => void;
 }
 
-function CommentRow({ comment, onEdit, onDelete }: CommentRowProps) {
+function CommentRow({ comment, canModerate, onEdit, onDelete, onRemove }: CommentRowProps) {
   return (
     <div className="bg-card border rounded-lg p-4 shadow-sm space-y-1" data-testid={`collection-comment-${comment.id}`}>
       <div className="flex items-center justify-between gap-2">
@@ -43,37 +47,51 @@ function CommentRow({ comment, onEdit, onDelete }: CommentRowProps) {
             )}
           </span>
         </div>
-        {comment.editable && (
-          <div className="flex gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              aria-label="Edit comment"
-              onClick={() => onEdit(comment)}
-              data-testid={`edit-collection-comment-${comment.id}`}
-            >
-              <Edit className="h-3 w-3" />
-            </Button>
+        <div className="flex gap-1 shrink-0">
+          {comment.editable && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                aria-label="Edit comment"
+                onClick={() => onEdit(comment)}
+                data-testid={`edit-collection-comment-${comment.id}`}
+              >
+                <Edit className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                aria-label="Delete comment"
+                onClick={() => onDelete(comment.id)}
+                data-testid={`delete-collection-comment-${comment.id}`}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </>
+          )}
+          {canModerate && (
             <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-              aria-label="Delete comment"
-              onClick={() => onDelete(comment.id)}
-              data-testid={`delete-collection-comment-${comment.id}`}
+              aria-label="Remove comment (admin)"
+              onClick={() => onRemove(comment.id)}
+              data-testid={`remove-collection-comment-${comment.id}`}
             >
-              <Trash2 className="h-3 w-3" />
+              <ShieldX className="h-3 w-3" />
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <p className="text-sm pl-8 whitespace-pre-wrap">{comment.body}</p>
     </div>
   );
 }
 
-export default function CollectionComments({ collectionId, canComment, onCountChange }: Props) {
+export default function CollectionComments({ collectionId, canComment, canModerate, onCountChange }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -85,6 +103,7 @@ export default function CollectionComments({ collectionId, canComment, onCountCh
   const createMut = useCreateCollectionComment();
   const editMut = useEditCollectionComment();
   const deleteMut = useDeleteCollectionComment();
+  const removeMut = useRemoveCollectionComment();
 
   const [newBody, setNewBody] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -160,6 +179,20 @@ export default function CollectionComments({ collectionId, canComment, onCountCh
     );
   };
 
+  const handleRemove = (commentId: string) => {
+    if (!confirm("Remove this comment as admin?")) return;
+    removeMut.mutate(
+      { commentId },
+      {
+        onSuccess: () => {
+          refreshAll();
+          toast({ title: "Comment removed" });
+        },
+        onError: handleError,
+      },
+    );
+  };
+
   const list = comments ?? [];
 
   return (
@@ -229,8 +262,10 @@ export default function CollectionComments({ collectionId, canComment, onCountCh
               <CommentRow
                 key={comment.id}
                 comment={comment}
+                canModerate={canModerate}
                 onEdit={handleStartEdit}
                 onDelete={handleDelete}
+                onRemove={handleRemove}
               />
             ),
           )

@@ -826,6 +826,8 @@ export interface StudyCollectionSummary {
   commentCount: number;
   createdAt: string;
   updatedAt: string;
+  hiddenAt?: string | null;
+  hiddenReason?: string | null;
 }
 
 export type StudyCollectionItemProgress =
@@ -986,6 +988,16 @@ export const StudyProgressResponseStatus = {
 
 export interface StudyProgressResponse {
   status?: StudyProgressResponseStatus;
+}
+
+export type CollectionModerationListStats = {
+  totalPublic: number;
+  totalHidden: number;
+};
+
+export interface CollectionModerationList {
+  collections: StudyCollectionSummary[];
+  stats: CollectionModerationListStats;
 }
 
 export interface AnalyticsCourseInfo {
@@ -1329,4 +1341,12 @@ export type CreateCollectionCommentBody = {
 export type EditCollectionCommentBody = {
   /** @minLength 1 */
   body: string;
+};
+
+export type ListCollectionModerationParams = {
+  limit?: number;
+};
+
+export type HideCollectionBody = {
+  reason?: string;
 };

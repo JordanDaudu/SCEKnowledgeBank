@@ -18,12 +18,12 @@ function isPublic(c: collectionsRepo.CollectionRow): boolean {
   return c.visibility === "public" || c.isOfficial;
 }
 
-/** Load a public collection or 404. */
+/** Load a public collection or 404. Hidden collections are never engageable. */
 async function loadEngageable(
   id: string,
 ): Promise<collectionsRepo.CollectionRow> {
   const c = await collectionsRepo.findCollectionById(id);
-  if (!c || !isPublic(c)) throw notFound("Collection not found");
+  if (!c || !isPublic(c) || c.hiddenAt) throw notFound("Collection not found");
   return c;
 }
 

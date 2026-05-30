@@ -55,6 +55,8 @@ export interface CollectionSummaryDTO {
   myRating?: number;
   viewCount: number;
   commentCount: number;
+  hiddenAt?: string;
+  hiddenReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,6 +118,8 @@ function toSummary(
     myRating: extra.myRating,
     viewCount: c.viewCount,
     commentCount: c.commentCount,
+    hiddenAt: c.hiddenAt?.toISOString(),
+    hiddenReason: c.hiddenReason ?? undefined,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };

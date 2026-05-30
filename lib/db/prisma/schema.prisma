@@ -612,6 +612,14 @@ model StudyCollection {
   // maintained transactionally on follow/unfollow. Used by ranking SQL
   // so "saves" is a column read, not a per-row subquery.
   followerCount Int     @default(0) @map("follower_count")
+  // ─── Moderation (Phase 4) ─────────────────────────────────────
+  // Reversible "hidden" flag. When set, the collection is removed from
+  // every public surface (discovery/search/trending/recommend/public
+  // view) but preserved for the owner (shown with a moderator banner).
+  // hiddenBy is a plain uuid (no FK, matching parentDocumentId).
+  hiddenAt     DateTime? @map("hidden_at") @db.Timestamptz()
+  hiddenBy     String?   @map("hidden_by") @db.Uuid
+  hiddenReason String?   @map("hidden_reason")
   examDate    DateTime? @map("exam_date") @db.Timestamptz()
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
@@ -632,6 +640,7 @@ model StudyCollection {
   @@index([isOfficial, courseId], map: "study_collections_official_course_idx")
   @@index([visibility, popularityScore(sort: Desc)], map: "study_collections_visibility_popularity_idx")
   @@index([categoryId], map: "study_collections_category_idx")
+  @@index([hiddenAt], map: "study_collections_hidden_at_idx")
   @@map("study_collections")
 }
 

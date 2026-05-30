@@ -25,6 +25,7 @@ import type {
   BulkDocumentActionResult,
   Category,
   CheckDuplicateDocumentParams,
+  CollectionModerationList,
   Comment,
   CommentReaction,
   Course,
@@ -44,7 +45,9 @@ import type {
   FavoriteStatus,
   GetDocumentThumbnailParams,
   HealthStatus,
+  HideCollectionBody,
   ListActivityParams,
+  ListCollectionModerationParams,
   ListDiscoverableCollectionsParams,
   ListDocumentsParams,
   ListNotificationsParams,
@@ -7562,6 +7565,367 @@ export const useDeleteCollectionComment = <
   TContext
 > => {
   return useMutation(getDeleteCollectionCommentMutationOptions(options));
+};
+
+/**
+ * @summary Admin — list all public collections with moderation stats
+ */
+export const getListCollectionModerationUrl = (
+  params?: ListCollectionModerationParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/collections/moderation?${stringifiedParams}`
+    : `/api/admin/collections/moderation`;
+};
+
+export const listCollectionModeration = async (
+  params?: ListCollectionModerationParams,
+  options?: RequestInit,
+): Promise<CollectionModerationList> => {
+  return customFetch<CollectionModerationList>(
+    getListCollectionModerationUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCollectionModerationQueryKey = (
+  params?: ListCollectionModerationParams,
+) => {
+  return [
+    `/api/admin/collections/moderation`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListCollectionModerationQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCollectionModeration>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCollectionModerationParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCollectionModeration>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCollectionModerationQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCollectionModeration>>
+  > = ({ signal }) =>
+    listCollectionModeration(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCollectionModeration>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCollectionModerationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCollectionModeration>>
+>;
+export type ListCollectionModerationQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin — list all public collections with moderation stats
+ */
+
+export function useListCollectionModeration<
+  TData = Awaited<ReturnType<typeof listCollectionModeration>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListCollectionModerationParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCollectionModeration>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCollectionModerationQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin — hide a collection from the Prep Hub
+ */
+export const getHideCollectionUrl = (id: string) => {
+  return `/api/admin/collections/${id}/hide`;
+};
+
+export const hideCollection = async (
+  id: string,
+  hideCollectionBody?: HideCollectionBody,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getHideCollectionUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(hideCollectionBody),
+  });
+};
+
+export const getHideCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hideCollection>>,
+    TError,
+    { id: string; data: BodyType<HideCollectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof hideCollection>>,
+  TError,
+  { id: string; data: BodyType<HideCollectionBody> },
+  TContext
+> => {
+  const mutationKey = ["hideCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof hideCollection>>,
+    { id: string; data: BodyType<HideCollectionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return hideCollection(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type HideCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof hideCollection>>
+>;
+export type HideCollectionMutationBody = BodyType<HideCollectionBody>;
+export type HideCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin — hide a collection from the Prep Hub
+ */
+export const useHideCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof hideCollection>>,
+    TError,
+    { id: string; data: BodyType<HideCollectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof hideCollection>>,
+  TError,
+  { id: string; data: BodyType<HideCollectionBody> },
+  TContext
+> => {
+  return useMutation(getHideCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Admin — unhide a previously hidden collection
+ */
+export const getUnhideCollectionUrl = (id: string) => {
+  return `/api/admin/collections/${id}/unhide`;
+};
+
+export const unhideCollection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getUnhideCollectionUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUnhideCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unhideCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unhideCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["unhideCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unhideCollection>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unhideCollection(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnhideCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unhideCollection>>
+>;
+
+export type UnhideCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin — unhide a previously hidden collection
+ */
+export const useUnhideCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unhideCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unhideCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getUnhideCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Admin — delete a collection comment
+ */
+export const getRemoveCollectionCommentUrl = (commentId: string) => {
+  return `/api/admin/collections/comments/${commentId}`;
+};
+
+export const removeCollectionComment = async (
+  commentId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRemoveCollectionCommentUrl(commentId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveCollectionCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeCollectionComment>>,
+    TError,
+    { commentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeCollectionComment>>,
+  TError,
+  { commentId: string },
+  TContext
+> => {
+  const mutationKey = ["removeCollectionComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeCollectionComment>>,
+    { commentId: string }
+  > = (props) => {
+    const { commentId } = props ?? {};
+
+    return removeCollectionComment(commentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveCollectionCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeCollectionComment>>
+>;
+
+export type RemoveCollectionCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin — delete a collection comment
+ */
+export const useRemoveCollectionComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeCollectionComment>>,
+    TError,
+    { commentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeCollectionComment>>,
+  TError,
+  { commentId: string },
+  TContext
+> => {
+  return useMutation(getRemoveCollectionCommentMutationOptions(options));
 };
 
 /**

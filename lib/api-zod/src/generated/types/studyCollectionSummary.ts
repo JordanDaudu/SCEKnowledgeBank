@@ -38,4 +38,6 @@ export interface StudyCollectionSummary {
   commentCount: number;
   createdAt: Date;
   updatedAt: Date;
+  hiddenAt?: Date | null;
+  hiddenReason?: string | null;
 }
