@@ -1,4 +1,5 @@
 import { db, Prisma } from "@workspace/db";
+import { COLLECTION_RANKING as CR } from "../lib/collection-ranking";
 
 export interface CollectionRow {
   id: string;
@@ -329,29 +330,127 @@ export async function countCompletedForCollections(
 
 // ─── Discovery & recommendations (US-55 / US-62) ──────────────────
 
-export type DiscoverSort = "popular" | "recent";
+export type DiscoverSort =
+  | "popular" | "recent" | "new" | "rating" | "views" | "trending" | "exam";
+
+/** Prefix-aware tsquery from raw user input (mirrors documents prefixTsQuery). */
+function collectionTsQuery(q: string): Prisma.Sql {
+  const tokens = q
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => `${t}:*`);
+  if (tokens.length === 0) return Prisma.sql`to_tsquery('english', '')`;
+  return Prisma.sql`to_tsquery('english', ${tokens.join(" & ")})`;
+}
+
+/** True if the query yields at least one search token (else FTS matches nothing). */
+function collectionTsQueryHasTokens(q: string): boolean {
+  return q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean).length > 0;
+}
+
+function normSql(col: Prisma.Sql, scale: number): Prisma.Sql {
+  return Prisma.sql`LEAST(ln(1 + ${col}) / ln(1 + ${scale}::float8), 1.0)`;
+}
+
+/** Combined discovery/search score. `rel` is the [0,1] relevance term (0 when
+ *  there is no query). Reads the Phase-2 denormalised columns. */
+function combinedScoreSql(rel: Prisma.Sql): Prisma.Sql {
+  const rating = Prisma.sql`(CASE WHEN sc.rating_count > 0 THEN (sc.rating_sum::float8 / sc.rating_count / 5.0) ELSE 0 END)`;
+  return Prisma.sql`(
+    ${CR.relevanceWeight}::float8 * ${rel}
+    + ${CR.ratingWeight}::float8 * ${rating}
+    + ${CR.likeWeight}::float8 * ${normSql(Prisma.sql`sc.like_count`, CR.likeScale)}
+    + ${CR.saveWeight}::float8 * ${normSql(Prisma.sql`sc.follower_count`, CR.saveScale)}
+    + ${CR.viewWeight}::float8 * ${normSql(Prisma.sql`sc.view_count`, CR.viewScale)}
+  )`;
+}
+
+/** Bayesian-shrunk average rating, for the Highest-Rated sort. */
+function bayesRatingSql(): Prisma.Sql {
+  return Prisma.sql`((sc.rating_sum + ${CR.ratingPriorMean}::float8 * ${CR.ratingPriorWeight}::float8) / (sc.rating_count + ${CR.ratingPriorWeight}::float8))`;
+}
+
+/** Fetch full collection rows for the given ids, preserving id order, with itemCount. */
+async function fetchCollectionsByIdOrder(
+  ids: string[],
+): Promise<Array<CollectionRow & { itemCount: number }>> {
+  if (ids.length === 0) return [];
+  const rows = await db.studyCollection.findMany({
+    where: { id: { in: ids } },
+    include: { _count: { select: { items: true } } },
+  });
+  const byId = new Map(
+    rows.map((r) => {
+      const { _count, ...rest } = r;
+      return [r.id, { ...rest, itemCount: _count.items } as CollectionRow & { itemCount: number }];
+    }),
+  );
+  return ids
+    .map((id) => byId.get(id))
+    .filter((r): r is CollectionRow & { itemCount: number } => !!r);
+}
 
 /** Collections discoverable by other users: public OR official, not deleted.
- *  Optionally course-scoped. Sorted by popularity or recency. */
+ *  Optional FTS (`q`) and course scope. Sorted per `sort`. */
 export async function listDiscoverable(opts: {
   sort: DiscoverSort;
+  q?: string;
   courseId?: string;
   limit: number;
 }): Promise<Array<CollectionRow & { itemCount: number }>> {
-  const rows = await db.studyCollection.findMany({
-    where: {
-      deletedAt: null,
-      OR: [{ visibility: "public" }, { isOfficial: true }],
-      ...(opts.courseId ? { courseId: opts.courseId } : {}),
-    },
-    orderBy:
-      opts.sort === "popular"
-        ? [{ popularityScore: "desc" }, { updatedAt: "desc" }]
-        : [{ updatedAt: "desc" }],
-    take: opts.limit,
-    include: { _count: { select: { items: true } } },
-  });
-  return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
+  const where: Prisma.Sql[] = [
+    Prisma.sql`sc.deleted_at IS NULL`,
+    Prisma.sql`(sc.visibility = 'public' OR sc.is_official = true)`,
+  ];
+  if (opts.courseId) where.push(Prisma.sql`sc.course_id = ${opts.courseId}::uuid`);
+
+  const q = opts.q?.trim();
+  const hasQ = !!q && collectionTsQueryHasTokens(q);
+  if (hasQ) where.push(Prisma.sql`sc.search_vector @@ ${collectionTsQuery(q!)}`);
+  if (opts.sort === "exam") {
+    where.push(Prisma.sql`sc.exam_date IS NOT NULL AND sc.exam_date > now()`);
+  }
+
+  const rel = hasQ
+    ? Prisma.sql`(ts_rank(sc.search_vector, ${collectionTsQuery(q!)}) / (ts_rank(sc.search_vector, ${collectionTsQuery(q!)}) + 1))`
+    : Prisma.sql`0`;
+
+  const recent = Prisma.sql`sc.created_at DESC`;
+  let orderBy: Prisma.Sql;
+  if (hasQ) {
+    orderBy = Prisma.sql`${combinedScoreSql(rel)} DESC, ${recent}`;
+  } else {
+    switch (opts.sort) {
+      case "recent":
+      case "new":
+        orderBy = recent;
+        break;
+      case "rating":
+        orderBy = Prisma.sql`${bayesRatingSql()} DESC, sc.rating_count DESC, ${recent}`;
+        break;
+      case "views":
+        orderBy = Prisma.sql`sc.view_count DESC, ${recent}`;
+        break;
+      case "exam":
+        orderBy = Prisma.sql`sc.exam_date ASC`;
+        break;
+      case "popular":
+      default:
+        orderBy = Prisma.sql`${combinedScoreSql(Prisma.sql`0`)} DESC, ${recent}`;
+        break;
+    }
+  }
+
+  const idRows = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT sc.id
+    FROM study_collections sc
+    WHERE ${Prisma.join(where, " AND ")}
+    ORDER BY ${orderBy}
+    LIMIT ${opts.limit}
+  `);
+  return fetchCollectionsByIdOrder(idRows.map((r) => r.id));
 }
 
 /** Recommend public/official collections in the given courses, excluding the
