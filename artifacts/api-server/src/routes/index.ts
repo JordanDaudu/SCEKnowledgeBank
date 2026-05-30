@@ -14,6 +14,7 @@ import analyticsRouter from "./analytics";
 import activityRouter from "./activity";
 import collectionsRouter from "./collections";
 import prepHubRouter from "./prep-hub";
+import moderationRouter from "./moderation";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(analyticsRouter);
 router.use(activityRouter);
 router.use(collectionsRouter);
 router.use(prepHubRouter);
+router.use(moderationRouter);
 
 export default router;
