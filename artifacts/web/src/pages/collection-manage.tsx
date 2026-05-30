@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +61,7 @@ import {
   Plus,
   Copy,
   Share2,
+  EyeOff,
 } from "lucide-react";
 
 function EditCollectionDialog({
@@ -376,6 +378,19 @@ export default function CollectionManage() {
       >
         <ChevronLeft className="h-4 w-4" /> Collections
       </Link>
+
+      {col.hiddenAt && (
+        <Alert variant="destructive" data-testid="collection-hidden-banner">
+          <EyeOff className="h-4 w-4" />
+          <AlertTitle>Hidden from Prep Hub</AlertTitle>
+          <AlertDescription>
+            This collection was hidden from Prep Hub by a moderator
+            {col.hiddenReason ? `: ${col.hiddenReason}` : ""}. It&apos;s still
+            in your workspace; contact an administrator if you think this is a
+            mistake.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
