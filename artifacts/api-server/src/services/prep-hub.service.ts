@@ -10,6 +10,7 @@ import * as collectionsService from "./collections.service";
 import * as recommendationsService from "./recommendations.service";
 import * as engagement from "./collection-engagement.service";
 import { notFound } from "../lib/errors";
+import { COLLECTION_RANKING } from "../lib/collection-ranking";
 import type { AuthenticatedUser } from "../middlewares/auth";
 import type {
   CollectionSummaryDTO,
@@ -23,12 +24,32 @@ function isPublic(c: collectionsRepo.CollectionRow): boolean {
 
 export async function listDiscoverable(
   user: AuthenticatedUser,
-  opts: { sort?: collectionsRepo.DiscoverSort; courseId?: string; limit?: number },
+  opts: {
+    sort?: collectionsRepo.DiscoverSort;
+    q?: string;
+    courseId?: string;
+    limit?: number;
+  },
 ): Promise<CollectionSummaryDTO[]> {
   const rows = await collectionsRepo.listDiscoverable({
     sort: opts.sort ?? "popular",
+    q: opts.q?.trim() || undefined,
     courseId: opts.courseId,
     limit: Math.min(opts.limit ?? 24, 50),
+  });
+  return collectionsService.summarize(rows, user);
+}
+
+export async function listTrending(
+  user: AuthenticatedUser,
+  limit = 12,
+): Promise<CollectionSummaryDTO[]> {
+  const since = new Date(
+    Date.now() - COLLECTION_RANKING.trendingWindowDays * 86_400_000,
+  );
+  const rows = await collectionsRepo.listTrending({
+    since,
+    limit: Math.min(limit, 50),
   });
   return collectionsService.summarize(rows, user);
 }
