@@ -203,28 +203,45 @@ async function touch(collectionId: string): Promise<void> {
 
 // ─── Followers (US-56) ────────────────────────────────────────────
 
-/** Follow a collection. Idempotent on (collection, user) — returns true only
- *  when a new follow row was created. */
+/** Follow a collection. Idempotent on (collection, user); on a real insert
+ *  bumps follower_count in the same transaction. Returns true iff inserted. */
 export async function followCollection(
   collectionId: string,
   userId: string,
 ): Promise<boolean> {
-  const r = await db.studyCollectionFollower.createMany({
-    data: [{ collectionId, userId }],
-    skipDuplicates: true,
+  return db.$transaction(async (tx) => {
+    const r = await tx.studyCollectionFollower.createMany({
+      data: [{ collectionId, userId }],
+      skipDuplicates: true,
+    });
+    if (r.count > 0) {
+      await tx.studyCollection.update({
+        where: { id: collectionId },
+        data: { followerCount: { increment: 1 } },
+      });
+    }
+    return r.count > 0;
   });
-  return r.count > 0;
 }
 
-/** Unfollow a collection. Returns true if a follow row was removed. */
+/** Unfollow a collection. Returns true iff a follow row was removed (then
+ *  decrements follower_count). */
 export async function unfollowCollection(
   collectionId: string,
   userId: string,
 ): Promise<boolean> {
-  const r = await db.studyCollectionFollower.deleteMany({
-    where: { collectionId, userId },
+  return db.$transaction(async (tx) => {
+    const r = await tx.studyCollectionFollower.deleteMany({
+      where: { collectionId, userId },
+    });
+    if (r.count > 0) {
+      await tx.studyCollection.update({
+        where: { id: collectionId },
+        data: { followerCount: { decrement: 1 } },
+      });
+    }
+    return r.count > 0;
   });
-  return r.count > 0;
 }
 
 export async function isFollowing(
