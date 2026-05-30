@@ -53,6 +53,17 @@ export function isAdmin(u: AuthenticatedUser | undefined | null): boolean {
   return !!u?.roles.includes("admin");
 }
 
+/**
+ * Collections (the personal workspace) are for students and lecturers only.
+ * Admins have no Collections workspace — they get read-only Prep Hub plus
+ * moderation (Phase 4). An admin who is ALSO a lecturer is still excluded:
+ * the admin role is the dominant signal here.
+ */
+export function canUseCollections(u: AuthenticatedUser | undefined | null): boolean {
+  if (!u || isAdmin(u)) return false;
+  return u.roles.includes("student") || u.roles.includes("lecturer");
+}
+
 function hasRole(u: AuthenticatedUser, role: string): boolean {
   return u.roles.includes(role);
 }
