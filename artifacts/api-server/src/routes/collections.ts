@@ -4,8 +4,19 @@ import { requireAuth } from "../middlewares/auth";
 import * as collectionsService from "../services/collections.service";
 import * as studyProgressService from "../services/studyProgress.service";
 import * as recommendationsService from "../services/recommendations.service";
+import * as permissions from "../services/permissions.service";
+import { forbidden } from "../lib/errors";
 
 const router: IRouter = Router();
+
+// Collections are a students+lecturers workspace. Admins are blocked here
+// (they get read-only Prep Hub + moderation in Phase 4).
+const requireCollectionsAccess: import("express").RequestHandler = (req, _res, next) => {
+  if (!permissions.canUseCollections(req.authUser)) {
+    return next(forbidden("Collections are not available for your account"));
+  }
+  next();
+};
 
 const IdParams = z.object({ id: z.string().uuid() });
 const ItemParams = z.object({
@@ -18,21 +29,26 @@ const CreateBody = z.object({
   description: z.string().optional(),
   kind: z.string().optional(),
   courseId: z.string().uuid().optional(),
-  visibility: z.enum(["private", "shared"]).optional(),
+  categoryId: z.string().uuid().optional(),
+  examName: z.string().optional(),
+  semester: z.enum(["fall", "spring", "summer"]).optional(),
+  academicYear: z.coerce.number().int().min(1900).max(2200).optional(),
+  visibility: z.enum(["private", "public"]).optional(),
   examDate: z.coerce.date().optional(),
   documentIds: z.array(z.string().uuid()).optional(),
+  tagIds: z.array(z.string().uuid()).optional(),
 });
 const UpdateBody = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
   kind: z.string().optional(),
-  visibility: z.enum(["private", "shared"]).optional(),
+  categoryId: z.string().uuid().nullable().optional(),
+  examName: z.string().nullable().optional(),
+  semester: z.enum(["fall", "spring", "summer"]).nullable().optional(),
+  academicYear: z.coerce.number().int().min(1900).max(2200).nullable().optional(),
+  visibility: z.enum(["private", "public"]).optional(),
   examDate: z.coerce.date().optional(),
-});
-const DiscoverQuery = z.object({
-  sort: z.enum(["popular", "recent"]).optional(),
-  courseId: z.string().uuid().optional(),
-  limit: z.coerce.number().int().positive().max(50).optional(),
+  tagIds: z.array(z.string().uuid()).optional(),
 });
 const AddItemBody = z.object({
   documentId: z.string().uuid(),
@@ -42,7 +58,7 @@ const NoteBody = z.object({ note: z.string().nullable() });
 const OrderBody = z.object({ documentIds: z.array(z.string().uuid()) });
 const ProgressBody = z.object({ status: z.string() });
 
-router.get("/collections", requireAuth, async (req, res, next) => {
+router.get("/collections", requireAuth, requireCollectionsAccess, async (req, res, next) => {
   try {
     res.json(await collectionsService.listMyCollections(req.authUser!));
   } catch (err) {
@@ -50,7 +66,7 @@ router.get("/collections", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/collections", requireAuth, async (req, res, next) => {
+router.post("/collections", requireAuth, requireCollectionsAccess, async (req, res, next) => {
   try {
     const body = CreateBody.parse(req.body);
     res.status(201).json(await collectionsService.createCollection(req.authUser!, body));
@@ -59,24 +75,7 @@ router.post("/collections", requireAuth, async (req, res, next) => {
   }
 });
 
-// Discoverable / ranked collections (US-55). MUST precede "/collections/:id"
-// so "discover" isn't parsed as an id.
-router.get("/collections/discover", requireAuth, async (req, res, next) => {
-  try {
-    const q = DiscoverQuery.parse(req.query);
-    res.json(
-      await collectionsService.listDiscoverable(req.authUser!, {
-        sort: q.sort,
-        courseId: q.courseId,
-        limit: q.limit,
-      }),
-    );
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.get("/collections/:id", requireAuth, async (req, res, next) => {
+router.get("/collections/:id", requireAuth, requireCollectionsAccess, async (req, res, next) => {
   try {
     const { id } = IdParams.parse(req.params);
     res.json(await collectionsService.getCollection(id, req.authUser!));
@@ -85,7 +84,7 @@ router.get("/collections/:id", requireAuth, async (req, res, next) => {
   }
 });
 
-router.patch("/collections/:id", requireAuth, async (req, res, next) => {
+router.patch("/collections/:id", requireAuth, requireCollectionsAccess, async (req, res, next) => {
   try {
     const { id } = IdParams.parse(req.params);
     const body = UpdateBody.parse(req.body);
@@ -96,7 +95,7 @@ router.patch("/collections/:id", requireAuth, async (req, res, next) => {
   }
 });
 
-router.delete("/collections/:id", requireAuth, async (req, res, next) => {
+router.delete("/collections/:id", requireAuth, requireCollectionsAccess, async (req, res, next) => {
   try {
     const { id } = IdParams.parse(req.params);
     await collectionsService.deleteCollection(id, req.authUser!);
@@ -106,7 +105,21 @@ router.delete("/collections/:id", requireAuth, async (req, res, next) => {
   }
 });
 
-router.post("/collections/:id/items", requireAuth, async (req, res, next) => {
+router.post(
+  "/collections/:id/duplicate",
+  requireAuth,
+  requireCollectionsAccess,
+  async (req, res, next) => {
+    try {
+      const { id } = IdParams.parse(req.params);
+      res.status(201).json(await collectionsService.duplicateCollection(id, req.authUser!));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post("/collections/:id/items", requireAuth, requireCollectionsAccess, async (req, res, next) => {
   try {
     const { id } = IdParams.parse(req.params);
     const body = AddItemBody.parse(req.body);
@@ -120,6 +133,7 @@ router.post("/collections/:id/items", requireAuth, async (req, res, next) => {
 router.delete(
   "/collections/:id/items/:documentId",
   requireAuth,
+  requireCollectionsAccess,
   async (req, res, next) => {
     try {
       const { id, documentId } = ItemParams.parse(req.params);
@@ -134,6 +148,7 @@ router.delete(
 router.patch(
   "/collections/:id/items/:documentId",
   requireAuth,
+  requireCollectionsAccess,
   async (req, res, next) => {
     try {
       const { id, documentId } = ItemParams.parse(req.params);
@@ -146,26 +161,7 @@ router.patch(
   },
 );
 
-// ─── Follow / unfollow (US-56) ────────────────────────────────────
-router.post("/collections/:id/follow", requireAuth, async (req, res, next) => {
-  try {
-    const { id } = IdParams.parse(req.params);
-    res.json(await collectionsService.followCollection(id, req.authUser!));
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.delete("/collections/:id/follow", requireAuth, async (req, res, next) => {
-  try {
-    const { id } = IdParams.parse(req.params);
-    res.json(await collectionsService.unfollowCollection(id, req.authUser!));
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.put("/collections/:id/order", requireAuth, async (req, res, next) => {
+router.put("/collections/:id/order", requireAuth, requireCollectionsAccess, async (req, res, next) => {
   try {
     const { id } = IdParams.parse(req.params);
     const body = OrderBody.parse(req.body);
@@ -202,20 +198,5 @@ router.get("/me/recommendations", requireAuth, async (req, res, next) => {
     next(err);
   }
 });
-
-// Recommended study bundles by course (US-62).
-router.get(
-  "/me/recommended-collections",
-  requireAuth,
-  async (req, res, next) => {
-    try {
-      res.json(
-        await collectionsService.getRecommendedCollections(req.authUser!),
-      );
-    } catch (err) {
-      next(err);
-    }
-  },
-);
 
 export default router;

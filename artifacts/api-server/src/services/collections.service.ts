@@ -10,7 +10,6 @@ import * as collectionsRepo from "../repositories/collections.repo";
 import * as studyProgressRepo from "../repositories/studyProgress.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as documentsService from "./documents.service";
-import * as recommendationsService from "./recommendations.service";
 import * as permissions from "./permissions.service";
 import { badRequest, forbidden, notFound } from "../lib/errors";
 import { computePopularity } from "../lib/collection-popularity";
@@ -103,7 +102,7 @@ function toSummary(
 
 /** Enrich a batch of collection rows with the viewer's follow state, follower
  *  counts, and completed-item counts (one batched query each — no N+1). */
-async function summarize(
+export async function summarize(
   rows: Array<collectionsRepo.CollectionRow & { itemCount: number }>,
   user: AuthenticatedUser,
 ): Promise<CollectionSummaryDTO[]> {
@@ -126,7 +125,7 @@ async function summarize(
 
 /** Recompute and persist a collection's popularity score (US-55). Called
  *  whenever its followers or items change. */
-async function recomputePopularity(collectionId: string): Promise<void> {
+export async function recomputePopularity(collectionId: string): Promise<void> {
   const [items, followers] = await Promise.all([
     collectionsRepo.countItems(collectionId),
     collectionsRepo.countFollowers(collectionId),
@@ -146,20 +145,6 @@ async function loadOwned(
   if (!c) throw notFound("Collection not found");
   if (c.ownerId !== user.id) throw forbidden("Not your collection");
   return c;
-}
-
-/** Load a collection the user is allowed to VIEW: their own, or any public /
- *  official (curated) collection. Management still requires ownership. */
-async function loadVisible(
-  id: string,
-  user: AuthenticatedUser,
-): Promise<collectionsRepo.CollectionRow> {
-  const c = await collectionsRepo.findCollectionById(id);
-  if (!c) throw notFound("Collection not found");
-  if (c.ownerId === user.id || c.visibility === "public" || c.isOfficial) {
-    return c;
-  }
-  throw forbidden("This collection is private");
 }
 
 export async function createCollection(
@@ -242,54 +227,19 @@ export async function listMyCollections(
   return summarize(rows, user);
 }
 
-/** Discoverable (shared/official) collections, ranked (US-55). */
-export async function listDiscoverable(
-  user: AuthenticatedUser,
-  opts: { sort?: collectionsRepo.DiscoverSort; courseId?: string; limit?: number },
-): Promise<CollectionSummaryDTO[]> {
-  const rows = await collectionsRepo.listDiscoverable({
-    sort: opts.sort ?? "popular",
-    courseId: opts.courseId,
-    limit: Math.min(opts.limit ?? 24, 50),
-  });
-  return summarize(rows, user);
-}
-
-/** Recommend shared/official bundles in the user's interest courses (US-62).
- *  Returns a clean empty list when there's no course signal or no matches. */
-export async function getRecommendedCollections(
-  user: AuthenticatedUser,
-  limit = 6,
-): Promise<CollectionSummaryDTO[]> {
-  const { courseIds } = await recommendationsService.getInterestCourseIds(user);
-  if (courseIds.length === 0) return [];
-  const followed = await collectionsRepo.listFollowedCollectionIds(user.id);
-  const rows = await collectionsRepo.recommendCollections({
-    courseIds,
-    excludeOwnerId: user.id,
-    excludeIds: Array.from(followed),
-    limit,
-  });
-  return summarize(rows, user);
-}
-
-export async function getCollection(
-  id: string,
+/** Build a full detail DTO for an already-authorized collection row. Shared
+ *  by the owner manage view (collections) and the public view (prep-hub). */
+export async function assembleDetail(
+  c: collectionsRepo.CollectionRow,
   user: AuthenticatedUser,
 ): Promise<CollectionDetailDTO> {
-  const c = await loadVisible(id, user);
-  const itemRows = await collectionsRepo.listItems(id);
+  const itemRows = await collectionsRepo.listItems(c.id);
   const docIds = itemRows.map((i) => i.documentId);
   const docs = await docsRepo.findManyByIdsAlive(docIds);
-  // Only surface documents the user can still see (access may have changed
-  // since the item was added). Item order is preserved from itemRows.
   const visible = docs.filter((d) => permissions.canView(d, user));
   const dtos = await documentsService.assembleDocuments(visible, user);
   const dtoById = new Map(dtos.map((d) => [d.id, d]));
-  const progress = await studyProgressRepo.getProgressForDocuments(
-    user.id,
-    docIds,
-  );
+  const progress = await studyProgressRepo.getProgressForDocuments(user.id, docIds);
   const items: CollectionItemDTO[] = itemRows
     .filter((i) => dtoById.has(i.documentId))
     .map((i) => ({
@@ -300,9 +250,9 @@ export async function getCollection(
     }));
   const completedCount = items.filter((i) => i.progress === "completed").length;
   const [followerCount, following, tagIds] = await Promise.all([
-    collectionsRepo.countFollowers(id),
-    collectionsRepo.isFollowing(id, user.id),
-    collectionsRepo.listCollectionTagIds(id),
+    collectionsRepo.countFollowers(c.id),
+    collectionsRepo.isFollowing(c.id, user.id),
+    collectionsRepo.listCollectionTagIds(c.id),
   ]);
   const summary = toSummary(
     { ...c, itemCount: items.length },
@@ -311,26 +261,12 @@ export async function getCollection(
   return { ...summary, items };
 }
 
-/** Follow a shared/official collection (US-56). Owners may follow their own
- *  too — harmless and keeps the UI uniform. Idempotent. */
-export async function followCollection(
+export async function getCollection(
   id: string,
   user: AuthenticatedUser,
 ): Promise<CollectionDetailDTO> {
-  await loadVisible(id, user);
-  const created = await collectionsRepo.followCollection(id, user.id);
-  if (created) await recomputePopularity(id);
-  return getCollection(id, user);
-}
-
-export async function unfollowCollection(
-  id: string,
-  user: AuthenticatedUser,
-): Promise<CollectionDetailDTO> {
-  await loadVisible(id, user);
-  const removed = await collectionsRepo.unfollowCollection(id, user.id);
-  if (removed) await recomputePopularity(id);
-  return getCollection(id, user);
+  const c = await loadOwned(id, user);
+  return assembleDetail(c, user);
 }
 
 export async function updateCollection(
@@ -391,6 +327,36 @@ export async function deleteCollection(
 ): Promise<void> {
   await loadOwned(id, user);
   await collectionsRepo.softDeleteCollection(id);
+}
+
+/** Clone a collection's metadata, tags, and item list into a new PRIVATE
+ *  collection owned by the caller. Owner-only. Followers are not copied. */
+export async function duplicateCollection(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<CollectionSummaryDTO> {
+  const src = await loadOwned(id, user);
+  const items = await collectionsRepo.listItems(id);
+  const tagIds = await collectionsRepo.listCollectionTagIds(id);
+  const created = await collectionsRepo.createCollection({
+    ownerId: user.id,
+    title: `${src.title} (copy)`,
+    description: src.description,
+    kind: src.kind,
+    courseId: src.courseId,
+    visibility: "private",
+    examDate: src.examDate,
+    categoryId: src.categoryId,
+    examName: src.examName,
+    semester: src.semester,
+    academicYear: src.academicYear,
+  });
+  for (const it of items) {
+    await collectionsRepo.addItem(created.id, it.documentId, it.note ?? undefined);
+  }
+  if (tagIds.length > 0) await collectionsRepo.setCollectionTags(created.id, tagIds);
+  await recomputePopularity(created.id);
+  return toSummary({ ...created, itemCount: items.length }, { tagIds });
 }
 
 export async function addDocument(
