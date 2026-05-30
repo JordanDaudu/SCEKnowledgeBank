@@ -392,6 +392,38 @@ async function fetchCollectionsByIdOrder(
     .filter((r): r is CollectionRow & { itemCount: number } => !!r);
 }
 
+/** Trailing-window trending: weighted count of recent engagement events per
+ *  visible collection, since `since`. Collections with no in-window activity
+ *  are excluded. */
+export async function listTrending(opts: {
+  since: Date;
+  limit: number;
+}): Promise<Array<CollectionRow & { itemCount: number }>> {
+  const idRows = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    WITH activity AS (
+      SELECT collection_id, ${CR.trendingViewWeight}::float8 * count(*) AS score
+      FROM study_collection_views WHERE viewed_at >= ${opts.since} GROUP BY collection_id
+      UNION ALL
+      SELECT collection_id, ${CR.trendingLikeWeight}::float8 * count(*)
+      FROM study_collection_likes WHERE created_at >= ${opts.since} GROUP BY collection_id
+      UNION ALL
+      SELECT collection_id, ${CR.trendingFollowWeight}::float8 * count(*)
+      FROM study_collection_followers WHERE created_at >= ${opts.since} GROUP BY collection_id
+      UNION ALL
+      SELECT collection_id, ${CR.trendingCommentWeight}::float8 * count(*)
+      FROM study_collection_comments WHERE created_at >= ${opts.since} AND deleted_at IS NULL GROUP BY collection_id
+    )
+    SELECT sc.id
+    FROM study_collections sc
+    JOIN (SELECT collection_id, sum(score) AS score FROM activity GROUP BY collection_id) a
+      ON a.collection_id = sc.id
+    WHERE sc.deleted_at IS NULL AND (sc.visibility = 'public' OR sc.is_official = true)
+    ORDER BY a.score DESC, sc.created_at DESC
+    LIMIT ${opts.limit}
+  `);
+  return fetchCollectionsByIdOrder(idRows.map((r) => r.id));
+}
+
 /** Collections discoverable by other users: public OR official, not deleted.
  *  Optional FTS (`q`) and course scope. Sorted per `sort`. */
 export async function listDiscoverable(opts: {
