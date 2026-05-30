@@ -1308,6 +1308,123 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /prep-hub/collections/{id}/like:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: likeCollection
+      tags: [prep-hub]
+      summary: Like a public study collection
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+    delete:
+      operationId: unlikeCollection
+      tags: [prep-hub]
+      summary: Unlike a study collection
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /prep-hub/collections/{id}/rating:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: rateCollection
+      tags: [prep-hub]
+      summary: Rate a study collection (1–5)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: { type: integer, minimum: 1, maximum: 5 }
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+    delete:
+      operationId: clearCollectionRating
+      tags: [prep-hub]
+      summary: Clear the current user's rating for a study collection
+      responses:
+        "200":
+          description: Updated collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /prep-hub/collections/{id}/comments:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: listCollectionComments
+      tags: [prep-hub]
+      summary: List comments for a study collection
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StudyCollectionComment" }
+    post:
+      operationId: createCollectionComment
+      tags: [prep-hub]
+      summary: Post a comment on a study collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1 }
+      responses:
+        "201":
+          description: Created comment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionComment" }
+  /prep-hub/collections/comments/{commentId}:
+    parameters:
+      - { in: path, name: commentId, required: true, schema: { type: string, format: uuid } }
+    patch:
+      operationId: editCollectionComment
+      tags: [prep-hub]
+      summary: Edit a collection comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Updated comment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionComment" }
+    delete:
+      operationId: deleteCollectionComment
+      tags: [prep-hub]
+      summary: Delete a collection comment
+      responses:
+        "204": { description: Deleted }
   /documents/{id}/progress:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -2241,7 +2358,7 @@ components:
 
     StudyCollectionSummary:
       type: object
-      required: [id, title, description, kind, visibility, isOfficial, itemCount, completedCount, progressPercent, followerCount, isFollowing, popularityScore, tagIds, createdAt, updatedAt]
+      required: [id, title, description, kind, visibility, isOfficial, itemCount, completedCount, progressPercent, followerCount, isFollowing, popularityScore, tagIds, createdAt, updatedAt, likeCount, isLiked, ratingCount, ratingAverage, viewCount, commentCount]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -2262,6 +2379,13 @@ components:
         followerCount: { type: integer }
         isFollowing: { type: boolean }
         popularityScore: { type: integer }
+        likeCount: { type: integer }
+        isLiked: { type: boolean }
+        ratingCount: { type: integer }
+        ratingAverage: { type: number }
+        myRating: { type: integer, nullable: true }
+        viewCount: { type: integer }
+        commentCount: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     StudyCollectionItem:
@@ -2276,11 +2400,28 @@ components:
       allOf:
         - $ref: "#/components/schemas/StudyCollectionSummary"
         - type: object
-          required: [items]
+          required: [items, uniqueViewCount]
           properties:
             items:
               type: array
               items: { $ref: "#/components/schemas/StudyCollectionItem" }
+            uniqueViewCount: { type: integer }
+    StudyCollectionComment:
+      type: object
+      required: [id, collectionId, author, body, createdAt, updatedAt, editable]
+      properties:
+        id: { type: string, format: uuid }
+        collectionId: { type: string, format: uuid }
+        author:
+          type: object
+          required: [id, displayName]
+          properties:
+            id: { type: string, format: uuid }
+            displayName: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        editable: { type: boolean }
     CreateCollectionRequest:
       type: object
       required: [title]

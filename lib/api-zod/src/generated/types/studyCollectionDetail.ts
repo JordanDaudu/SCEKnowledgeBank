@@ -10,4 +10,5 @@ import type { StudyCollectionSummary } from "./studyCollectionSummary";
 
 export type StudyCollectionDetail = StudyCollectionSummary & {
   items: StudyCollectionItem[];
+  uniqueViewCount: number;
 };

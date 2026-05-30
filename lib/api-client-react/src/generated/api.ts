@@ -29,6 +29,7 @@ import type {
   CommentReaction,
   Course,
   CourseAnalytics,
+  CreateCollectionCommentBody,
   CreateCollectionRequest,
   CreateCommentRequest,
   CreateRequestRequest,
@@ -39,6 +40,7 @@ import type {
   DocumentVersion,
   DownloadDocumentParams,
   DuplicateCheckResponse,
+  EditCollectionCommentBody,
   FavoriteStatus,
   GetDocumentThumbnailParams,
   HealthStatus,
@@ -55,6 +57,7 @@ import type {
   NotificationMarkAllResponse,
   NotificationUnreadCount,
   PreviewDocumentParams,
+  RateCollectionBody,
   RegisterRequest,
   RegisterResponse,
   RejectDocumentRequest,
@@ -70,6 +73,7 @@ import type {
   SetProgressRequest,
   SignedTokenResponse,
   StorageQuota,
+  StudyCollectionComment,
   StudyCollectionDetail,
   StudyCollectionSummary,
   StudyProgressResponse,
@@ -6758,6 +6762,702 @@ export const useUnfollowCollection = <
   TContext
 > => {
   return useMutation(getUnfollowCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Like a public study collection
+ */
+export const getLikeCollectionUrl = (id: string) => {
+  return `/api/prep-hub/collections/${id}/like`;
+};
+
+export const likeCollection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getLikeCollectionUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getLikeCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof likeCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof likeCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["likeCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof likeCollection>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return likeCollection(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LikeCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof likeCollection>>
+>;
+
+export type LikeCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Like a public study collection
+ */
+export const useLikeCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof likeCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof likeCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getLikeCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Unlike a study collection
+ */
+export const getUnlikeCollectionUrl = (id: string) => {
+  return `/api/prep-hub/collections/${id}/like`;
+};
+
+export const unlikeCollection = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getUnlikeCollectionUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnlikeCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlikeCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlikeCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["unlikeCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlikeCollection>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return unlikeCollection(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlikeCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlikeCollection>>
+>;
+
+export type UnlikeCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unlike a study collection
+ */
+export const useUnlikeCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlikeCollection>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unlikeCollection>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getUnlikeCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Rate a study collection (1–5)
+ */
+export const getRateCollectionUrl = (id: string) => {
+  return `/api/prep-hub/collections/${id}/rating`;
+};
+
+export const rateCollection = async (
+  id: string,
+  rateCollectionBody: RateCollectionBody,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getRateCollectionUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rateCollectionBody),
+  });
+};
+
+export const getRateCollectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rateCollection>>,
+    TError,
+    { id: string; data: BodyType<RateCollectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rateCollection>>,
+  TError,
+  { id: string; data: BodyType<RateCollectionBody> },
+  TContext
+> => {
+  const mutationKey = ["rateCollection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rateCollection>>,
+    { id: string; data: BodyType<RateCollectionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return rateCollection(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RateCollectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rateCollection>>
+>;
+export type RateCollectionMutationBody = BodyType<RateCollectionBody>;
+export type RateCollectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Rate a study collection (1–5)
+ */
+export const useRateCollection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rateCollection>>,
+    TError,
+    { id: string; data: BodyType<RateCollectionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rateCollection>>,
+  TError,
+  { id: string; data: BodyType<RateCollectionBody> },
+  TContext
+> => {
+  return useMutation(getRateCollectionMutationOptions(options));
+};
+
+/**
+ * @summary Clear the current user's rating for a study collection
+ */
+export const getClearCollectionRatingUrl = (id: string) => {
+  return `/api/prep-hub/collections/${id}/rating`;
+};
+
+export const clearCollectionRating = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionDetail> => {
+  return customFetch<StudyCollectionDetail>(getClearCollectionRatingUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getClearCollectionRatingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearCollectionRating>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearCollectionRating>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["clearCollectionRating"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearCollectionRating>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return clearCollectionRating(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearCollectionRatingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearCollectionRating>>
+>;
+
+export type ClearCollectionRatingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Clear the current user's rating for a study collection
+ */
+export const useClearCollectionRating = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearCollectionRating>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearCollectionRating>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getClearCollectionRatingMutationOptions(options));
+};
+
+/**
+ * @summary List comments for a study collection
+ */
+export const getListCollectionCommentsUrl = (id: string) => {
+  return `/api/prep-hub/collections/${id}/comments`;
+};
+
+export const listCollectionComments = async (
+  id: string,
+  options?: RequestInit,
+): Promise<StudyCollectionComment[]> => {
+  return customFetch<StudyCollectionComment[]>(
+    getListCollectionCommentsUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCollectionCommentsQueryKey = (id: string) => {
+  return [`/api/prep-hub/collections/${id}/comments`] as const;
+};
+
+export const getListCollectionCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCollectionComments>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCollectionComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCollectionCommentsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCollectionComments>>
+  > = ({ signal }) => listCollectionComments(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCollectionComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCollectionCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCollectionComments>>
+>;
+export type ListCollectionCommentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List comments for a study collection
+ */
+
+export function useListCollectionComments<
+  TData = Awaited<ReturnType<typeof listCollectionComments>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCollectionComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCollectionCommentsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Post a comment on a study collection
+ */
+export const getCreateCollectionCommentUrl = (id: string) => {
+  return `/api/prep-hub/collections/${id}/comments`;
+};
+
+export const createCollectionComment = async (
+  id: string,
+  createCollectionCommentBody: CreateCollectionCommentBody,
+  options?: RequestInit,
+): Promise<StudyCollectionComment> => {
+  return customFetch<StudyCollectionComment>(
+    getCreateCollectionCommentUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCollectionCommentBody),
+    },
+  );
+};
+
+export const getCreateCollectionCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCollectionComment>>,
+    TError,
+    { id: string; data: BodyType<CreateCollectionCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCollectionComment>>,
+  TError,
+  { id: string; data: BodyType<CreateCollectionCommentBody> },
+  TContext
+> => {
+  const mutationKey = ["createCollectionComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCollectionComment>>,
+    { id: string; data: BodyType<CreateCollectionCommentBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createCollectionComment(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCollectionCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCollectionComment>>
+>;
+export type CreateCollectionCommentMutationBody =
+  BodyType<CreateCollectionCommentBody>;
+export type CreateCollectionCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Post a comment on a study collection
+ */
+export const useCreateCollectionComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCollectionComment>>,
+    TError,
+    { id: string; data: BodyType<CreateCollectionCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCollectionComment>>,
+  TError,
+  { id: string; data: BodyType<CreateCollectionCommentBody> },
+  TContext
+> => {
+  return useMutation(getCreateCollectionCommentMutationOptions(options));
+};
+
+/**
+ * @summary Edit a collection comment
+ */
+export const getEditCollectionCommentUrl = (commentId: string) => {
+  return `/api/prep-hub/collections/comments/${commentId}`;
+};
+
+export const editCollectionComment = async (
+  commentId: string,
+  editCollectionCommentBody: EditCollectionCommentBody,
+  options?: RequestInit,
+): Promise<StudyCollectionComment> => {
+  return customFetch<StudyCollectionComment>(
+    getEditCollectionCommentUrl(commentId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(editCollectionCommentBody),
+    },
+  );
+};
+
+export const getEditCollectionCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof editCollectionComment>>,
+    TError,
+    { commentId: string; data: BodyType<EditCollectionCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof editCollectionComment>>,
+  TError,
+  { commentId: string; data: BodyType<EditCollectionCommentBody> },
+  TContext
+> => {
+  const mutationKey = ["editCollectionComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof editCollectionComment>>,
+    { commentId: string; data: BodyType<EditCollectionCommentBody> }
+  > = (props) => {
+    const { commentId, data } = props ?? {};
+
+    return editCollectionComment(commentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EditCollectionCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof editCollectionComment>>
+>;
+export type EditCollectionCommentMutationBody =
+  BodyType<EditCollectionCommentBody>;
+export type EditCollectionCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Edit a collection comment
+ */
+export const useEditCollectionComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof editCollectionComment>>,
+    TError,
+    { commentId: string; data: BodyType<EditCollectionCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof editCollectionComment>>,
+  TError,
+  { commentId: string; data: BodyType<EditCollectionCommentBody> },
+  TContext
+> => {
+  return useMutation(getEditCollectionCommentMutationOptions(options));
+};
+
+/**
+ * @summary Delete a collection comment
+ */
+export const getDeleteCollectionCommentUrl = (commentId: string) => {
+  return `/api/prep-hub/collections/comments/${commentId}`;
+};
+
+export const deleteCollectionComment = async (
+  commentId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCollectionCommentUrl(commentId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCollectionCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCollectionComment>>,
+    TError,
+    { commentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCollectionComment>>,
+  TError,
+  { commentId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteCollectionComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCollectionComment>>,
+    { commentId: string }
+  > = (props) => {
+    const { commentId } = props ?? {};
+
+    return deleteCollectionComment(commentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCollectionCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCollectionComment>>
+>;
+
+export type DeleteCollectionCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a collection comment
+ */
+export const useDeleteCollectionComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCollectionComment>>,
+    TError,
+    { commentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCollectionComment>>,
+  TError,
+  { commentId: string },
+  TContext
+> => {
+  return useMutation(getDeleteCollectionCommentMutationOptions(options));
 };
 
 /**
