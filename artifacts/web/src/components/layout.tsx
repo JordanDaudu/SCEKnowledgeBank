@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./logo";
@@ -94,6 +95,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ? [
               { href: "/admin/users", icon: Users, label: "Admin" },
               { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
+              { href: "/admin/prep-hub-moderation", icon: Shield, label: "Prep Hub Moderation" },
             ]
           : []),
       ]
