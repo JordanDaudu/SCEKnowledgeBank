@@ -1289,6 +1289,11 @@ export type ListDiscoverableCollectionsParams = {
   sort?: ListDiscoverableCollectionsSort;
   courseId?: string;
   limit?: number;
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  q?: string;
 };
 
 export type ListDiscoverableCollectionsSort =
@@ -1297,7 +1302,16 @@ export type ListDiscoverableCollectionsSort =
 export const ListDiscoverableCollectionsSort = {
   popular: "popular",
   recent: "recent",
+  new: "new",
+  rating: "rating",
+  views: "views",
+  trending: "trending",
+  exam: "exam",
 } as const;
+
+export type ListTrendingCollectionsParams = {
+  limit?: number;
+};
 
 export type RateCollectionBody = {
   /**

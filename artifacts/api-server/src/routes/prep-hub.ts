@@ -10,8 +10,12 @@ const router: IRouter = Router();
 
 const IdParams = z.object({ id: z.string().uuid() });
 const DiscoverQuery = z.object({
-  sort: z.enum(["popular", "recent"]).optional(),
+  sort: z.enum(["popular", "recent", "new", "rating", "views", "trending", "exam"]).optional(),
+  q: z.string().trim().min(1).max(100).optional(),
   courseId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+});
+const TrendingQuery = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 const RatingBody = z.object({ value: z.coerce.number().int().min(1).max(5) });
@@ -24,10 +28,20 @@ router.get("/prep-hub/collections", requireAuth, async (req, res, next) => {
     res.json(
       await prepHubService.listDiscoverable(req.authUser!, {
         sort: q.sort,
+        q: q.q,
         courseId: q.courseId,
         limit: q.limit,
       }),
     );
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/prep-hub/trending", requireAuth, async (req, res, next) => {
+  try {
+    const { limit } = TrendingQuery.parse(req.query);
+    res.json(await prepHubService.listTrending(req.authUser!, limit));
   } catch (err) {
     next(err);
   }

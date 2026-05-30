@@ -75,6 +75,7 @@ export * from "./listPendingReviewDocumentsParams";
 export * from "./listRecentDocumentsParams";
 export * from "./listRequestsParams";
 export * from "./listRequestsStatus";
+export * from "./listTrendingCollectionsParams";
 export * from "./loginRequest";
 export * from "./materialRequest";
 export * from "./materialRequestStatus";

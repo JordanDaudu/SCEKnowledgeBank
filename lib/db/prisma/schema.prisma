@@ -602,6 +602,16 @@ model StudyCollection {
   ratingSum    Int @default(0) @map("rating_sum")
   viewCount    Int @default(0) @map("view_count")
   commentCount Int @default(0) @map("comment_count")
+  // ─── Discovery (Phase 3) ──────────────────────────────────────
+  // FTS haystack, written ONLY by DB triggers (never by the app).
+  // The companion `search_vector tsvector GENERATED … STORED` column +
+  // its GIN index are added in raw SQL in the migration and are NOT
+  // mapped here (DB-managed; mirrors documents.search_vector).
+  searchText    String? @map("search_text")
+  // Denormalised save count (= study_collection_followers rows),
+  // maintained transactionally on follow/unfollow. Used by ranking SQL
+  // so "saves" is a column read, not a per-row subquery.
+  followerCount Int     @default(0) @map("follower_count")
   examDate    DateTime? @map("exam_date") @db.Timestamptz()
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz()

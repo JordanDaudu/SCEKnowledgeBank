@@ -5097,10 +5097,19 @@ export const DuplicateCollectionParams = zod.object({
 /**
  * @summary Discover public/official study collections, ranked by popularity or recency
  */
+export const listDiscoverableCollectionsQueryQMax = 100;
+
 export const ListDiscoverableCollectionsQueryParams = zod.object({
-  sort: zod.enum(["popular", "recent"]).optional(),
+  sort: zod
+    .enum(["popular", "recent", "new", "rating", "views", "trending", "exam"])
+    .optional(),
   courseId: zod.coerce.string().uuid().optional(),
   limit: zod.coerce.number().optional(),
+  q: zod.coerce
+    .string()
+    .min(1)
+    .max(listDiscoverableCollectionsQueryQMax)
+    .optional(),
 });
 
 export const ListDiscoverableCollectionsResponseItem = zod.object({
@@ -5141,6 +5150,53 @@ export const ListDiscoverableCollectionsResponseItem = zod.object({
 });
 export const ListDiscoverableCollectionsResponse = zod.array(
   ListDiscoverableCollectionsResponseItem,
+);
+
+/**
+ * @summary Trending public study collections
+ */
+export const ListTrendingCollectionsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListTrendingCollectionsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  description: zod.string(),
+  kind: zod.enum([
+    "collection",
+    "exam_prep",
+    "revision",
+    "semester",
+    "learning_path",
+  ]),
+  visibility: zod.enum(["private", "public"]),
+  courseId: zod.string().uuid().nullish(),
+  categoryId: zod.string().uuid().nullish(),
+  examName: zod.string().nullish(),
+  semester: zod.enum(["fall", "spring", "summer"]).nullish(),
+  academicYear: zod.number().nullish(),
+  tagIds: zod.array(zod.string().uuid()),
+  isOfficial: zod.boolean(),
+  examDate: zod.coerce.date().optional(),
+  itemCount: zod.number(),
+  completedCount: zod.number(),
+  progressPercent: zod.number(),
+  followerCount: zod.number(),
+  isFollowing: zod.boolean(),
+  popularityScore: zod.number(),
+  likeCount: zod.number(),
+  isLiked: zod.boolean(),
+  ratingCount: zod.number(),
+  ratingAverage: zod.number(),
+  myRating: zod.number().nullish(),
+  viewCount: zod.number(),
+  commentCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListTrendingCollectionsResponse = zod.array(
+  ListTrendingCollectionsResponseItem,
 );
 
 /**
