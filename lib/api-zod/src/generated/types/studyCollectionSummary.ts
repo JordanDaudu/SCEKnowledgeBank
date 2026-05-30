@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { StudyCollectionSummaryKind } from "./studyCollectionSummaryKind";
+import type { StudyCollectionSummarySemester } from "./studyCollectionSummarySemester";
 import type { StudyCollectionSummaryVisibility } from "./studyCollectionSummaryVisibility";
 
 export interface StudyCollectionSummary {
@@ -15,6 +16,11 @@ export interface StudyCollectionSummary {
   kind: StudyCollectionSummaryKind;
   visibility: StudyCollectionSummaryVisibility;
   courseId?: string | null;
+  categoryId?: string | null;
+  examName?: string | null;
+  semester?: StudyCollectionSummarySemester;
+  academicYear?: number | null;
+  tagIds: string[];
   isOfficial: boolean;
   examDate?: Date;
   itemCount: number;

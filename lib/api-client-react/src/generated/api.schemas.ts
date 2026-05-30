@@ -784,7 +784,17 @@ export type StudyCollectionSummaryVisibility =
 
 export const StudyCollectionSummaryVisibility = {
   private: "private",
-  shared: "shared",
+  public: "public",
+} as const;
+
+export type StudyCollectionSummarySemester =
+  | (typeof StudyCollectionSummarySemester)[keyof typeof StudyCollectionSummarySemester]
+  | null;
+
+export const StudyCollectionSummarySemester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
 } as const;
 
 export interface StudyCollectionSummary {
@@ -794,6 +804,11 @@ export interface StudyCollectionSummary {
   kind: StudyCollectionSummaryKind;
   visibility: StudyCollectionSummaryVisibility;
   courseId?: string | null;
+  categoryId?: string | null;
+  examName?: string | null;
+  semester?: StudyCollectionSummarySemester;
+  academicYear?: number | null;
+  tagIds: string[];
   isOfficial: boolean;
   examDate?: string;
   itemCount: number;
@@ -836,12 +851,21 @@ export const CreateCollectionRequestKind = {
   learning_path: "learning_path",
 } as const;
 
+export type CreateCollectionRequestSemester =
+  (typeof CreateCollectionRequestSemester)[keyof typeof CreateCollectionRequestSemester];
+
+export const CreateCollectionRequestSemester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
+} as const;
+
 export type CreateCollectionRequestVisibility =
   (typeof CreateCollectionRequestVisibility)[keyof typeof CreateCollectionRequestVisibility];
 
 export const CreateCollectionRequestVisibility = {
   private: "private",
-  shared: "shared",
+  public: "public",
 } as const;
 
 export interface CreateCollectionRequest {
@@ -850,6 +874,11 @@ export interface CreateCollectionRequest {
   description?: string;
   kind?: CreateCollectionRequestKind;
   courseId?: string;
+  categoryId?: string;
+  examName?: string;
+  semester?: CreateCollectionRequestSemester;
+  academicYear?: number;
+  tagIds?: string[];
   visibility?: CreateCollectionRequestVisibility;
   examDate?: string;
   documentIds?: string[];
@@ -871,7 +900,17 @@ export type UpdateCollectionRequestVisibility =
 
 export const UpdateCollectionRequestVisibility = {
   private: "private",
-  shared: "shared",
+  public: "public",
+} as const;
+
+export type UpdateCollectionRequestSemester =
+  | (typeof UpdateCollectionRequestSemester)[keyof typeof UpdateCollectionRequestSemester]
+  | null;
+
+export const UpdateCollectionRequestSemester = {
+  fall: "fall",
+  spring: "spring",
+  summer: "summer",
 } as const;
 
 export interface UpdateCollectionRequest {
@@ -879,6 +918,11 @@ export interface UpdateCollectionRequest {
   description?: string;
   kind?: UpdateCollectionRequestKind;
   visibility?: UpdateCollectionRequestVisibility;
+  categoryId?: string | null;
+  examName?: string | null;
+  semester?: UpdateCollectionRequestSemester;
+  academicYear?: number | null;
+  tagIds?: string[];
   examDate?: string;
 }
 
