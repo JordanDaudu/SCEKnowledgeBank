@@ -182,6 +182,7 @@ function AddMaterialsDialog({ id }: { id: string }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<PickedDoc[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const addMut = useAddCollectionItem();
 
   const togglePick = (d: PickedDoc) =>
@@ -191,28 +192,22 @@ function AddMaterialsDialog({ id }: { id: string }) {
         : [...prev, d],
     );
 
-  const submit = () => {
+  const submit = async () => {
     if (picked.length === 0) return;
-    const refresh = () =>
+    setIsSubmitting(true);
+    try {
+      for (const p of picked) {
+        await addMut.mutateAsync({ id, data: { documentId: p.id } });
+      }
       queryClient.invalidateQueries({ queryKey: getGetCollectionQueryKey(id) });
-    // Add sequentially; refresh + close once all settled.
-    let remaining = picked.length;
-    picked.forEach((p) => {
-      addMut.mutate(
-        { id, data: { documentId: p.id } },
-        {
-          onSettled: () => {
-            remaining -= 1;
-            if (remaining === 0) {
-              refresh();
-              setPicked([]);
-              setOpen(false);
-              toast({ title: "Materials added" });
-            }
-          },
-        },
-      );
-    });
+      toast({ title: `Added ${picked.length} material${picked.length === 1 ? "" : "s"}` });
+      setPicked([]);
+      setOpen(false);
+    } catch {
+      toast({ variant: "destructive", title: "Could not add some materials" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -233,7 +228,7 @@ function AddMaterialsDialog({ id }: { id: string }) {
           label="Search the library"
         />
         <DialogFooter>
-          <Button onClick={submit} disabled={picked.length === 0 || addMut.isPending}>
+          <Button onClick={submit} disabled={isSubmitting || picked.length === 0}>
             Add {picked.length > 0 ? `(${picked.length})` : ""}
           </Button>
         </DialogFooter>
@@ -313,14 +308,18 @@ export default function CollectionManage() {
   const share = async () => {
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     const link = `${window.location.origin}${base}/prep-hub/${id}`;
-    await navigator.clipboard.writeText(link);
-    if (col && col.visibility === "private") {
-      toast({
-        title: "Link copied — make the collection Public so others can open it.",
-      });
-    } else {
-      toast({ title: "Link copied" });
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      toast({ variant: "destructive", title: "Could not copy link" });
+      return;
     }
+    toast({
+      title:
+        col?.visibility === "public"
+          ? "Link copied"
+          : "Link copied — make the collection Public so others can open it",
+    });
   };
 
   if (isLoading) {
@@ -466,6 +465,7 @@ export default function CollectionManage() {
             size="sm"
             className="gap-1 text-destructive"
             onClick={deleteCollection}
+            data-testid="collection-delete"
           >
             <Trash2 className="h-4 w-4" /> Delete
           </Button>

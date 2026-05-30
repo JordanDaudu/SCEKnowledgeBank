@@ -7,6 +7,8 @@ import {
   useGetCurrentUser,
   useListCategories,
   useListTags,
+  getListDiscoverableCollectionsQueryKey,
+  getListRecommendedCollectionsQueryKey,
   type StudyCollectionItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,7 +42,11 @@ export default function PrepHubCollection() {
   const followMut = useFollowCollection();
   const unfollowMut = useUnfollowCollection();
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: key });
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: key });
+    queryClient.invalidateQueries({ queryKey: getListDiscoverableCollectionsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListRecommendedCollectionsQueryKey() });
+  };
   const toggleFollow = () => {
     if (!col) return;
     const mut = col.isFollowing ? unfollowMut : followMut;

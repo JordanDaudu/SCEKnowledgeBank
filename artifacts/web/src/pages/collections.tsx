@@ -8,6 +8,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -41,6 +42,7 @@ function CreateCollectionDialog() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [kind, setKind] = useState("collection");
   const [meta, setMeta] = useState<CollectionMetadataState>(EMPTY_METADATA);
   const [picked, setPicked] = useState<PickedDoc[]>([]);
@@ -55,6 +57,7 @@ function CreateCollectionDialog() {
 
   const reset = () => {
     setTitle("");
+    setDescription("");
     setKind("collection");
     setMeta(EMPTY_METADATA);
     setPicked([]);
@@ -67,6 +70,7 @@ function CreateCollectionDialog() {
       {
         data: {
           title: t,
+          ...(description.trim() ? { description: description.trim() } : {}),
           kind: kind as
             | "collection"
             | "exam_prep"
@@ -109,6 +113,15 @@ function CreateCollectionDialog() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. CS101 Final Prep"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Description</label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="resize-none"
             />
           </div>
           <div className="space-y-2">
