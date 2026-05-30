@@ -22,8 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { DocMiniGrid } from "@/components/doc-mini-grid";
 import { CollectionGrid } from "@/components/collections/CollectionCard";
+import { useDebounce } from "@/hooks/use-debounce";
 import {
   GraduationCap,
   PlayCircle,
@@ -31,6 +33,7 @@ import {
   Clock,
   Sparkles,
   Compass,
+  Search,
 } from "lucide-react";
 
 /** Discover public/official bundles, sortable by popularity or recency (US-55). */
@@ -87,6 +90,45 @@ function DiscoverBundles() {
   );
 }
 
+/** Search results section — rendered instead of the normal page when a query is active. */
+function SearchResults({ q }: { q: string }) {
+  const params = { q };
+  const { data, isLoading } = useListDiscoverableCollections(params, {
+    query: {
+      queryKey: getListDiscoverableCollectionsQueryKey(params),
+      staleTime: 15_000,
+    },
+  });
+
+  return (
+    <section aria-label="Search results">
+      <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-foreground">
+        <Search className="h-5 w-5 text-primary" />
+        Search results
+      </h2>
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full" />
+          ))}
+        </div>
+      ) : data && data.length > 0 ? (
+        <CollectionGrid collections={data} basePath="/prep-hub" testid="search-results-grid" />
+      ) : (
+        <div
+          className="rounded-xl border border-dashed bg-card py-12 text-center"
+          data-testid="search-results-empty"
+        >
+          <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">
+            No collections match &ldquo;{q}&rdquo;.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** Compact horizontal list of documents for a Quick Access lane. */
 function QuickLane({
   title,
@@ -110,6 +152,10 @@ function QuickLane({
 }
 
 export default function PrepHub() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedQ = useDebounce(searchQuery, 300);
+  const isSearching = debouncedQ.trim().length > 0;
+
   const { data: continueDocs } = useListContinueStudying({
     query: { queryKey: getListContinueStudyingQueryKey(), staleTime: 15_000 },
   });
@@ -152,33 +198,51 @@ export default function PrepHub() {
         </div>
       </div>
 
-      {/* Quick Access */}
-      {hasQuickAccess && (
-        <section className="space-y-4" aria-label="Quick access">
-          <QuickLane title="Recommended for you" icon={Sparkles} docs={recommended} />
-          <QuickLane title="Continue studying" icon={PlayCircle} docs={continueDocs} />
-          <QuickLane title="Saved" icon={Heart} docs={favorites} />
-          <QuickLane title="Recently viewed" icon={Clock} docs={recent} />
-        </section>
-      )}
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search collections..."
+          className="pl-9 bg-background"
+          data-testid="prep-hub-search"
+        />
+      </div>
 
-      {/* Suggested bundles by course (US-62) */}
-      {recommendedBundles && recommendedBundles.length > 0 && (
-        <section aria-label="Suggested bundles">
-          <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-foreground">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Suggested bundles
-          </h2>
-          <CollectionGrid
-            collections={recommendedBundles}
-            basePath="/prep-hub"
-            testid="suggested-grid"
-          />
-        </section>
-      )}
+      {isSearching ? (
+        <SearchResults q={debouncedQ.trim()} />
+      ) : (
+        <>
+          {/* Quick Access */}
+          {hasQuickAccess && (
+            <section className="space-y-4" aria-label="Quick access">
+              <QuickLane title="Recommended for you" icon={Sparkles} docs={recommended} />
+              <QuickLane title="Continue studying" icon={PlayCircle} docs={continueDocs} />
+              <QuickLane title="Saved" icon={Heart} docs={favorites} />
+              <QuickLane title="Recently viewed" icon={Clock} docs={recent} />
+            </section>
+          )}
 
-      {/* Discover public/official bundles, ranked (US-55) */}
-      <DiscoverBundles />
+          {/* Suggested bundles by course (US-62) */}
+          {recommendedBundles && recommendedBundles.length > 0 && (
+            <section aria-label="Suggested bundles">
+              <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-foreground">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Suggested bundles
+              </h2>
+              <CollectionGrid
+                collections={recommendedBundles}
+                basePath="/prep-hub"
+                testid="suggested-grid"
+              />
+            </section>
+          )}
+
+          {/* Discover public/official bundles, ranked (US-55) */}
+          <DiscoverBundles />
+        </>
+      )}
     </div>
   );
 }
