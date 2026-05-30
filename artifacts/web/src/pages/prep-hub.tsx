@@ -12,19 +12,15 @@ import {
   getListRecommendedCollectionsQueryKey,
   useListDiscoverableCollections,
   getListDiscoverableCollectionsQueryKey,
+  useListTrendingCollections,
+  getListTrendingCollectionsQueryKey,
   type Document,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { DocMiniGrid } from "@/components/doc-mini-grid";
 import { CollectionGrid } from "@/components/collections/CollectionCard";
+import { DiscoverySection } from "@/components/collections/DiscoverySection";
+import { DocMiniGrid } from "@/components/doc-mini-grid";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   GraduationCap,
@@ -34,61 +30,12 @@ import {
   Sparkles,
   Compass,
   Search,
+  TrendingUp,
+  Star,
+  Eye,
+  PlusCircle,
+  CalendarClock,
 } from "lucide-react";
-
-/** Discover public/official bundles, sortable by popularity or recency (US-55). */
-function DiscoverBundles() {
-  const [sort, setSort] = useState<"popular" | "recent">("popular");
-  const params = { sort } as const;
-  const { data, isLoading } = useListDiscoverableCollections(params, {
-    query: {
-      queryKey: getListDiscoverableCollectionsQueryKey(params),
-      staleTime: 30_000,
-    },
-  });
-  // Always render the section (and its ranking control) so the sort options
-  // are visible even before any bundle has been shared.
-  return (
-    <section aria-label="Discover bundles">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-serif text-xl font-bold text-foreground">
-          <Compass className="h-5 w-5 text-primary" />
-          Discover bundles
-        </h2>
-        <Select value={sort} onValueChange={(v) => setSort(v as "popular" | "recent")}>
-          <SelectTrigger className="h-8 w-40" data-testid="discover-sort">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="popular">Most popular</SelectItem>
-            <SelectItem value="recent">Recently updated</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 w-full" />
-          ))}
-        </div>
-      ) : data && data.length > 0 ? (
-        <CollectionGrid collections={data} basePath="/prep-hub" testid="discover-grid" />
-      ) : (
-        <div
-          className="rounded-xl border border-dashed bg-card py-12 text-center"
-          data-testid="discover-empty"
-        >
-          <Compass className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">
-            No shared bundles yet. Create a collection and set it to{" "}
-            <span className="font-medium">Public</span> to make it discoverable
-            and rankable here.
-          </p>
-        </div>
-      )}
-    </section>
-  );
-}
 
 /** Search results section — rendered instead of the normal page when a query is active. */
 function SearchResults({ q }: { q: string }) {
@@ -156,6 +103,7 @@ export default function PrepHub() {
   const debouncedQ = useDebounce(searchQuery, 300);
   const isSearching = debouncedQ.trim().length > 0;
 
+  // ── Quick Access (document lanes) ──────────────────────────────────────
   const { data: continueDocs } = useListContinueStudying({
     query: { queryKey: getListContinueStudyingQueryKey(), staleTime: 15_000 },
   });
@@ -169,18 +117,81 @@ export default function PrepHub() {
   const { data: recommended } = useListRecommendations({
     query: { queryKey: getListRecommendationsQueryKey(), staleTime: 60_000 },
   });
-  const { data: recommendedBundles } = useListRecommendedCollections({
-    query: {
-      queryKey: getListRecommendedCollectionsQueryKey(),
-      staleTime: 60_000,
-    },
-  });
 
   const hasQuickAccess =
     (recommended?.length ?? 0) > 0 ||
     (continueDocs?.length ?? 0) > 0 ||
     (favorites?.length ?? 0) > 0 ||
     (recent?.length ?? 0) > 0;
+
+  // ── Discovery sections (collection bundles) ────────────────────────────
+  const trendingParams = { limit: 12 };
+  const { data: trendingBundles, isLoading: trendingLoading } = useListTrendingCollections(
+    trendingParams,
+    {
+      query: {
+        queryKey: getListTrendingCollectionsQueryKey(trendingParams),
+        staleTime: 30_000,
+      },
+    },
+  );
+
+  const popularParams = { sort: "popular" as const, limit: 12 };
+  const { data: popularBundles, isLoading: popularLoading } = useListDiscoverableCollections(
+    popularParams,
+    {
+      query: {
+        queryKey: getListDiscoverableCollectionsQueryKey(popularParams),
+        staleTime: 30_000,
+      },
+    },
+  );
+
+  const ratingParams = { sort: "rating" as const, limit: 12 };
+  const { data: ratingBundles, isLoading: ratingLoading } = useListDiscoverableCollections(
+    ratingParams,
+    {
+      query: {
+        queryKey: getListDiscoverableCollectionsQueryKey(ratingParams),
+        staleTime: 30_000,
+      },
+    },
+  );
+
+  const viewsParams = { sort: "views" as const, limit: 12 };
+  const { data: viewsBundles, isLoading: viewsLoading } = useListDiscoverableCollections(
+    viewsParams,
+    {
+      query: {
+        queryKey: getListDiscoverableCollectionsQueryKey(viewsParams),
+        staleTime: 30_000,
+      },
+    },
+  );
+
+  const newParams = { sort: "new" as const, limit: 12 };
+  const { data: newBundles, isLoading: newLoading } = useListDiscoverableCollections(newParams, {
+    query: {
+      queryKey: getListDiscoverableCollectionsQueryKey(newParams),
+      staleTime: 30_000,
+    },
+  });
+
+  const examParams = { sort: "exam" as const, limit: 12 };
+  const { data: examBundles, isLoading: examLoading } = useListDiscoverableCollections(examParams, {
+    query: {
+      queryKey: getListDiscoverableCollectionsQueryKey(examParams),
+      staleTime: 30_000,
+    },
+  });
+
+  const { data: recommendedBundles, isLoading: recommendedBundlesLoading } =
+    useListRecommendedCollections({
+      query: {
+        queryKey: getListRecommendedCollectionsQueryKey(),
+        staleTime: 60_000,
+      },
+    });
 
   return (
     <div className="space-y-8">
@@ -214,7 +225,7 @@ export default function PrepHub() {
         <SearchResults q={debouncedQ.trim()} />
       ) : (
         <>
-          {/* Quick Access */}
+          {/* Quick Access — document lanes (continue studying, saved, recent) */}
           {hasQuickAccess && (
             <section className="space-y-4" aria-label="Quick access">
               <QuickLane title="Recommended for you" icon={Sparkles} docs={recommended} />
@@ -224,23 +235,62 @@ export default function PrepHub() {
             </section>
           )}
 
-          {/* Suggested bundles by course (US-62) */}
-          {recommendedBundles && recommendedBundles.length > 0 && (
-            <section aria-label="Suggested bundles">
-              <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-foreground">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Suggested bundles
-              </h2>
-              <CollectionGrid
-                collections={recommendedBundles}
-                basePath="/prep-hub"
-                testid="suggested-grid"
-              />
-            </section>
-          )}
+          {/* 7 discovery sections — each hides itself when empty */}
+          <DiscoverySection
+            title="Trending"
+            icon={<TrendingUp className="h-5 w-5 text-primary" />}
+            collections={trendingBundles}
+            isLoading={trendingLoading}
+            testid="trending-grid"
+          />
 
-          {/* Discover public/official bundles, ranked (US-55) */}
-          <DiscoverBundles />
+          <DiscoverySection
+            title="Popular"
+            icon={<Compass className="h-5 w-5 text-primary" />}
+            collections={popularBundles}
+            isLoading={popularLoading}
+            testid="popular-grid"
+          />
+
+          <DiscoverySection
+            title="Highest Rated"
+            icon={<Star className="h-5 w-5 text-primary" />}
+            collections={ratingBundles}
+            isLoading={ratingLoading}
+            testid="rating-grid"
+          />
+
+          <DiscoverySection
+            title="Most Viewed"
+            icon={<Eye className="h-5 w-5 text-primary" />}
+            collections={viewsBundles}
+            isLoading={viewsLoading}
+            testid="views-grid"
+          />
+
+          <DiscoverySection
+            title="New"
+            icon={<PlusCircle className="h-5 w-5 text-primary" />}
+            collections={newBundles}
+            isLoading={newLoading}
+            testid="new-grid"
+          />
+
+          <DiscoverySection
+            title="Upcoming Exams"
+            icon={<CalendarClock className="h-5 w-5 text-primary" />}
+            collections={examBundles}
+            isLoading={examLoading}
+            testid="exam-grid"
+          />
+
+          <DiscoverySection
+            title="For You / Your Courses"
+            icon={<Sparkles className="h-5 w-5 text-primary" />}
+            collections={recommendedBundles}
+            isLoading={recommendedBundlesLoading}
+            testid="recommended-grid"
+          />
         </>
       )}
     </div>
