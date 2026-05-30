@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { type StudyCollectionSummary } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FolderOpen, Users, TrendingUp } from "lucide-react";
+import { FolderOpen, Users, TrendingUp, Star, Heart, MessageSquare } from "lucide-react";
 
 export const KIND_LABEL: Record<string, string> = {
   collection: "Collection",
@@ -71,6 +71,24 @@ export function CollectionCard({
               <span className="inline-flex items-center gap-1" title="Followers">
                 <Users className="h-3 w-3" />
                 {c.followerCount}
+              </span>
+            )}
+            {c.ratingCount > 0 && (
+              <span className="inline-flex items-center gap-1" title={`${c.ratingCount} rating${c.ratingCount === 1 ? "" : "s"}`}>
+                <Star className="h-3 w-3" />
+                {c.ratingAverage.toFixed(1)}
+              </span>
+            )}
+            {c.likeCount > 0 && (
+              <span className="inline-flex items-center gap-1" title="Likes">
+                <Heart className="h-3 w-3" />
+                {c.likeCount}
+              </span>
+            )}
+            {c.commentCount > 0 && (
+              <span className="inline-flex items-center gap-1" title="Comments">
+                <MessageSquare className="h-3 w-3" />
+                {c.commentCount}
               </span>
             )}
             {c.progressPercent > 0 && <span>{c.progressPercent}% done</span>}

@@ -7,6 +7,7 @@
  * app). Items reference documents by id only — nothing is duplicated.
  */
 import * as collectionsRepo from "../repositories/collections.repo";
+import * as engagementRepo from "../repositories/collection-engagement.repo";
 import * as studyProgressRepo from "../repositories/studyProgress.repo";
 import * as docsRepo from "../repositories/documents.repo";
 import * as documentsService from "./documents.service";
@@ -47,6 +48,13 @@ export interface CollectionSummaryDTO {
   followerCount: number;
   isFollowing: boolean;
   popularityScore: number;
+  likeCount: number;
+  isLiked: boolean;
+  ratingCount: number;
+  ratingAverage: number;
+  myRating?: number;
+  viewCount: number;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +68,7 @@ export interface CollectionItemDTO {
 
 export interface CollectionDetailDTO extends CollectionSummaryDTO {
   items: CollectionItemDTO[];
+  uniqueViewCount: number;
 }
 
 interface SummaryExtra {
@@ -67,6 +76,8 @@ interface SummaryExtra {
   isFollowing?: boolean;
   completedCount?: number;
   tagIds?: string[];
+  isLiked?: boolean;
+  myRating?: number;
 }
 
 function toSummary(
@@ -95,6 +106,16 @@ function toSummary(
     followerCount: extra.followerCount ?? 0,
     isFollowing: extra.isFollowing ?? false,
     popularityScore: c.popularityScore,
+    likeCount: c.likeCount,
+    isLiked: extra.isLiked ?? false,
+    ratingCount: c.ratingCount,
+    ratingAverage:
+      c.ratingCount > 0
+        ? Math.round((c.ratingSum / c.ratingCount) * 10) / 10
+        : 0,
+    myRating: extra.myRating,
+    viewCount: c.viewCount,
+    commentCount: c.commentCount,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -107,18 +128,23 @@ export async function summarize(
   user: AuthenticatedUser,
 ): Promise<CollectionSummaryDTO[]> {
   const ids = rows.map((r) => r.id);
-  const [followerCounts, followed, completed, tagMap] = await Promise.all([
-    collectionsRepo.countFollowersForCollections(ids),
-    collectionsRepo.listFollowedCollectionIds(user.id, ids),
-    collectionsRepo.countCompletedForCollections(user.id, ids),
-    collectionsRepo.listTagIdsForCollections(ids),
-  ]);
+  const [followerCounts, followed, completed, tagMap, liked, myRatings] =
+    await Promise.all([
+      collectionsRepo.countFollowersForCollections(ids),
+      collectionsRepo.listFollowedCollectionIds(user.id, ids),
+      collectionsRepo.countCompletedForCollections(user.id, ids),
+      collectionsRepo.listTagIdsForCollections(ids),
+      engagementRepo.listLikedCollectionIds(user.id, ids),
+      engagementRepo.listMyRatings(user.id, ids),
+    ]);
   return rows.map((r) =>
     toSummary(r, {
       followerCount: followerCounts.get(r.id) ?? 0,
       isFollowing: followed.has(r.id),
       completedCount: completed.get(r.id) ?? 0,
       tagIds: tagMap.get(r.id) ?? [],
+      isLiked: liked.has(r.id),
+      myRating: myRatings.get(r.id),
     }),
   );
 }
@@ -249,16 +275,20 @@ export async function assembleDetail(
       progress: progress.get(i.documentId),
     }));
   const completedCount = items.filter((i) => i.progress === "completed").length;
-  const [followerCount, following, tagIds] = await Promise.all([
-    collectionsRepo.countFollowers(c.id),
-    collectionsRepo.isFollowing(c.id, user.id),
-    collectionsRepo.listCollectionTagIds(c.id),
-  ]);
+  const [followerCount, following, tagIds, liked, myRating, uniqueViewCount] =
+    await Promise.all([
+      collectionsRepo.countFollowers(c.id),
+      collectionsRepo.isFollowing(c.id, user.id),
+      collectionsRepo.listCollectionTagIds(c.id),
+      engagementRepo.isLiked(c.id, user.id),
+      engagementRepo.getMyRating(c.id, user.id),
+      engagementRepo.countUniqueViews(c.id),
+    ]);
   const summary = toSummary(
     { ...c, itemCount: items.length },
-    { followerCount, isFollowing: following, completedCount, tagIds },
+    { followerCount, isFollowing: following, completedCount, tagIds, isLiked: liked, myRating },
   );
-  return { ...summary, items };
+  return { ...summary, items, uniqueViewCount };
 }
 
 export async function getCollection(

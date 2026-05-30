@@ -817,6 +817,13 @@ export interface StudyCollectionSummary {
   followerCount: number;
   isFollowing: boolean;
   popularityScore: number;
+  likeCount: number;
+  isLiked: boolean;
+  ratingCount: number;
+  ratingAverage: number;
+  myRating?: number | null;
+  viewCount: number;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -838,7 +845,23 @@ export interface StudyCollectionItem {
 
 export type StudyCollectionDetail = StudyCollectionSummary & {
   items: StudyCollectionItem[];
+  uniqueViewCount: number;
 };
+
+export type StudyCollectionCommentAuthor = {
+  id: string;
+  displayName: string;
+};
+
+export interface StudyCollectionComment {
+  id: string;
+  collectionId: string;
+  author: StudyCollectionCommentAuthor;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  editable: boolean;
+}
 
 export type CreateCollectionRequestKind =
   (typeof CreateCollectionRequestKind)[keyof typeof CreateCollectionRequestKind];
@@ -1275,3 +1298,21 @@ export const ListDiscoverableCollectionsSort = {
   popular: "popular",
   recent: "recent",
 } as const;
+
+export type RateCollectionBody = {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  value: number;
+};
+
+export type CreateCollectionCommentBody = {
+  /** @minLength 1 */
+  body: string;
+};
+
+export type EditCollectionCommentBody = {
+  /** @minLength 1 */
+  body: string;
+};

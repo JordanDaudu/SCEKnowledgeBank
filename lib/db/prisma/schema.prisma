@@ -85,6 +85,10 @@ model User {
   studyCollections      StudyCollection[]
   collectionFollows     StudyCollectionFollower[]
   studyProgress         StudyProgress[]
+  collectionLikes    StudyCollectionLike[]
+  collectionRatings  StudyCollectionRating[]
+  collectionViews    StudyCollectionView[]
+  collectionComments StudyCollectionComment[]
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
   @@map("users")
@@ -589,6 +593,15 @@ model StudyCollection {
   visibility  String    @default("private")
   // Denormalised ranking signal (followers + items), recomputed on change.
   popularityScore Int   @default(0) @map("popularity_score")
+  // ─── Engagement counters (Phase 2) ────────────────────────────
+  // Denormalised, maintained transactionally with each engagement
+  // event row. Store-only in Phase 2 (ranking consumes them in P3).
+  // ratingAverage is derived (ratingSum / ratingCount), never stored.
+  likeCount    Int @default(0) @map("like_count")
+  ratingCount  Int @default(0) @map("rating_count")
+  ratingSum    Int @default(0) @map("rating_sum")
+  viewCount    Int @default(0) @map("view_count")
+  commentCount Int @default(0) @map("comment_count")
   examDate    DateTime? @map("exam_date") @db.Timestamptz()
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
@@ -600,6 +613,10 @@ model StudyCollection {
   tags      StudyCollectionTag[]
   items     StudyCollectionItem[]
   followers StudyCollectionFollower[]
+  likes     StudyCollectionLike[]
+  ratings   StudyCollectionRating[]
+  views     StudyCollectionView[]
+  comments  StudyCollectionComment[]
 
   @@index([ownerId], map: "study_collections_owner_idx")
   @@index([isOfficial, courseId], map: "study_collections_official_course_idx")
@@ -636,6 +653,70 @@ model StudyCollectionTag {
   @@unique([collectionId, tagId], map: "study_collection_tags_unique")
   @@index([tagId], map: "study_collection_tags_tag_idx")
   @@map("study_collection_tags")
+}
+
+// ─── Collection engagement (Phase 2) ──────────────────────────────
+
+model StudyCollectionLike {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  collection StudyCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId], map: "study_collection_likes_unique")
+  @@index([userId], map: "study_collection_likes_user_idx")
+  @@map("study_collection_likes")
+}
+
+model StudyCollectionRating {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  // 1..5, validated in the service.
+  value        Int
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz()
+
+  collection StudyCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, userId], map: "study_collection_ratings_unique")
+  @@index([userId], map: "study_collection_ratings_user_idx")
+  @@map("study_collection_ratings")
+}
+
+model StudyCollectionView {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  viewedAt     DateTime @default(now()) @map("viewed_at") @db.Timestamptz()
+
+  collection StudyCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId], map: "study_collection_views_collection_idx")
+  @@index([userId, viewedAt], map: "study_collection_views_user_viewed_idx")
+  @@map("study_collection_views")
+}
+
+model StudyCollectionComment {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String    @map("collection_id") @db.Uuid
+  authorId     String    @map("author_id") @db.Uuid
+  body         String
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz()
+
+  collection StudyCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  author     User            @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([collectionId, createdAt], map: "study_collection_comments_collection_created_idx")
+  @@index([authorId], map: "study_collection_comments_author_idx")
+  @@map("study_collection_comments")
 }
 
 model StudyCollectionItem {

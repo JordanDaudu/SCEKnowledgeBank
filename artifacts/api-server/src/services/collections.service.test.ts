@@ -27,6 +27,13 @@ vi.mock("../repositories/collections.repo", () => ({
   listCollectionTagIds: vi.fn().mockResolvedValue([]),
   setCollectionTags: vi.fn(),
 }));
+vi.mock("../repositories/collection-engagement.repo", () => ({
+  listLikedCollectionIds: vi.fn().mockResolvedValue(new Set()),
+  listMyRatings: vi.fn().mockResolvedValue(new Map()),
+  isLiked: vi.fn().mockResolvedValue(false),
+  getMyRating: vi.fn().mockResolvedValue(undefined),
+  countUniqueViews: vi.fn().mockResolvedValue(0),
+}));
 vi.mock("../repositories/studyProgress.repo", () => ({
   getProgressForDocuments: vi.fn().mockResolvedValue(new Map()),
 }));
@@ -74,6 +81,11 @@ const owned = {
   academicYear: null,
   visibility: "private",
   popularityScore: 0,
+  likeCount: 0,
+  ratingCount: 0,
+  ratingSum: 0,
+  viewCount: 0,
+  commentCount: 0,
   examDate: null,
   createdAt: new Date(),
   updatedAt: new Date(),

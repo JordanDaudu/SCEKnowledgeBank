@@ -29,6 +29,13 @@ export interface StudyCollectionSummary {
   followerCount: number;
   isFollowing: boolean;
   popularityScore: number;
+  likeCount: number;
+  isLiked: boolean;
+  ratingCount: number;
+  ratingAverage: number;
+  myRating?: number | null;
+  viewCount: number;
+  commentCount: number;
   createdAt: Date;
   updatedAt: Date;
 }

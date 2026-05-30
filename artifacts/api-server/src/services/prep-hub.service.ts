@@ -8,6 +8,7 @@
 import * as collectionsRepo from "../repositories/collections.repo";
 import * as collectionsService from "./collections.service";
 import * as recommendationsService from "./recommendations.service";
+import * as engagement from "./collection-engagement.service";
 import { notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 import type {
@@ -40,6 +41,7 @@ export async function getPublicCollection(
   // Private collections must never appear in Prep Hub — 404 (not 403) so we
   // don't reveal existence.
   if (!c || !isPublic(c)) throw notFound("Collection not found");
+  await engagement.recordView(c.id, user);
   return collectionsService.assembleDetail(c, user);
 }
 

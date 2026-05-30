@@ -14,6 +14,11 @@ export interface CollectionRow {
   academicYear: number | null;
   visibility: string;
   popularityScore: number;
+  likeCount: number;
+  ratingCount: number;
+  ratingSum: number;
+  viewCount: number;
+  commentCount: number;
   examDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
