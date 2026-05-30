@@ -17,6 +17,7 @@ import {
   BarChart3,
   History,
   GraduationCap,
+  FolderOpen,
   Menu,
   X,
   ChevronDown,
@@ -75,8 +76,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/", icon: BookOpen, label: "Home" },
         { href: "/browse", icon: Search, label: "Browse" },
         ...(!isAdmin
-          ? [{ href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" }]
+          ? [{ href: "/collections", icon: FolderOpen, label: "Collections" }]
           : []),
+        { href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" },
         { href: "/requests", icon: MessageSquare, label: "Requests" },
         { href: "/upload", icon: Upload, label: "Upload" },
       ]

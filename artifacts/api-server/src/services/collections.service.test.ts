@@ -23,6 +23,9 @@ vi.mock("../repositories/collections.repo", () => ({
   countCompletedForCollections: vi.fn().mockResolvedValue(new Map()),
   listDiscoverable: vi.fn().mockResolvedValue([]),
   recommendCollections: vi.fn().mockResolvedValue([]),
+  listTagIdsForCollections: vi.fn().mockResolvedValue(new Map()),
+  listCollectionTagIds: vi.fn().mockResolvedValue([]),
+  setCollectionTags: vi.fn(),
 }));
 vi.mock("../repositories/studyProgress.repo", () => ({
   getProgressForDocuments: vi.fn().mockResolvedValue(new Map()),
@@ -65,6 +68,10 @@ const owned = {
   kind: "exam_prep",
   isOfficial: false,
   courseId: null,
+  categoryId: null,
+  examName: null,
+  semester: null,
+  academicYear: null,
   visibility: "private",
   popularityScore: 0,
   examDate: null,

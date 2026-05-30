@@ -11,5 +11,5 @@ export type StudyCollectionSummaryVisibility =
 
 export const StudyCollectionSummaryVisibility = {
   private: "private",
-  shared: "shared",
+  public: "public",
 } as const;

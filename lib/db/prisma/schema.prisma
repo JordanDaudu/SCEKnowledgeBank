@@ -169,7 +169,8 @@ model Category {
   description String?
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
-  documents Document[]
+  documents        Document[]
+  studyCollections StudyCollection[]
 
   @@unique([name], map: "categories_name_unique")
   @@unique([slug], map: "categories_slug_unique")
@@ -181,7 +182,8 @@ model Tag {
   name      String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
-  documents DocumentTag[]
+  documents           DocumentTag[]
+  studyCollectionTags StudyCollectionTag[]
 
   @@unique([name], map: "tags_name_unique")
   @@map("tags")
@@ -576,7 +578,14 @@ model StudyCollection {
   isOfficial  Boolean   @default(false) @map("is_official")
   // Optional scoping (semester folders, official course paths).
   courseId    String?   @map("course_id") @db.Uuid
-  // private | shared (sharing is a 6d feature; default private).
+  // Subject — reuses the existing Category taxonomy (Phase 1 metadata).
+  categoryId  String?   @map("category_id") @db.Uuid
+  // Optional free-text exam name (e.g. "Calculus Final 2026").
+  examName    String?   @map("exam_name")
+  // fall | spring | summer (text, matches the document semester convention).
+  semester    String?   @map("semester")
+  academicYear Int?     @map("academic_year")
+  // private | public (default private). Public => discoverable in Prep Hub.
   visibility  String    @default("private")
   // Denormalised ranking signal (followers + items), recomputed on change.
   popularityScore Int   @default(0) @map("popularity_score")
@@ -587,12 +596,15 @@ model StudyCollection {
 
   owner     User                      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   course    Course?                   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  category  Category?                 @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags      StudyCollectionTag[]
   items     StudyCollectionItem[]
   followers StudyCollectionFollower[]
 
   @@index([ownerId], map: "study_collections_owner_idx")
   @@index([isOfficial, courseId], map: "study_collections_official_course_idx")
   @@index([visibility, popularityScore(sort: Desc)], map: "study_collections_visibility_popularity_idx")
+  @@index([categoryId], map: "study_collections_category_idx")
   @@map("study_collections")
 }
 
@@ -610,6 +622,20 @@ model StudyCollectionFollower {
   @@unique([collectionId, userId], map: "study_collection_followers_unique")
   @@index([userId], map: "study_collection_followers_user_idx")
   @@map("study_collection_followers")
+}
+
+model StudyCollectionTag {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  tagId        String   @map("tag_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  collection StudyCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  tag        Tag             @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, tagId], map: "study_collection_tags_unique")
+  @@index([tagId], map: "study_collection_tags_tag_idx")
+  @@map("study_collection_tags")
 }
 
 model StudyCollectionItem {

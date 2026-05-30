@@ -4,6 +4,7 @@ import {
   useCreateCollection,
   useAddCollectionItem,
   getListMyCollectionsQueryKey,
+  useGetCurrentUser,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,11 @@ import { FolderPlus, Plus, Check } from "lucide-react";
 /**
  * Phase 6c — add a document to one of the user's study collections (or a new
  * one) from anywhere. Used on the document detail page.
+ *
+ * Admins have no Collections workspace so this affordance is hidden for them.
  */
 export function AddToCollection({ documentId }: { documentId: string }) {
+  const { data: user } = useGetCurrentUser();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -67,6 +71,9 @@ export function AddToCollection({ documentId }: { documentId: string }) {
   };
 
   const busy = addMut.isPending || createMut.isPending;
+
+  // Admins manage the platform; they have no Collections workspace.
+  if (user?.roles?.includes("admin")) return null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

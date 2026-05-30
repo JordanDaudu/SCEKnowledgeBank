@@ -11,5 +11,5 @@ export type CreateCollectionRequestVisibility =
 
 export const CreateCollectionRequestVisibility = {
   private: "private",
-  shared: "shared",
+  public: "public",
 } as const;

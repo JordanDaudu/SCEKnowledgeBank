@@ -17,6 +17,8 @@ tags:
   - name: users
   - name: notifications
   - name: analytics
+  - name: collections
+  - name: prep-hub
 
 paths:
   /healthz:
@@ -1138,21 +1140,6 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StudyCollectionSummary" }
-  /collections/discover:
-    get:
-      operationId: listDiscoverableCollections
-      tags: [collections]
-      summary: Discover shared/official study collections, ranked by popularity or recency
-      parameters:
-        - { in: query, name: sort, required: false, schema: { type: string, enum: [popular, recent] } }
-        - { in: query, name: courseId, required: false, schema: { type: string, format: uuid } }
-        - { in: query, name: limit, required: false, schema: { type: integer } }
-      responses:
-        "200":
-          description: Collections
-          content:
-            application/json:
-              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
   /collections/{id}:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -1246,13 +1233,65 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
-  /collections/{id}/follow:
+  /collections/{id}/duplicate:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: duplicateCollection
+      tags: [collections]
+      summary: Duplicate a collection (clone metadata, tags, and items as a new private collection)
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionSummary" }
+  /prep-hub/collections:
+    get:
+      operationId: listDiscoverableCollections
+      tags: [prep-hub]
+      summary: Discover public/official study collections, ranked by popularity or recency
+      parameters:
+        - { in: query, name: sort, required: false, schema: { type: string, enum: [popular, recent] } }
+        - { in: query, name: courseId, required: false, schema: { type: string, format: uuid } }
+        - { in: query, name: limit, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
+  /prep-hub/recommended:
+    get:
+      operationId: listRecommendedCollections
+      tags: [prep-hub]
+      summary: Recommended public collections by course for the current user
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
+  /prep-hub/collections/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getPublicCollection
+      tags: [prep-hub]
+      summary: Get a public collection with its ordered items
+      responses:
+        "200":
+          description: Collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
+  /prep-hub/collections/{id}/follow:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
     post:
       operationId: followCollection
-      tags: [collections]
-      summary: Follow a study collection
+      tags: [prep-hub]
+      summary: Follow a public study collection
       responses:
         "200":
           description: Updated collection
@@ -1261,7 +1300,7 @@ paths:
               schema: { $ref: "#/components/schemas/StudyCollectionDetail" }
     delete:
       operationId: unfollowCollection
-      tags: [collections]
+      tags: [prep-hub]
       summary: Unfollow a study collection
       responses:
         "200":
@@ -1309,18 +1348,6 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/Document" } }
-  /me/recommended-collections:
-    get:
-      operationId: listRecommendedCollections
-      tags: [collections]
-      summary: Recommended study bundles by course for the current user (US-62)
-      responses:
-        "200":
-          description: Collections
-          content:
-            application/json:
-              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
-
 components:
   schemas:
     HealthStatus:
@@ -2214,14 +2241,19 @@ components:
 
     StudyCollectionSummary:
       type: object
-      required: [id, title, description, kind, visibility, isOfficial, itemCount, completedCount, progressPercent, followerCount, isFollowing, popularityScore, createdAt, updatedAt]
+      required: [id, title, description, kind, visibility, isOfficial, itemCount, completedCount, progressPercent, followerCount, isFollowing, popularityScore, tagIds, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
         description: { type: string }
         kind: { type: string, enum: [collection, exam_prep, revision, semester, learning_path] }
-        visibility: { type: string, enum: [private, shared] }
+        visibility: { type: string, enum: [private, public] }
         courseId: { type: string, format: uuid, nullable: true }
+        categoryId: { type: string, format: uuid, nullable: true }
+        examName: { type: string, nullable: true }
+        semester: { type: string, enum: [fall, spring, summer], nullable: true }
+        academicYear: { type: integer, nullable: true }
+        tagIds: { type: array, items: { type: string, format: uuid } }
         isOfficial: { type: boolean }
         examDate: { type: string, format: date-time }
         itemCount: { type: integer }
@@ -2257,7 +2289,14 @@ components:
         description: { type: string }
         kind: { type: string, enum: [collection, exam_prep, revision, semester, learning_path] }
         courseId: { type: string, format: uuid }
-        visibility: { type: string, enum: [private, shared] }
+        categoryId: { type: string, format: uuid }
+        examName: { type: string }
+        semester: { type: string, enum: [fall, spring, summer] }
+        academicYear: { type: integer }
+        tagIds:
+          type: array
+          items: { type: string, format: uuid }
+        visibility: { type: string, enum: [private, public] }
         examDate: { type: string, format: date-time }
         documentIds:
           type: array
@@ -2268,7 +2307,14 @@ components:
         title: { type: string }
         description: { type: string }
         kind: { type: string, enum: [collection, exam_prep, revision, semester, learning_path] }
-        visibility: { type: string, enum: [private, shared] }
+        visibility: { type: string, enum: [private, public] }
+        categoryId: { type: string, format: uuid, nullable: true }
+        examName: { type: string, nullable: true }
+        semester: { type: string, enum: [fall, spring, summer], nullable: true }
+        academicYear: { type: integer, nullable: true }
+        tagIds:
+          type: array
+          items: { type: string, format: uuid }
         examDate: { type: string, format: date-time }
     AddCollectionItemRequest:
       type: object

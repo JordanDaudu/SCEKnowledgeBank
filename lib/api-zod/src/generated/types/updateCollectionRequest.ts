@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { UpdateCollectionRequestKind } from "./updateCollectionRequestKind";
+import type { UpdateCollectionRequestSemester } from "./updateCollectionRequestSemester";
 import type { UpdateCollectionRequestVisibility } from "./updateCollectionRequestVisibility";
 
 export interface UpdateCollectionRequest {
@@ -13,5 +14,10 @@ export interface UpdateCollectionRequest {
   description?: string;
   kind?: UpdateCollectionRequestKind;
   visibility?: UpdateCollectionRequestVisibility;
+  categoryId?: string | null;
+  examName?: string | null;
+  semester?: UpdateCollectionRequestSemester;
+  academicYear?: number | null;
+  tagIds?: string[];
   examDate?: Date;
 }

@@ -8,6 +8,10 @@ export interface CollectionRow {
   kind: string;
   isOfficial: boolean;
   courseId: string | null;
+  categoryId: string | null;
+  examName: string | null;
+  semester: string | null;
+  academicYear: number | null;
   visibility: string;
   popularityScore: number;
   examDate: Date | null;
@@ -30,6 +34,10 @@ export interface CreateCollectionInput {
   description?: string;
   kind?: string;
   courseId?: string | null;
+  categoryId?: string | null;
+  examName?: string | null;
+  semester?: string | null;
+  academicYear?: number | null;
   visibility?: string;
   examDate?: Date | null;
 }
@@ -44,6 +52,10 @@ export async function createCollection(
       description: input.description ?? "",
       kind: input.kind ?? "collection",
       courseId: input.courseId ?? null,
+      categoryId: input.categoryId ?? null,
+      examName: input.examName ?? null,
+      semester: input.semester ?? null,
+      academicYear: input.academicYear ?? null,
       visibility: input.visibility ?? "private",
       examDate: input.examDate ?? null,
     },
@@ -69,7 +81,13 @@ export async function findCollectionById(
 
 export async function updateCollection(
   id: string,
-  patch: Partial<Pick<CollectionRow, "title" | "description" | "kind" | "visibility" | "courseId" | "examDate">>,
+  patch: Partial<
+    Pick<
+      CollectionRow,
+      | "title" | "description" | "kind" | "visibility" | "courseId" | "examDate"
+      | "categoryId" | "examName" | "semester" | "academicYear"
+    >
+  >,
 ): Promise<void> {
   await db.studyCollection.update({
     where: { id },
@@ -111,6 +129,25 @@ export async function addItem(
   });
   if (r.count > 0) await touch(collectionId);
   return r.count > 0;
+}
+
+/** Bulk-insert items into a collection at sequential positions (0..n-1).
+ *  Single createMany — atomic, used by duplicate. Idempotent on the
+ *  (collection, document) unique key. */
+export async function bulkAddItems(
+  collectionId: string,
+  items: { documentId: string; note?: string | null }[],
+): Promise<void> {
+  if (items.length === 0) return;
+  await db.studyCollectionItem.createMany({
+    data: items.map((it, index) => ({
+      collectionId,
+      documentId: it.documentId,
+      position: index,
+      note: it.note ?? null,
+    })),
+    skipDuplicates: true,
+  });
 }
 
 export async function removeItem(
@@ -272,7 +309,7 @@ export async function countCompletedForCollections(
 
 export type DiscoverSort = "popular" | "recent";
 
-/** Collections discoverable by other users: shared OR official, not deleted.
+/** Collections discoverable by other users: public OR official, not deleted.
  *  Optionally course-scoped. Sorted by popularity or recency. */
 export async function listDiscoverable(opts: {
   sort: DiscoverSort;
@@ -282,7 +319,7 @@ export async function listDiscoverable(opts: {
   const rows = await db.studyCollection.findMany({
     where: {
       deletedAt: null,
-      OR: [{ visibility: "shared" }, { isOfficial: true }],
+      OR: [{ visibility: "public" }, { isOfficial: true }],
       ...(opts.courseId ? { courseId: opts.courseId } : {}),
     },
     orderBy:
@@ -295,7 +332,7 @@ export async function listDiscoverable(opts: {
   return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
 }
 
-/** Recommend shared/official collections in the given courses, excluding the
+/** Recommend public/official collections in the given courses, excluding the
  *  viewer's own collections and any ids already known (e.g. followed). */
 export async function recommendCollections(opts: {
   courseIds: string[];
@@ -307,7 +344,7 @@ export async function recommendCollections(opts: {
   const rows = await db.studyCollection.findMany({
     where: {
       deletedAt: null,
-      OR: [{ visibility: "shared" }, { isOfficial: true }],
+      OR: [{ visibility: "public" }, { isOfficial: true }],
       courseId: { in: opts.courseIds },
       ownerId: { not: opts.excludeOwnerId },
       ...(opts.excludeIds && opts.excludeIds.length > 0
@@ -319,4 +356,52 @@ export async function recommendCollections(opts: {
     include: { _count: { select: { items: true } } },
   });
   return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
+}
+
+// ─── Tags (Phase 1 metadata) ──────────────────────────────────────
+
+/** Replace-set a collection's tags to exactly `tagIds`. */
+export async function setCollectionTags(
+  collectionId: string,
+  tagIds: string[],
+): Promise<void> {
+  const unique = Array.from(new Set(tagIds));
+  await db.$transaction(async (tx) => {
+    await tx.studyCollectionTag.deleteMany({ where: { collectionId } });
+    if (unique.length > 0) {
+      await tx.studyCollectionTag.createMany({
+        data: unique.map((tagId) => ({ collectionId, tagId })),
+        skipDuplicates: true,
+      });
+    }
+  });
+}
+
+/** Tag ids attached to a single collection. */
+export async function listCollectionTagIds(
+  collectionId: string,
+): Promise<string[]> {
+  const rows = await db.studyCollectionTag.findMany({
+    where: { collectionId },
+    select: { tagId: true },
+  });
+  return rows.map((r) => r.tagId);
+}
+
+/** Batch tag ids keyed by collection id (for summary enrichment). */
+export async function listTagIdsForCollections(
+  collectionIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (collectionIds.length === 0) return map;
+  const rows = await db.studyCollectionTag.findMany({
+    where: { collectionId: { in: collectionIds } },
+    select: { collectionId: true, tagId: true },
+  });
+  for (const r of rows) {
+    const list = map.get(r.collectionId) ?? [];
+    list.push(r.tagId);
+    map.set(r.collectionId, list);
+  }
+  return map;
 }
