@@ -9,6 +9,8 @@ import { randomUUID } from "node:crypto";
  *   1. Lecturer logs in, uploads a PDF, opens the document detail,
  *      sees the preview iframe render, and posts a comment.
  *   2. Student logs in and upvotes an open request-board item.
+ *   3. (C7) Nav role-gating: student/lecturer see Collections + Prep Hub;
+ *      admin sees Prep Hub but NOT Collections.
  *
  * Runs against a freshly-seeded demo DB (`pnpm --filter
  * @workspace/api-server run seed:demo`). Driver-agnostic: works
@@ -21,6 +23,7 @@ const LECTURER_EMAIL = "maya.cohen@knowledgebank.demo";
 // (noa.student authors several open requests, which leaves her with
 // disabled vote buttons on her own items.)
 const STUDENT_EMAIL = "amir.student@knowledgebank.demo";
+const ADMIN_EMAIL = "admin@knowledgebank.demo";
 const DEMO_PASSWORD = "Demo1234!";
 
 async function login(page: Page, email: string): Promise<void> {
@@ -185,5 +188,50 @@ test.describe("sprint 2 smoke", () => {
     await expect(
       card.getByRole("button", { name: /You have already voted/i }),
     ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C7 — Nav role-gating smoke
+// ---------------------------------------------------------------------------
+test.describe("nav role-gating (C7)", () => {
+  /**
+   * The desktop nav (`aria-label="Main navigation"`) is the target.
+   * Collections is excluded for admins; Prep Hub is visible to all roles.
+   */
+  const desktopNav = (page: Page) =>
+    page.getByRole("navigation", { name: "Main navigation" });
+
+  test("student sees Collections and Prep Hub in nav", async ({ page }) => {
+    await login(page, STUDENT_EMAIL);
+    await page.goto("/");
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Collections" }),
+    ).toBeVisible();
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Prep Hub" }),
+    ).toBeVisible();
+  });
+
+  test("lecturer sees Collections and Prep Hub in nav", async ({ page }) => {
+    await login(page, LECTURER_EMAIL);
+    await page.goto("/");
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Collections" }),
+    ).toBeVisible();
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Prep Hub" }),
+    ).toBeVisible();
+  });
+
+  test("admin sees Prep Hub but NOT Collections in nav", async ({ page }) => {
+    await login(page, ADMIN_EMAIL);
+    await page.goto("/");
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Prep Hub" }),
+    ).toBeVisible();
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Collections" }),
+    ).toHaveCount(0);
   });
 });
