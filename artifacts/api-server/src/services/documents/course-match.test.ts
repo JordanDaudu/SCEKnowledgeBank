@@ -66,4 +66,28 @@ describe("scoreCourseCandidates", () => {
     const match = scoreCourseCandidates(CANDIDATES, "to.pdf", ["to"]);
     expect(match).toBeUndefined();
   });
+
+  it("does not let a shorter code false-match a longer code's tokens", () => {
+    const candidates = [
+      { id: "x1", code: "CS10", title: "Old Intro" },
+      { id: "x2", code: "CS101", title: "Introduction to Computer Science" },
+    ];
+    const match = scoreCourseCandidates(candidates, "cs101-notes.pdf", []);
+    expect(match?.id).toBe("x2");
+    expect(match?.confidence).toBe("high");
+  });
+
+  it("returns low confidence when two candidates tie on title-word score", () => {
+    const tieCandidates = [
+      { id: "x1", code: "XX100", title: "Algorithms and Data" },
+      { id: "x2", code: "XX200", title: "Algorithms and Math" },
+    ];
+    const match = scoreCourseCandidates(
+      tieCandidates,
+      "algorithms-data-math-notes.pdf",
+      [],
+    );
+    expect(match).not.toBeUndefined();
+    expect(match?.confidence).toBe("low");
+  });
 });

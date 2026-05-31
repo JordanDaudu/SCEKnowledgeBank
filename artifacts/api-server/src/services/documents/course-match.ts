@@ -63,17 +63,27 @@ export function scoreCourseCandidates(
 ): CourseMatch | undefined {
   const fileTokens = tokenize(filename);
   const fileTokenSet = new Set(fileTokens);
-  // Codes are often split by separators in filenames ("db-300"); collapsing
-  // all tokens lets a normalised code ("db300") still be found as a substring.
-  const collapsed = fileTokens.join("");
   const keywordSet = new Set(keywords.map((k) => k.toLowerCase()));
 
+  // A code may be split by separators in a filename ("db-300" → ["db","300"]).
+  // Build the set of concatenations of up to 3 CONSECUTIVE tokens so a code
+  // like "db300" matches as a whole, WITHOUT the false positives an unbounded
+  // substring scan would cause (e.g. code "cs10" must not match token "cs101").
+  const joinedWindows = new Set<string>();
+  for (let i = 0; i < fileTokens.length; i++) {
+    let acc = "";
+    for (let j = i; j < Math.min(i + 3, fileTokens.length); j++) {
+      acc += fileTokens[j];
+      joinedWindows.add(acc);
+    }
+  }
+
   // 1. Code match → high confidence. Course codes are unique, so at most one
-  //    candidate can win here.
+  //    candidate can win here. (joinedWindows already includes single tokens.)
   for (const c of candidates) {
     const code = normaliseCode(c.code);
     if (code.length < 2) continue;
-    if (fileTokenSet.has(code) || collapsed.includes(code) || keywordSet.has(code)) {
+    if (joinedWindows.has(code) || keywordSet.has(code)) {
       return { ...c, confidence: "high" };
     }
   }
