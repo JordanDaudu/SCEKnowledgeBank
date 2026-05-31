@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
   useListCourses,
   useListCategories,
@@ -114,7 +114,16 @@ export default function Upload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analysisAbortsRef = useRef<Map<string, AbortController>>(new Map());
 
-  const currentYear = new Date().getFullYear().toString();
+  // Abort any in-flight analysis requests if the user navigates away.
+  useEffect(() => {
+    const aborts = analysisAbortsRef.current;
+    return () => {
+      for (const controller of aborts.values()) controller.abort();
+      aborts.clear();
+    };
+  }, []);
+
+  const currentYear = useMemo(() => new Date().getFullYear().toString(), []);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [autoSubmitForReview, setAutoSubmitForReview] = useState(true);
@@ -209,21 +218,26 @@ export default function Upload() {
   };
 
   const retryItem = (id: string) => {
+    const target = items.find((it) => it.id === id);
+    const err = target ? validateFile(target.file) : null;
     setItems((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        const err = validateFile(it.file);
+        const e = validateFile(it.file);
         return {
           ...it,
-          status: err ? "failed" : "queued",
+          status: e ? "failed" : "queued",
           progress: 0,
-          error: err ?? undefined,
-          errorCode: err ? "client_validation" : undefined,
+          error: e ?? undefined,
+          errorCode: e ? "client_validation" : undefined,
           duplicateOfDocumentId: undefined,
           duplicateOfTitle: undefined,
+          suggestion: e ? it.suggestion : null,
+          analyzing: !e,
         };
       }),
     );
+    if (target && !err) analyzeItem(id, target.file);
   };
 
   const readyCount = useMemo(
