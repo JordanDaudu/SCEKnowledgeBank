@@ -218,6 +218,8 @@ export default function Upload() {
   };
 
   const retryItem = (id: string) => {
+    analysisAbortsRef.current.get(id)?.abort();
+    analysisAbortsRef.current.delete(id);
     const target = items.find((it) => it.id === id);
     const err = target ? validateFile(target.file) : null;
     setItems((prev) =>
