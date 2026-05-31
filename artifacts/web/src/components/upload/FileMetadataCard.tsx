@@ -183,13 +183,13 @@ export function FileMetadataCard({
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium">Course *</label>
+                <label htmlFor={`${item.id}-course`} className="text-xs font-medium">Course *</label>
                 <Select
                   value={item.courseId}
                   onValueChange={(v) => onChange({ courseId: v })}
                   disabled={disabled}
                 >
-                  <SelectTrigger data-testid="card-course-select">
+                  <SelectTrigger id={`${item.id}-course`} data-testid="card-course-select">
                     <SelectValue placeholder="Select course" />
                   </SelectTrigger>
                   <SelectContent>
@@ -202,13 +202,13 @@ export function FileMetadataCard({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium">Material Type *</label>
+                <label htmlFor={`${item.id}-type`} className="text-xs font-medium">Material Type *</label>
                 <Select
                   value={item.materialType}
                   onValueChange={(v) => onChange({ materialType: v })}
                   disabled={disabled}
                 >
-                  <SelectTrigger data-testid="card-type-select">
+                  <SelectTrigger id={`${item.id}-type`} data-testid="card-type-select">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -246,7 +246,7 @@ export function FileMetadataCard({
             {showMore && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium">Category</label>
+                  <label htmlFor={`${item.id}-category`} className="text-xs font-medium">Category</label>
                   <Select
                     value={item.categoryId || "none"}
                     onValueChange={(v) =>
@@ -254,7 +254,7 @@ export function FileMetadataCard({
                     }
                     disabled={disabled}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${item.id}-category`}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -268,7 +268,7 @@ export function FileMetadataCard({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium">Visibility</label>
+                  <label htmlFor={`${item.id}-visibility`} className="text-xs font-medium">Visibility</label>
                   <Select
                     value={item.visibility}
                     onValueChange={(v) =>
@@ -276,7 +276,7 @@ export function FileMetadataCard({
                     }
                     disabled={disabled}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${item.id}-visibility`}>
                       <SelectValue placeholder="Visibility" />
                     </SelectTrigger>
                     <SelectContent>
@@ -289,7 +289,7 @@ export function FileMetadataCard({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium">Semester</label>
+                  <label htmlFor={`${item.id}-semester`} className="text-xs font-medium">Semester</label>
                   <Select
                     value={item.semester || "none"}
                     onValueChange={(v) =>
@@ -297,7 +297,7 @@ export function FileMetadataCard({
                     }
                     disabled={disabled}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={`${item.id}-semester`}>
                       <SelectValue placeholder="Select semester" />
                     </SelectTrigger>
                     <SelectContent>
@@ -309,8 +309,9 @@ export function FileMetadataCard({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium">Academic Year</label>
+                  <label htmlFor={`${item.id}-year`} className="text-xs font-medium">Academic Year</label>
                   <Input
+                    id={`${item.id}-year`}
                     type="number"
                     value={item.academicYear}
                     onChange={(e) => onChange({ academicYear: e.target.value })}
@@ -319,8 +320,9 @@ export function FileMetadataCard({
                   />
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-xs font-medium">Title</label>
+                  <label htmlFor={`${item.id}-title`} className="text-xs font-medium">Title</label>
                   <Input
+                    id={`${item.id}-title`}
                     type="text"
                     value={item.title}
                     onChange={(e) => onChange({ title: e.target.value })}
@@ -366,7 +368,7 @@ export function FileMetadataCard({
             )}
 
             {/* Advisory duplicate warning from analysis */}
-            {s?.duplicate && (
+            {s?.duplicate && item.status !== "failed" && (
               <p
                 className="text-xs text-amber-700"
                 data-testid="card-duplicate-warning"
