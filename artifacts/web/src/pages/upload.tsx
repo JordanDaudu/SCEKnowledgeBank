@@ -31,6 +31,11 @@ import {
   isItemReady,
   type ItemMeta,
 } from "@/lib/upload-analysis";
+import {
+  saveDraft,
+  loadDraft,
+  type DraftItem,
+} from "@/lib/upload-draft-store";
 
 const MAX_UPLOAD_MB = Number(import.meta.env.VITE_MAX_UPLOAD_MB ?? 50);
 const MAX_FILE_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -113,18 +118,68 @@ export default function Upload() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analysisAbortsRef = useRef<Map<string, AbortController>>(new Map());
-
-  // Abort any in-flight analysis requests if the user navigates away.
-  useEffect(() => {
-    const aborts = analysisAbortsRef.current;
-    return () => {
-      for (const controller of aborts.values()) controller.abort();
-      aborts.clear();
-    };
-  }, []);
+  // Always-current snapshot of `items` for the unmount/pagehide save, whose
+  // effect closure would otherwise capture a stale `items` value.
+  const itemsRef = useRef<QueueItem[]>([]);
+  // Gate write-through until the initial restore attempt has finished, so the
+  // empty starting `items` can't clear a freshly-loaded draft.
+  const hydratedRef = useRef(false);
 
   const currentYear = useMemo(() => new Date().getFullYear().toString(), []);
   const [items, setItems] = useState<QueueItem[]>([]);
+  itemsRef.current = items;
+
+  // Restore a recent draft on mount (files + metadata survive reloads).
+  useEffect(() => {
+    let cancelled = false;
+    loadDraft()
+      .then((draft: DraftItem[] | null) => {
+        if (cancelled || !draft || draft.length === 0) return;
+        const restored: QueueItem[] = draft.map((d) => ({
+          ...d,
+          progress: 0,
+          analyzing: false,
+        }));
+        setItems(restored);
+        toast({
+          title: `Restored ${restored.length} file${restored.length === 1 ? "" : "s"} from your previous session.`,
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        hydratedRef.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced write-through: the freshest queue is always persisted.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const t = setTimeout(() => {
+      void saveDraft(items);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [items]);
+
+  // Abort in-flight analysis AND save a final draft when leaving (SPA unmount
+  // or a hard reload/close via pagehide). itemsRef holds the latest queue.
+  useEffect(() => {
+    const aborts = analysisAbortsRef.current;
+    const onPageHide = () => {
+      void saveDraft(itemsRef.current);
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      for (const controller of aborts.values()) controller.abort();
+      aborts.clear();
+      void saveDraft(itemsRef.current);
+    };
+  }, []);
+
   const [isUploading, setIsUploading] = useState(false);
   const [autoSubmitForReview, setAutoSubmitForReview] = useState(true);
 
