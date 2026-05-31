@@ -46,7 +46,7 @@ describe("applySuggestion", () => {
       semester: "fall",
       academicYear: 2024,
     } as SuggestMetadataResponse;
-    expect(applySuggestion(meta(), s)).toEqual({
+    expect(applySuggestion(meta(), s, YEAR)).toEqual({
       materialType: "exam",
       semester: "fall",
       academicYear: "2024",
@@ -60,7 +60,7 @@ describe("applySuggestion", () => {
       course: { id: "c1", code: "CS101", title: "Intro" },
       courseConfidence: "high",
     } as SuggestMetadataResponse;
-    expect(applySuggestion(meta(), high)).toEqual({ courseId: "c1" });
+    expect(applySuggestion(meta(), high, YEAR)).toEqual({ courseId: "c1" });
 
     const low = {
       keywords: [],
@@ -68,7 +68,7 @@ describe("applySuggestion", () => {
       course: { id: "c1", code: "CS101", title: "Intro" },
       courseConfidence: "low",
     } as SuggestMetadataResponse;
-    expect(applySuggestion(meta(), low)).toEqual({});
+    expect(applySuggestion(meta(), low, YEAR)).toEqual({});
   });
 
   it("prefills the title only from embedded metadata, not the filename", () => {
@@ -78,7 +78,7 @@ describe("applySuggestion", () => {
       title: "Real Title",
       titleSource: "metadata",
     } as SuggestMetadataResponse;
-    expect(applySuggestion(meta(), fromMeta)).toEqual({ title: "Real Title" });
+    expect(applySuggestion(meta(), fromMeta, YEAR)).toEqual({ title: "Real Title" });
 
     const fromName = {
       keywords: [],
@@ -86,7 +86,7 @@ describe("applySuggestion", () => {
       title: "Guessed",
       titleSource: "filename",
     } as SuggestMetadataResponse;
-    expect(applySuggestion(meta(), fromName)).toEqual({});
+    expect(applySuggestion(meta(), fromName, YEAR)).toEqual({});
   });
 
   it("never overwrites a field the user already filled", () => {
@@ -98,6 +98,25 @@ describe("applySuggestion", () => {
       courseConfidence: "high",
     } as SuggestMetadataResponse;
     const filled = meta({ materialType: "slides", courseId: "other" });
-    expect(applySuggestion(filled, s)).toEqual({});
+    expect(applySuggestion(filled, s, YEAR)).toEqual({});
+  });
+
+  it("does not overwrite academicYear the user already changed", () => {
+    const s = {
+      keywords: [],
+      tags: [],
+      academicYear: 2024,
+    } as SuggestMetadataResponse;
+    const edited = meta({ academicYear: "2023" });
+    expect(applySuggestion(edited, s, YEAR)).toEqual({});
+  });
+
+  it("replaces the default seed year when analysis finds a better one", () => {
+    const s = {
+      keywords: [],
+      tags: [],
+      academicYear: 2024,
+    } as SuggestMetadataResponse;
+    expect(applySuggestion(meta(), s, YEAR)).toEqual({ academicYear: "2024" });
   });
 });

@@ -48,17 +48,22 @@ export function missingRequiredFields(meta: ItemMeta): string[] {
  * it is safe to call when a late suggestion resolves after the user has begun
  * editing. Low-confidence course, category, and filename-derived titles are
  * NOT auto-filled — the card renders those as confirmable chips instead.
+ *
+ * @param defaultYear - the year the item was seeded with (i.e. the value that
+ *   was passed to `defaultItemMeta` when the item was created). Used to detect
+ *   whether the user has manually changed the year away from the seed value.
  */
 export function applySuggestion(
   meta: ItemMeta,
   s: SuggestMetadataResponse,
+  defaultYear: string,
 ): Partial<ItemMeta> {
   const patch: Partial<ItemMeta> = {};
   if (!meta.materialType && s.materialType) patch.materialType = s.materialType;
   if (!meta.semester && s.semester) patch.semester = s.semester as Semester;
-  // academicYear always starts at the current year; a filename-derived year is
-  // a better guess, so replace it as long as the user hasn't typed their own.
-  if (s.academicYear && meta.academicYear === defaultItemMeta(meta.academicYear).academicYear) {
+  // academicYear starts at the seed year; a filename-derived year is a better
+  // guess, so replace it — but only while the user hasn't changed it themselves.
+  if (s.academicYear && meta.academicYear === defaultYear) {
     patch.academicYear = String(s.academicYear);
   }
   if (!meta.title && s.titleSource === "metadata" && s.title) {
