@@ -316,6 +316,20 @@ export const SuggestMetadataResponseSemester = {
   summer: "summer",
 } as const;
 
+export type SuggestMetadataResponseCourse = {
+  id: string;
+  code: string;
+  title: string;
+};
+
+export type SuggestMetadataResponseCourseConfidence =
+  (typeof SuggestMetadataResponseCourseConfidence)[keyof typeof SuggestMetadataResponseCourseConfidence];
+
+export const SuggestMetadataResponseCourseConfidence = {
+  high: "high",
+  low: "low",
+} as const;
+
 export interface SuggestMetadataResponse {
   title?: string;
   titleSource?: SuggestMetadataResponseTitleSource;
@@ -328,6 +342,8 @@ export interface SuggestMetadataResponse {
   materialTypeSource?: SuggestMetadataResponseMaterialTypeSource;
   semester?: SuggestMetadataResponseSemester;
   academicYear?: number;
+  course?: SuggestMetadataResponseCourse;
+  courseConfidence?: SuggestMetadataResponseCourseConfidence;
 }
 
 export interface DocumentPage {

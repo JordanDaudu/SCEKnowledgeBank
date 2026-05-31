@@ -1884,6 +1884,14 @@ components:
         materialTypeSource: { type: string, enum: [filename] }
         semester: { type: string, enum: [fall, spring, summer] }
         academicYear: { type: integer }
+        course:
+          type: object
+          required: [id, code, title]
+          properties:
+            id: { type: string, format: uuid }
+            code: { type: string }
+            title: { type: string }
+        courseConfidence: { type: string, enum: [high, low] }
 
     DocumentPage:
       type: object
