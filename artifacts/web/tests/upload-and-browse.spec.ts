@@ -252,6 +252,40 @@ test.describe("upload page", () => {
     await expect(page.getByTestId("card-needs-info")).toBeVisible();
     await expect(page.getByTestId("card-missing")).toContainText(/Course is required/i);
   });
+
+  test("restores the queue after a full page reload (within the TTL)", async ({
+    page,
+  }) => {
+    await page.goto("/upload");
+    const input = page.locator(
+      '[data-testid="upload-dropzone"] input[type="file"]',
+    );
+    const name = `draft-${randomUUID().slice(0, 8)}.txt`;
+    await input.setInputFiles({
+      name,
+      mimeType: "text/plain",
+      buffer: Buffer.from(`draft ${randomUUID()}`),
+    });
+
+    // One card present; fill its required fields so we can assert metadata
+    // survives too.
+    await expect(page.locator('[data-testid^="upload-item-"]')).toHaveCount(1);
+    await fillCardCourseAndType(page, 0);
+
+    // Give the debounced write-through (500ms) time to persist to IndexedDB.
+    await page.waitForTimeout(900);
+
+    await page.reload();
+
+    // The card returns with the same file and the Material Type still set.
+    await expect(page.locator('[data-testid^="upload-item-"]')).toHaveCount(1, {
+      timeout: 10_000,
+    });
+    await expect(page.getByText(name)).toBeVisible();
+    await expect(
+      page.locator('[data-testid="card-type-select"]'),
+    ).toContainText(/lecture notes/i);
+  });
 });
 
 test.describe("browse page", () => {
