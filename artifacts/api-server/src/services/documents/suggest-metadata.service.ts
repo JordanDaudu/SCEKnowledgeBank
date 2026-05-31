@@ -20,6 +20,12 @@ import { findVisibleDuplicateByChecksum, type DuplicateHit } from "./dedup.servi
 import { parseFilenameSignals } from "./filename-intel";
 import { type MaterialType } from "../../lib/material-types";
 import type { AuthenticatedUser } from "../../middlewares/auth";
+import * as permissions from "../permissions.service";
+import {
+  scoreCourseCandidates,
+  type CourseCandidate,
+  type CourseMatch,
+} from "./course-match";
 
 export interface SuggestionInput {
   buffer: Buffer;
@@ -56,6 +62,14 @@ export interface SuggestionResult {
   semester?: "fall" | "spring" | "summer";
   /** Suggested academic year, parsed from the filename. */
   academicYear?: number;
+  /** Best-guess course, scoped to courses the user can upload to. */
+  course?: { id: string; code: string; title: string };
+  /**
+   * Confidence of `course`:
+   *   - "high" → code match / unique strong title match (UI auto-fills)
+   *   - "low"  → weak/ambiguous match (UI shows a confirmable chip)
+   */
+  courseConfidence?: "high" | "low";
 }
 
 /**
@@ -134,6 +148,41 @@ async function matchCategory(
   return row ?? undefined;
 }
 
+/**
+ * Infer a course for the upload, scoped to courses the user may upload to:
+ * admins match against every course; everyone else is limited to their
+ * enrolled courses (and re-checked with `canUploadToCourse` so a stale
+ * student enrollment can't suggest a course they actually can't post to).
+ * Pure ranking is delegated to `scoreCourseCandidates`.
+ */
+async function matchCourse(
+  filename: string,
+  keywords: string[],
+  user: AuthenticatedUser,
+): Promise<CourseMatch | undefined> {
+  let candidates: CourseCandidate[];
+
+  if (user.roles.includes("admin")) {
+    // Admins match against every course. Unlike matchTags' take:8, this is
+    // intentionally unbounded — a cap could exclude the correct course, and
+    // course count is bounded by institution size (the scorer is O(n)).
+    candidates = await db.course.findMany({
+      select: { id: true, code: true, title: true },
+    });
+  } else {
+    const enrolledIds = user.enrollments.map((e) => e.courseId);
+    if (enrolledIds.length === 0) return undefined;
+    const rows = await db.course.findMany({
+      where: { id: { in: enrolledIds } },
+      select: { id: true, code: true, title: true },
+    });
+    candidates = rows.filter((c) => permissions.canUploadToCourse(user, c.id));
+  }
+
+  if (candidates.length === 0) return undefined;
+  return scoreCourseCandidates(candidates, filename, keywords);
+}
+
 export async function suggestForUpload(
   input: SuggestionInput,
   user: AuthenticatedUser,
@@ -180,6 +229,13 @@ export async function suggestForUpload(
   }
   if (signals.semester) result.semester = signals.semester;
   if (signals.academicYear) result.academicYear = signals.academicYear;
+
+  // Phase 1 batch redesign: course inference (scoped to uploadable courses).
+  const course = await matchCourse(input.filename, keywords, user);
+  if (course) {
+    result.course = { id: course.id, code: course.code, title: course.title };
+    result.courseConfidence = course.confidence;
+  }
 
   return result;
 }

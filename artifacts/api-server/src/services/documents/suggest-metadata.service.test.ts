@@ -4,6 +4,7 @@ vi.mock("@workspace/db", () => ({
   db: {
     tag: { findMany: vi.fn() },
     category: { findFirst: vi.fn() },
+    course: { findMany: vi.fn() },
   },
 }));
 vi.mock("./metadata.service", () => ({
@@ -21,6 +22,7 @@ import type { AuthenticatedUser } from "../../middlewares/auth";
 
 const tagFindMany = vi.mocked(db.tag.findMany);
 const categoryFindFirst = vi.mocked(db.category.findFirst);
+const courseFindMany = vi.mocked(db.course.findMany);
 const extractMock = vi.mocked(extractMetadata);
 const dedupMock = vi.mocked(findVisibleDuplicateByChecksum);
 
@@ -31,16 +33,18 @@ const user = {
   isActive: true,
   primaryRole: "lecturer",
   roles: ["lecturer"],
-  enrollments: [],
+  enrollments: [{ courseId: "course-1", roleInCourse: "lecturer" }],
 } as unknown as AuthenticatedUser;
 
 beforeEach(() => {
   tagFindMany.mockReset();
   categoryFindFirst.mockReset();
+  courseFindMany.mockReset();
   extractMock.mockReset();
   dedupMock.mockReset();
   tagFindMany.mockResolvedValue([]);
   categoryFindFirst.mockResolvedValue(null);
+  courseFindMany.mockResolvedValue([]);
   dedupMock.mockResolvedValue(null);
 });
 
@@ -72,6 +76,72 @@ describe("suggestForUpload", () => {
     expect(res.materialTypeSource).toBe("filename");
     expect(res.semester).toBe("fall");
     expect(res.academicYear).toBe(2024);
+  });
+
+  it("suggests a high-confidence course when the code matches the filename", async () => {
+    extractMock.mockResolvedValue({});
+    courseFindMany.mockResolvedValue([
+      { id: "course-1", code: "CS101", title: "Intro to CS" },
+    ] as never);
+
+    const res = await suggestForUpload(
+      {
+        buffer: Buffer.from("x"),
+        mimeType: "application/pdf",
+        filename: "CS101-notes.pdf",
+      },
+      user, // lecturer enrolled in course-1 → enrolled-courses branch; canUploadToCourse passes
+    );
+
+    expect(res.course).toEqual({
+      id: "course-1",
+      code: "CS101",
+      title: "Intro to CS",
+    });
+    expect(res.courseConfidence).toBe("high");
+  });
+
+  it("uses the admin path (no where clause) when the user is an admin", async () => {
+    const admin = {
+      ...user,
+      roles: ["admin"],
+      enrollments: [],
+    } as unknown as AuthenticatedUser;
+    extractMock.mockResolvedValue({});
+    courseFindMany.mockResolvedValue([
+      { id: "course-1", code: "CS101", title: "Intro to CS" },
+    ] as never);
+    const res = await suggestForUpload(
+      {
+        buffer: Buffer.from("x"),
+        mimeType: "application/pdf",
+        filename: "CS101-notes.pdf",
+      },
+      admin,
+    );
+    expect(res.course?.id).toBe("course-1");
+    // Admin sees all courses — no `where` clause is passed.
+    expect(courseFindMany).toHaveBeenCalledWith(
+      expect.not.objectContaining({ where: expect.anything() }),
+    );
+  });
+
+  it("returns no course when a non-admin user has no enrollments", async () => {
+    const noEnroll = {
+      ...user,
+      enrollments: [],
+    } as unknown as AuthenticatedUser;
+    extractMock.mockResolvedValue({});
+    const res = await suggestForUpload(
+      {
+        buffer: Buffer.from("x"),
+        mimeType: "application/pdf",
+        filename: "CS101-notes.pdf",
+      },
+      noEnroll,
+    );
+    expect(res.course).toBeUndefined();
+    expect(courseFindMany).not.toHaveBeenCalled();
   });
 
   it("populates suggestions with extracted keywords and matched tags", async () => {

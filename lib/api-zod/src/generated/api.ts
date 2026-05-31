@@ -966,6 +966,14 @@ export const SuggestDocumentMetadataResponse = zod.object({
   materialTypeSource: zod.enum(["filename"]).optional(),
   semester: zod.enum(["fall", "spring", "summer"]).optional(),
   academicYear: zod.number().optional(),
+  course: zod
+    .object({
+      id: zod.string().uuid(),
+      code: zod.string(),
+      title: zod.string(),
+    })
+    .optional(),
+  courseConfidence: zod.enum(["high", "low"]).optional(),
 });
 
 /**

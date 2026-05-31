@@ -127,6 +127,8 @@ export * from "./studyProgressResponseStatus";
 export * from "./suggestDocumentMetadataBody";
 export * from "./suggestMetadataResponse";
 export * from "./suggestMetadataResponseCategory";
+export * from "./suggestMetadataResponseCourse";
+export * from "./suggestMetadataResponseCourseConfidence";
 export * from "./suggestMetadataResponseMaterialTypeSource";
 export * from "./suggestMetadataResponseSemester";
 export * from "./suggestMetadataResponseTagsItem";
