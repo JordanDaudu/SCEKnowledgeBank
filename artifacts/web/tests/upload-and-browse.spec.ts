@@ -33,21 +33,14 @@ async function loginAsLecturer(page: Page): Promise<void> {
   await page.waitForURL("**/", { timeout: 15_000 });
 }
 
-async function pickFirstCourseAndLectureNotes(page: Page): Promise<void> {
-  // Course * select — first SelectTrigger in the Metadata card.
-  await page
-    .getByRole("combobox")
-    .filter({ hasText: /Select course/i })
-    .first()
-    .click();
+async function fillCardCourseAndType(
+  page: Page,
+  cardIndex = 0,
+): Promise<void> {
+  const card = page.locator('[data-testid^="upload-item-"]').nth(cardIndex);
+  await card.getByTestId("card-course-select").click();
   await page.getByRole("option").first().click();
-
-  // Material Type *
-  await page
-    .getByRole("combobox")
-    .filter({ hasText: /Select type/i })
-    .first()
-    .click();
+  await card.getByTestId("card-type-select").click();
   await page.getByRole("option", { name: /lecture notes/i }).click();
 }
 
@@ -120,7 +113,7 @@ test.describe("upload page", () => {
       page.locator('[data-testid="upload-item-queued"]'),
     ).toBeVisible();
 
-    await pickFirstCourseAndLectureNotes(page);
+    await fillCardCourseAndType(page);
 
     // Install a MutationObserver BEFORE the click so we can prove the queue
     // item transitions through the "uploading" state on its way to success,
@@ -201,7 +194,7 @@ test.describe("upload page", () => {
       mimeType: "text/plain",
       buffer: Buffer.from(`first ${randomUUID()}`),
     });
-    await pickFirstCourseAndLectureNotes(page);
+    await fillCardCourseAndType(page);
     await page.getByTestId("upload-submit").click();
     await expect(
       page.locator('[data-testid="upload-item-success"]'),
@@ -218,7 +211,7 @@ test.describe("upload page", () => {
       mimeType: "text/plain",
       buffer: Buffer.from(`second ${randomUUID()}`),
     });
-    await pickFirstCourseAndLectureNotes(page);
+    await fillCardCourseAndType(page);
     await page.getByTestId("upload-submit").click();
 
     const successItem = page.locator('[data-testid="upload-item-success"]');
@@ -227,6 +220,37 @@ test.describe("upload page", () => {
     const renameNotice = page.locator('[data-testid="upload-rename"]');
     await expect(renameNotice).toBeVisible();
     await expect(renameNotice).toContainText(`${baseName} (2).txt`);
+  });
+
+  test("uploads ready files and leaves needs-info files on screen", async ({
+    page,
+  }) => {
+    await page.goto("/upload");
+    const input = page.locator(
+      '[data-testid="upload-dropzone"] input[type="file"]',
+    );
+
+    const a = `ready-${randomUUID().slice(0, 8)}.txt`;
+    const b = `incomplete-${randomUUID().slice(0, 8)}.txt`;
+    await input.setInputFiles([
+      { name: a, mimeType: "text/plain", buffer: Buffer.from(`A ${randomUUID()}`) },
+      { name: b, mimeType: "text/plain", buffer: Buffer.from(`B ${randomUUID()}`) },
+    ]);
+
+    // Two cards appear; fill required fields on the FIRST only.
+    await expect(page.locator('[data-testid^="upload-item-"]')).toHaveCount(2);
+    await fillCardCourseAndType(page, 0);
+
+    // Button reflects exactly one ready file.
+    await expect(page.getByTestId("upload-submit")).toHaveText(/Upload 1 File/i);
+    await page.getByTestId("upload-submit").click();
+
+    // The ready file succeeds; the incomplete one stays as needs-info.
+    await expect(
+      page.locator('[data-testid="upload-item-success"]'),
+    ).toHaveCount(1, { timeout: 20_000 });
+    await expect(page.getByTestId("card-needs-info")).toBeVisible();
+    await expect(page.getByTestId("card-missing")).toContainText(/Course is required/i);
   });
 });
 
