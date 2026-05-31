@@ -163,6 +163,9 @@ async function matchCourse(
   let candidates: CourseCandidate[];
 
   if (user.roles.includes("admin")) {
+    // Admins match against every course. Unlike matchTags' take:8, this is
+    // intentionally unbounded — a cap could exclude the correct course, and
+    // course count is bounded by institution size (the scorer is O(n)).
     candidates = await db.course.findMany({
       select: { id: true, code: true, title: true },
     });
