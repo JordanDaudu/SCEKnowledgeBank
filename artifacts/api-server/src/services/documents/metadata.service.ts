@@ -82,10 +82,14 @@ async function extractPdf(buf: Buffer): Promise<ExtractedMetadata> {
   const { PDFParse } = await loadPdfParse();
   const parser = new PDFParse({ data: buf });
   try {
-    const [info, text] = await Promise.all([
-      parser.getInfo(),
-      parser.getText(),
-    ]);
+    // getInfo() and getText() MUST run sequentially, not via Promise.all:
+    // running them concurrently on a single PDFParse instance throws a
+    // DOMException ("Cannot transfer object of unsupported type") under
+    // Node 24 + pdfjs-dist 5.x, because the two pdf.js worker messages race
+    // on the LoopbackPort's structuredClone. Sequential calls are safe and
+    // the extra latency is negligible against the per-file extraction budget.
+    const info = await parser.getInfo();
+    const text = await parser.getText();
     const out: ExtractedMetadata = {};
     const pageCount = info?.total ?? text?.total;
     if (typeof pageCount === "number" && pageCount > 0) out.pageCount = pageCount;
