@@ -63,3 +63,12 @@ export async function removeEnrollment(userId: string, courseId: string): Promis
   const res = await db.courseEnrollment.deleteMany({ where: { userId, courseId } });
   return res.count;
 }
+
+/** User ids of all lecturers assigned to a course (roleInCourse='lecturer'). */
+export async function findCourseLecturerIds(courseId: string): Promise<string[]> {
+  const rows = await db.courseEnrollment.findMany({
+    where: { courseId, roleInCourse: "lecturer" },
+    select: { userId: true },
+  });
+  return rows.map((r) => r.userId);
+}

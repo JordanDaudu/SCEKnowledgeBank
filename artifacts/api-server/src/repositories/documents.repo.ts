@@ -1467,6 +1467,35 @@ export async function listPendingReview(
   });
 }
 
+export async function countPendingAdminApproval(): Promise<number> {
+  return db.document.count({
+    where: { deletedAt: null, status: "pending_admin_approval" },
+  });
+}
+
+export async function listPendingAdminApproval(
+  options: { page: number; pageSize: number },
+): Promise<DocumentRow[]> {
+  return db.document.findMany({
+    where: { deletedAt: null, status: "pending_admin_approval" },
+    orderBy: [
+      { submittedForReviewAt: { sort: "asc", nulls: "last" } },
+      { createdAt: "asc" },
+    ],
+    take: options.pageSize,
+    skip: (options.page - 1) * options.pageSize,
+  });
+}
+
+/** The current file's original filename for a document (for restricted-type checks). */
+export async function findOriginalFilename(documentId: string): Promise<string | null> {
+  const f = await db.documentFile.findFirst({
+    where: { documentId },
+    select: { originalFilename: true },
+  });
+  return f?.originalFilename ?? null;
+}
+
 export async function findUploaderDisplayFilenames(
   uploaderId: string,
 ): Promise<string[]> {
