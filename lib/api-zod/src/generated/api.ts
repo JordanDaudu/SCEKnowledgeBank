@@ -5271,6 +5271,51 @@ export const ListRecommendedCollectionsResponse = zod.array(
 );
 
 /**
+ * @summary Public/official collections the current user follows
+ */
+export const ListFollowedCollectionsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  description: zod.string(),
+  kind: zod.enum([
+    "collection",
+    "exam_prep",
+    "revision",
+    "semester",
+    "learning_path",
+  ]),
+  visibility: zod.enum(["private", "public"]),
+  courseId: zod.string().uuid().nullish(),
+  categoryId: zod.string().uuid().nullish(),
+  examName: zod.string().nullish(),
+  semester: zod.enum(["fall", "spring", "summer"]).nullish(),
+  academicYear: zod.number().nullish(),
+  tagIds: zod.array(zod.string().uuid()),
+  isOfficial: zod.boolean(),
+  examDate: zod.coerce.date().optional(),
+  itemCount: zod.number(),
+  completedCount: zod.number(),
+  progressPercent: zod.number(),
+  followerCount: zod.number(),
+  isFollowing: zod.boolean(),
+  popularityScore: zod.number(),
+  likeCount: zod.number(),
+  isLiked: zod.boolean(),
+  ratingCount: zod.number(),
+  ratingAverage: zod.number(),
+  myRating: zod.number().nullish(),
+  viewCount: zod.number(),
+  commentCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  hiddenAt: zod.coerce.date().nullish(),
+  hiddenReason: zod.string().nullish(),
+});
+export const ListFollowedCollectionsResponse = zod.array(
+  ListFollowedCollectionsResponseItem,
+);
+
+/**
  * @summary Get a public collection with its ordered items
  */
 export const GetPublicCollectionParams = zod.object({

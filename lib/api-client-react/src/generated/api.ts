@@ -6617,6 +6617,85 @@ export function useListRecommendedCollections<
 }
 
 /**
+ * @summary Public/official collections the current user follows
+ */
+export const getListFollowedCollectionsUrl = () => {
+  return `/api/prep-hub/followed`;
+};
+
+export const listFollowedCollections = async (
+  options?: RequestInit,
+): Promise<StudyCollectionSummary[]> => {
+  return customFetch<StudyCollectionSummary[]>(
+    getListFollowedCollectionsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListFollowedCollectionsQueryKey = () => {
+  return [`/api/prep-hub/followed`] as const;
+};
+
+export const getListFollowedCollectionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFollowedCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFollowedCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListFollowedCollectionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listFollowedCollections>>
+  > = ({ signal }) => listFollowedCollections({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFollowedCollections>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFollowedCollectionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFollowedCollections>>
+>;
+export type ListFollowedCollectionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public/official collections the current user follows
+ */
+
+export function useListFollowedCollections<
+  TData = Awaited<ReturnType<typeof listFollowedCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFollowedCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFollowedCollectionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get a public collection with its ordered items
  */
 export const getGetPublicCollectionUrl = (id: string) => {

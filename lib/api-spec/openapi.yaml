@@ -1287,6 +1287,17 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
+  /prep-hub/followed:
+    get:
+      operationId: listFollowedCollections
+      tags: [prep-hub]
+      summary: Public/official collections the current user follows
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
   /prep-hub/collections/{id}:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
