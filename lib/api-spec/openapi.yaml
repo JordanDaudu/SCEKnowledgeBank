@@ -157,6 +157,49 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CurrentUser" }
+  /me/courses:
+    get:
+      operationId: listMyCourses
+      tags: [profile]
+      summary: List the current user's course memberships
+      responses:
+        "200":
+          description: Courses
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/MyCourse" } }
+    post:
+      operationId: addMyCourse
+      tags: [profile]
+      summary: Add the current user to a course (role derived from their global role)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId]
+              properties:
+                courseId: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Updated course list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/MyCourse" } }
+  /me/courses/{courseId}:
+    parameters:
+      - { in: path, name: courseId, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: removeMyCourse
+      tags: [profile]
+      summary: Remove the current user from a course
+      responses:
+        "200":
+          description: Updated course list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/MyCourse" } }
   /me/avatar:
     put:
       operationId: uploadMyAvatar
@@ -841,6 +884,10 @@ paths:
     get:
       operationId: listCourses
       tags: [taxonomy]
+      summary: List courses (optional case-insensitive search by code/title)
+      parameters:
+        - { in: query, name: q, required: false, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { in: query, name: limit, required: false, schema: { type: integer, minimum: 1, maximum: 50 } }
       responses:
         "200":
           description: Courses
@@ -1643,6 +1690,15 @@ components:
         email: { type: string, minLength: 1 }
         password: { type: string, minLength: 1 }
 
+    MyCourse:
+      type: object
+      required: [id, code, title, lecturerName, roleInCourse]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        lecturerName: { type: string }
+        roleInCourse: { type: string, enum: [student, lecturer] }
     CurrentUser:
       type: object
       required: [id, email, displayName, username, avatarUrl, createdAt, roles, primaryRole, enrollments]

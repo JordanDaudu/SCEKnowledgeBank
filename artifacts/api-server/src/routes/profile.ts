@@ -6,6 +6,7 @@ import { badRequest, forbidden } from "../lib/errors";
 import { loadAuthenticatedUser } from "../services/auth.service";
 import * as profileService from "../services/profile.service";
 import * as avatarService from "../services/avatar.service";
+import * as enrollmentsService from "../services/enrollments.service";
 import * as auditService from "../services/audit.service";
 import { currentUserDto } from "../lib/current-user-dto";
 import { forbiddenProfileKey, auditActionForForbiddenKey } from "../lib/profile-guard";
@@ -20,6 +21,8 @@ const avatarUpload = multer({
 const UsernameQuery = z.object({ username: z.string().min(1).max(60) });
 const ProfilePatchBody = z.object({ username: z.string().min(1).max(60) }).strict();
 const AvatarParams = z.object({ id: z.string().uuid() });
+const CourseIdBody = z.object({ courseId: z.string().uuid() });
+const CourseIdParams = z.object({ courseId: z.string().uuid() });
 
 router.get("/me/username-available", requireAuth, async (req, res, next) => {
   try {
@@ -75,6 +78,32 @@ router.get("/users/:id/avatar", requireAuth, async (req, res, next) => {
   try {
     const { id } = AvatarParams.parse(req.params);
     await avatarService.streamAvatar(id, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/me/courses", requireAuth, async (req, res, next) => {
+  try {
+    res.json(await enrollmentsService.listMyCourses(req.authUser!));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/me/courses", requireAuth, async (req, res, next) => {
+  try {
+    const { courseId } = CourseIdBody.parse(req.body);
+    res.json(await enrollmentsService.addMyCourse(req.authUser!, courseId));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/me/courses/:courseId", requireAuth, async (req, res, next) => {
+  try {
+    const { courseId } = CourseIdParams.parse(req.params);
+    res.json(await enrollmentsService.removeMyCourse(req.authUser!, courseId));
   } catch (err) {
     next(err);
   }

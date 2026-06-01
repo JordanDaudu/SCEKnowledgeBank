@@ -26,6 +26,22 @@ export interface LoginRequest {
   password: string;
 }
 
+export type MyCourseRoleInCourse =
+  (typeof MyCourseRoleInCourse)[keyof typeof MyCourseRoleInCourse];
+
+export const MyCourseRoleInCourse = {
+  student: "student",
+  lecturer: "lecturer",
+} as const;
+
+export interface MyCourse {
+  id: string;
+  code: string;
+  title: string;
+  lecturerName: string;
+  roleInCourse: MyCourseRoleInCourse;
+}
+
 export type CurrentUserEnrollmentsItem = {
   courseId: string;
   roleInCourse: string;
@@ -1057,6 +1073,10 @@ export type UpdateMyProfileBody = {
   username: string;
 };
 
+export type AddMyCourseBody = {
+  courseId: string;
+};
+
 export type UploadMyAvatarBody = {
   file: Blob;
 };
@@ -1290,6 +1310,19 @@ export const ListRequestsStatus = {
   fulfilled: "fulfilled",
   closed: "closed",
 } as const;
+
+export type ListCoursesParams = {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  q?: string;
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+};
 
 export type SearchUsersParams = {
   /**

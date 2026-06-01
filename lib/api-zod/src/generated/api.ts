@@ -136,6 +136,50 @@ export const UpdateMyProfileResponse = zod.object({
 });
 
 /**
+ * @summary List the current user's course memberships
+ */
+export const ListMyCoursesResponseItem = zod.object({
+  id: zod.string().uuid(),
+  code: zod.string(),
+  title: zod.string(),
+  lecturerName: zod.string(),
+  roleInCourse: zod.enum(["student", "lecturer"]),
+});
+export const ListMyCoursesResponse = zod.array(ListMyCoursesResponseItem);
+
+/**
+ * @summary Add the current user to a course (role derived from their global role)
+ */
+export const AddMyCourseBody = zod.object({
+  courseId: zod.string().uuid(),
+});
+
+export const AddMyCourseResponseItem = zod.object({
+  id: zod.string().uuid(),
+  code: zod.string(),
+  title: zod.string(),
+  lecturerName: zod.string(),
+  roleInCourse: zod.enum(["student", "lecturer"]),
+});
+export const AddMyCourseResponse = zod.array(AddMyCourseResponseItem);
+
+/**
+ * @summary Remove the current user from a course
+ */
+export const RemoveMyCourseParams = zod.object({
+  courseId: zod.coerce.string().uuid(),
+});
+
+export const RemoveMyCourseResponseItem = zod.object({
+  id: zod.string().uuid(),
+  code: zod.string(),
+  title: zod.string(),
+  lecturerName: zod.string(),
+  roleInCourse: zod.enum(["student", "lecturer"]),
+});
+export const RemoveMyCourseResponse = zod.array(RemoveMyCourseResponseItem);
+
+/**
  * @summary Upload or replace the current user's avatar
  */
 export const UploadMyAvatarBody = zod.object({
@@ -2204,6 +2248,18 @@ export const VoteRequestResponse = zod.object({
   hasVoted: zod.boolean(),
   fulfillingDocumentId: zod.string().uuid().optional(),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List courses (optional case-insensitive search by code/title)
+ */
+export const listCoursesQueryQMax = 100;
+
+export const listCoursesQueryLimitMax = 50;
+
+export const ListCoursesQueryParams = zod.object({
+  q: zod.coerce.string().min(1).max(listCoursesQueryQMax).optional(),
+  limit: zod.coerce.number().min(1).max(listCoursesQueryLimitMax).optional(),
 });
 
 export const ListCoursesResponseItem = zod.object({
