@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { apiUrl } from "@/lib/api-url";
 import { UserCircle, Upload, Trash2, Loader2 } from "lucide-react";
+import CourseMembership from "@/components/profile/CourseMembership";
 
 export default function Profile() {
   const queryClient = useQueryClient();
@@ -185,9 +186,9 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Sub-projects 2 (courses) and 3 (delete account) plug in here for
-              students/lecturers. Nothing is rendered until those ship. */}
-          {!isAdmin && <div data-testid="profile-extensions" />}
+          {/* Course membership (sub-project 2) for students/lecturers.
+              Account deletion (sub-project 3) will plug in below it. */}
+          {!isAdmin && <CourseMembership me={me} />}
         </CardContent>
       </Card>
     </div>
