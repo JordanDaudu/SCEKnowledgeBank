@@ -28,6 +28,8 @@ function typeLabel(type: string): string {
       return "mentioned you";
     case "comment.reply":
       return "replied to your comment";
+    case "account.deleted":
+      return "deleted their account";
     default:
       return type;
   }

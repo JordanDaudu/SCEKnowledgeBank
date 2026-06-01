@@ -43,6 +43,10 @@ export const ACTION_LABELS: Record<string, string> = {
   "user.profile_tamper_attempt": "attempted an unauthorized profile change",
   "user.course_added": "joined a course",
   "user.course_removed": "left a course",
+  "account.deleted": "deleted their account",
+  "account.restored": "restored an account",
+  "account.purged": "permanently removed an account",
+  "document.reassign": "reassigned a document",
 };
 
 export function describeAction(action: string): string {
