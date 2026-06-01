@@ -51,7 +51,10 @@ function toDTO(
   return {
     id: row.id,
     collectionId: row.collectionId,
-    author: row.author,
+    author: {
+      id: row.author.id,
+      displayName: row.author.deletedAt ? "Original author removed" : row.author.displayName,
+    },
     body: row.body,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

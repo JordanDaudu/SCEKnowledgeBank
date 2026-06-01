@@ -6,7 +6,7 @@ export interface CommentRow {
   body: string;
   createdAt: Date;
   updatedAt: Date;
-  author: { id: string; displayName: string };
+  author: { id: string; displayName: string; deletedAt: Date | null };
 }
 
 const withAuthor = {
@@ -15,7 +15,7 @@ const withAuthor = {
   body: true,
   createdAt: true,
   updatedAt: true,
-  author: { select: { id: true, displayName: true } },
+  author: { select: { id: true, displayName: true, deletedAt: true } },
 } as const;
 
 /** Create a comment AND increment the collection's commentCount atomically. */

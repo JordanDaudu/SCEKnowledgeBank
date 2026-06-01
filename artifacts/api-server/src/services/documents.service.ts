@@ -161,7 +161,7 @@ export async function assembleDocuments(
     const uploader = uploadersMap.get(d.uploaderId) ?? {
       id: d.uploaderId,
       email: "",
-      displayName: "Unknown",
+      displayName: "Original uploader removed",
       roles: [],
       isActive: false,
       status: "ACTIVE",
