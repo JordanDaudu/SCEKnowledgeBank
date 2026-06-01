@@ -661,11 +661,17 @@ export async function approveDocument(
       `Only documents in 'pending_review' can be approved (was '${doc.status}')`,
     );
   }
+  // SP4: a restricted-type file does not publish on lecturer approval —
+  // it advances to the admin-approval stage. Normal files publish.
+  const restricted = isRestrictedFilename(
+    (await docsRepo.findOriginalFilename(id)) ?? "",
+  );
+  const nextStatus = restricted ? "pending_admin_approval" : "approved";
   const affected = await docsRepo.updateDocumentByIdIfStatus(
     id,
     "pending_review",
     {
-      status: "approved",
+      status: nextStatus,
       reviewedBy: user.id,
       reviewedAt: new Date(),
       reviewReason: null,
@@ -675,15 +681,29 @@ export async function approveDocument(
   );
   if (affected === 0) {
     // Lost the race to another reviewer (or the uploader resubmitted).
-    // Surface as 400 rather than silently double-notify the uploader.
     throw badRequest("Document is no longer pending review");
   }
-  await auditService.record(user.id, "document.approve", "document", id);
-  // Fire-and-forget: notify swallows its own failures, but wrap in a
-  // .catch anyway so an awaitless rejection can't crash the process.
-  void Promise.resolve()
-    .then(() =>
-      notificationsService.notify({
+  await auditService.record(user.id, "document.approve", "document", id, {
+    to: nextStatus,
+  });
+  if (restricted) {
+    const adminIds = await usersRepo.findAdminUserIds();
+    for (const adminId of adminIds) {
+      void notificationsService
+        .notify({
+          recipientId: adminId,
+          actorId: user.id,
+          type: "document.admin_review_requested",
+          subjectType: "document",
+          subjectId: id,
+          body: `Restricted file "${doc.title}" awaiting admin approval.`,
+          url: "/admin/approvals",
+        })
+        .catch(() => {});
+    }
+  } else {
+    void notificationsService
+      .notify({
         recipientId: doc.uploaderId,
         actorId: user.id,
         type: "document.approved",
@@ -691,8 +711,53 @@ export async function approveDocument(
         subjectId: id,
         body: `Your document "${doc.title}" was approved.`,
         url: `/documents/${id}`,
-      }),
-    )
+      })
+      .catch(() => {});
+  }
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export async function adminApproveDocument(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+  if (!permissions.isAdmin(user)) {
+    throw forbidden("Only admins can approve restricted files");
+  }
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (doc.status !== "pending_admin_approval") {
+    throw badRequest(
+      `Only documents in 'pending_admin_approval' can be admin-approved (was '${doc.status}')`,
+    );
+  }
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    "pending_admin_approval",
+    {
+      status: "approved",
+      reviewedBy: user.id,
+      reviewedAt: new Date(),
+      reviewReason: null,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) throw badRequest("Document is no longer pending admin approval");
+  await auditService.record(user.id, "document.admin_approve", "document", id);
+  void notificationsService
+    .notify({
+      recipientId: doc.uploaderId,
+      actorId: user.id,
+      type: "document.approved",
+      subjectType: "document",
+      subjectId: id,
+      body: `Your document "${doc.title}" was approved.`,
+      url: `/documents/${id}`,
+    })
     .catch(() => {});
   const updated = await docsRepo.findByIdAlive(id);
   if (!updated) throw notFound("Document not found");
@@ -715,17 +780,21 @@ export async function rejectDocument(
   }
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  if (!permissions.canReview(doc, user)) {
-    throw forbidden("Cannot review this document");
-  }
-  if (doc.status !== "pending_review") {
+  // SP4: reject works at both review stages. Lecturers (or admins) reject
+  // from pending_review; only admins reject from pending_admin_approval.
+  if (doc.status === "pending_review") {
+    if (!permissions.canReview(doc, user)) throw forbidden("Cannot review this document");
+  } else if (doc.status === "pending_admin_approval") {
+    if (!permissions.isAdmin(user)) throw forbidden("Only admins can reject at admin approval");
+  } else {
     throw badRequest(
-      `Only documents in 'pending_review' can be rejected (was '${doc.status}')`,
+      `Only documents in review can be rejected (was '${doc.status}')`,
     );
   }
+  const fromStatus = doc.status;
   const affected = await docsRepo.updateDocumentByIdIfStatus(
     id,
-    "pending_review",
+    fromStatus,
     {
       status: "rejected",
       reviewedBy: user.id,
@@ -736,9 +805,14 @@ export async function rejectDocument(
     },
   );
   if (affected === 0) {
-    throw badRequest("Document is no longer pending review");
+    throw badRequest("Document is no longer awaiting review");
   }
-  await auditService.record(user.id, "document.reject", "document", id);
+  await auditService.record(
+    user.id,
+    fromStatus === "pending_admin_approval" ? "document.admin_reject" : "document.reject",
+    "document",
+    id,
+  );
   void Promise.resolve()
     .then(() =>
       notificationsService.notify({
@@ -783,6 +857,21 @@ export async function listPendingReview(
   const [total, rows] = await Promise.all([
     docsRepo.countPendingReview(filter),
     docsRepo.listPendingReview(filter, opts),
+  ]);
+  const items = await assembleDocuments(rows, user);
+  return { items, total, page: opts.page, pageSize: opts.pageSize };
+}
+
+export async function listPendingAdminApproval(
+  user: AuthenticatedUser,
+  opts: { page: number; pageSize: number },
+): Promise<ListPendingReviewResult> {
+  if (!permissions.isAdmin(user)) {
+    throw forbidden("Only admins can access the admin approval queue");
+  }
+  const [total, rows] = await Promise.all([
+    docsRepo.countPendingAdminApproval(),
+    docsRepo.listPendingAdminApproval(opts),
   ]);
   const items = await assembleDocuments(rows, user);
   return { items, total, page: opts.page, pageSize: opts.pageSize };
