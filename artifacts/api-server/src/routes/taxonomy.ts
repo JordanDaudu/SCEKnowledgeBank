@@ -1,12 +1,19 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { requireAuth } from "../middlewares/auth";
 import * as taxonomyService from "../services/taxonomy.service";
 
 const router: IRouter = Router();
 
-router.get("/courses", requireAuth, async (_req, res, next) => {
+const CoursesQuery = z.object({
+  q: z.string().trim().min(1).max(100).optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+});
+
+router.get("/courses", requireAuth, async (req, res, next) => {
   try {
-    res.json(await taxonomyService.listCourses());
+    const { q, limit } = CoursesQuery.parse(req.query);
+    res.json(await taxonomyService.listCourses({ q, limit }));
   } catch (err) {
     next(err);
   }
