@@ -68,6 +68,9 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz()
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
+  // Set when a soft-deleted account is permanently removed (PII scrubbed).
+  // The row + ownership FKs are kept; this blocks restore.
+  anonymizedAt  DateTime? @map("anonymized_at") @db.Timestamptz()
 
   primaryRole       Role?                 @relation("UserPrimaryRole", fields: [primaryRoleId], references: [id], onDelete: SetNull)
   userRoles         UserRole[]
