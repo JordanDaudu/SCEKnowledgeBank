@@ -43,10 +43,11 @@ import {
   SheetTrigger,
   SheetClose,
 } from "./ui/sheet";
+import { apiUrl } from "@/lib/api-url";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { data: user } = useGetCurrentUser();
+  const { data: user, dataUpdatedAt } = useGetCurrentUser();
   const logout = useLogout();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -135,6 +136,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // Header avatar shown next to the notification bell and logout button.
+  // `avatarUrl` is a stable path, so we cache-bust with the current-user
+  // query's last-updated timestamp: it changes when the profile page
+  // invalidates that query after an avatar upload/remove, so the new image
+  // appears here without a full page reload. Falls back to the initial.
+  const avatarSrc = user?.avatarUrl
+    ? `${apiUrl(user.avatarUrl)}?b=${dataUpdatedAt}`
+    : null;
+
+  const UserAvatar = ({ className }: { className: string }) =>
+    avatarSrc ? (
+      <img
+        src={avatarSrc}
+        alt=""
+        className={`rounded-full object-cover shrink-0 ${className}`}
+      />
+    ) : (
+      <div
+        className={`rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0 ${className}`}
+      >
+        {user?.displayName?.charAt(0)?.toUpperCase() ?? "?"}
+      </div>
+    );
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-card">
@@ -207,15 +232,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     {user.primaryRole}
                   </span>
                 </div>
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                  {user.displayName.charAt(0)}
-                </div>
+                <UserAvatar className="h-8 w-8 text-sm" />
               </Link>
 
               {/* Avatar only on very small screens */}
-              <div className="sm:hidden h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                {user.displayName.charAt(0)}
-              </div>
+              <UserAvatar className="sm:hidden h-8 w-8 text-sm" />
 
               <div className="hidden sm:block w-px h-8 bg-border" />
               <Button
@@ -253,9 +274,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <SheetContent side="right" className="w-72 p-0 flex flex-col">
                   {/* Sheet header */}
                   <div className="flex items-center gap-3 p-4 border-b">
-                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                      {user.displayName.charAt(0)}
-                    </div>
+                    <UserAvatar className="h-9 w-9" />
                     <div className="min-w-0">
                       <p className="font-medium text-sm truncate">
                         {user.displayName}
