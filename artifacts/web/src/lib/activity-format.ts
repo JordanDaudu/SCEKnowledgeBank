@@ -36,6 +36,11 @@ export const ACTION_LABELS: Record<string, string> = {
   "user.logout": "signed out",
   "user.approve": "approved an account",
   "user.disable": "disabled an account",
+  "user.username_changed": "changed their username",
+  "user.avatar_changed": "updated their profile image",
+  "user.role_change_attempt": "attempted an unauthorized role change",
+  "user.email_change_attempt": "attempted an unauthorized email change",
+  "user.profile_tamper_attempt": "attempted an unauthorized profile change",
 };
 
 export function describeAction(action: string): string {
