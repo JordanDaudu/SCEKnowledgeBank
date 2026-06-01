@@ -53,72 +53,72 @@
   --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: 'Playfair Display', Georgia, serif;
   --app-font-mono: 'JetBrains Mono', Menlo, monospace;
-  
-  /* Scholarly calm reading-room: Warm cream bg, deep forest green primary */
-  --background: 40 33% 98%; /* Warm cream */
-  --foreground: 160 10% 15%; /* Deep dark green-gray */
-  
-  --card: 40 33% 99%;
-  --card-foreground: 160 10% 15%;
-  --card-border: 40 20% 90%;
-  
-  --popover: 40 33% 99%;
-  --popover-foreground: 160 10% 15%;
-  --popover-border: 40 20% 90%;
-  
-  --primary: 160 40% 25%; /* Forest green */
+
+  /* Scholarly calm reading-room: cool off-white bg, deep navy-blue primary */
+  --background: 210 40% 98%; /* Cool off-white */
+  --foreground: 222 25% 16%; /* Deep navy-gray */
+
+  --card: 210 40% 99%;
+  --card-foreground: 222 25% 16%;
+  --card-border: 214 28% 90%;
+
+  --popover: 210 40% 99%;
+  --popover-foreground: 222 25% 16%;
+  --popover-border: 214 28% 90%;
+
+  --primary: 220 60% 30%; /* Navy blue */
   --primary-foreground: 0 0% 100%;
-  
-  --secondary: 40 20% 92%;
-  --secondary-foreground: 160 20% 30%;
-  
-  --muted: 40 20% 94%;
-  --muted-foreground: 160 10% 45%;
-  
-  --accent: 30 40% 90%; /* Soft warm accent */
-  --accent-foreground: 160 30% 25%;
-  
+
+  --secondary: 214 32% 92%;
+  --secondary-foreground: 222 30% 28%;
+
+  --muted: 214 30% 94%;
+  --muted-foreground: 215 16% 45%;
+
+  --accent: 214 48% 90%; /* Soft blue accent */
+  --accent-foreground: 222 45% 26%;
+
   --destructive: 0 60% 40%;
   --destructive-foreground: 0 0% 100%;
-  
-  --border: 40 20% 88%;
-  --input: 40 20% 88%;
-  --ring: 160 40% 25%;
-  
+
+  --border: 214 28% 88%;
+  --input: 214 28% 88%;
+  --ring: 220 60% 30%;
+
   --radius: 0.3rem; /* Slightly sharp, classic */
 }
 
 .dark {
-  /* Dark mode: Deep library mahogany/charcoal */
-  --background: 160 20% 10%; 
-  --foreground: 40 20% 90%;
-  
-  --card: 160 15% 14%;
-  --card-foreground: 40 20% 90%;
-  --card-border: 160 15% 20%;
-  
-  --popover: 160 15% 14%;
-  --popover-foreground: 40 20% 90%;
-  --popover-border: 160 15% 20%;
-  
-  --primary: 160 30% 40%;
+  /* Dark mode: deep navy library */
+  --background: 222 38% 9%;
+  --foreground: 210 30% 90%;
+
+  --card: 222 32% 13%;
+  --card-foreground: 210 30% 90%;
+  --card-border: 222 24% 20%;
+
+  --popover: 222 32% 13%;
+  --popover-foreground: 210 30% 90%;
+  --popover-border: 222 24% 20%;
+
+  --primary: 217 60% 52%; /* Brighter blue for contrast on dark */
   --primary-foreground: 0 0% 100%;
-  
-  --secondary: 160 15% 20%;
-  --secondary-foreground: 40 20% 85%;
-  
-  --muted: 160 15% 18%;
-  --muted-foreground: 160 10% 65%;
-  
-  --accent: 160 20% 25%;
-  --accent-foreground: 40 30% 90%;
-  
+
+  --secondary: 222 25% 20%;
+  --secondary-foreground: 210 25% 85%;
+
+  --muted: 222 22% 18%;
+  --muted-foreground: 215 18% 65%;
+
+  --accent: 222 26% 24%;
+  --accent-foreground: 210 30% 90%;
+
   --destructive: 0 50% 45%;
   --destructive-foreground: 0 0% 100%;
-  
-  --border: 160 15% 22%;
-  --input: 160 15% 22%;
-  --ring: 160 30% 40%;
+
+  --border: 222 22% 22%;
+  --input: 222 22% 22%;
+  --ring: 217 60% 52%;
 }
 
 @layer base {
@@ -141,29 +141,29 @@
     box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.09), 0 2px 4px -2px rgb(0 0 0 / 0.05);
   }
 
-  /* ── Course code tag — sage/green-tinted ─────────────────────────── */
+  /* ── Course code tag — blue-tinted ───────────────────────────────── */
   .course-tag {
-    background-color: hsl(150 22% 88%);
-    color: hsl(155 30% 24%);
-    border-color: hsl(150 18% 78%);
+    background-color: hsl(214 40% 89%);
+    color: hsl(220 55% 30%);
+    border-color: hsl(214 32% 79%);
     font-family: var(--app-font-mono);
     font-weight: 500;
   }
   .dark .course-tag {
-    background-color: hsl(155 20% 20%);
-    color: hsl(150 25% 72%);
-    border-color: hsl(155 18% 28%);
+    background-color: hsl(220 30% 22%);
+    color: hsl(214 50% 76%);
+    border-color: hsl(220 26% 30%);
   }
 
-  /* ── Material type tag — warm neutral ────────────────────────────── */
+  /* ── Material type tag — cool neutral ────────────────────────────── */
   .material-tag {
-    background-color: hsl(35 22% 90%);
-    color: hsl(30 15% 38%);
-    border-color: hsl(35 18% 82%);
+    background-color: hsl(214 20% 90%);
+    color: hsl(215 16% 38%);
+    border-color: hsl(214 16% 82%);
   }
   .dark .material-tag {
-    background-color: hsl(30 12% 22%);
-    color: hsl(35 18% 68%);
-    border-color: hsl(30 12% 30%);
+    background-color: hsl(215 16% 22%);
+    color: hsl(214 18% 70%);
+    border-color: hsl(215 14% 30%);
   }
 }
