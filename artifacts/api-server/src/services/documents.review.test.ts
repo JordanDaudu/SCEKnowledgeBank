@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Sprint-3 M7 graduated `FEATURE_REVIEW` — the env mock is kept only
 // for the signing-related fields the service still reads at import.
 vi.mock("../lib/env", () => ({
-  env: { signedUrlSecret: "x", jwtSecret: "x" },
+  env: { signedUrlSecret: "x", jwtSecret: "x", restrictedFileExtensions: [] },
 }));
 
 vi.mock("../repositories/documents.repo", () => ({
@@ -17,6 +17,7 @@ vi.mock("../repositories/documents.repo", () => ({
   updateDocumentByIdIfStatus: vi.fn().mockResolvedValue(1),
   listPendingReview: vi.fn().mockResolvedValue([]),
   countPendingReview: vi.fn().mockResolvedValue(0),
+  findOriginalFilename: vi.fn().mockResolvedValue("doc.pdf"),
 }));
 vi.mock("../repositories/taxonomy.repo", () => ({
   findCourseCodesByIds: vi.fn().mockResolvedValue(new Map()),

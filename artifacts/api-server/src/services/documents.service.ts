@@ -689,29 +689,33 @@ export async function approveDocument(
   if (restricted) {
     const adminIds = await usersRepo.findAdminUserIds();
     for (const adminId of adminIds) {
-      void notificationsService
-        .notify({
-          recipientId: adminId,
-          actorId: user.id,
-          type: "document.admin_review_requested",
-          subjectType: "document",
-          subjectId: id,
-          body: `Restricted file "${doc.title}" awaiting admin approval.`,
-          url: "/admin/approvals",
-        })
+      void Promise.resolve()
+        .then(() =>
+          notificationsService.notify({
+            recipientId: adminId,
+            actorId: user.id,
+            type: "document.admin_review_requested",
+            subjectType: "document",
+            subjectId: id,
+            body: `Restricted file "${doc.title}" awaiting admin approval.`,
+            url: "/admin/approvals",
+          }),
+        )
         .catch(() => {});
     }
   } else {
-    void notificationsService
-      .notify({
-        recipientId: doc.uploaderId,
-        actorId: user.id,
-        type: "document.approved",
-        subjectType: "document",
-        subjectId: id,
-        body: `Your document "${doc.title}" was approved.`,
-        url: `/documents/${id}`,
-      })
+    void Promise.resolve()
+      .then(() =>
+        notificationsService.notify({
+          recipientId: doc.uploaderId,
+          actorId: user.id,
+          type: "document.approved",
+          subjectType: "document",
+          subjectId: id,
+          body: `Your document "${doc.title}" was approved.`,
+          url: `/documents/${id}`,
+        }),
+      )
       .catch(() => {});
   }
   const updated = await docsRepo.findByIdAlive(id);
@@ -748,16 +752,18 @@ export async function adminApproveDocument(
   );
   if (affected === 0) throw badRequest("Document is no longer pending admin approval");
   await auditService.record(user.id, "document.admin_approve", "document", id);
-  void notificationsService
-    .notify({
-      recipientId: doc.uploaderId,
-      actorId: user.id,
-      type: "document.approved",
-      subjectType: "document",
-      subjectId: id,
-      body: `Your document "${doc.title}" was approved.`,
-      url: `/documents/${id}`,
-    })
+  void Promise.resolve()
+    .then(() =>
+      notificationsService.notify({
+        recipientId: doc.uploaderId,
+        actorId: user.id,
+        type: "document.approved",
+        subjectType: "document",
+        subjectId: id,
+        body: `Your document "${doc.title}" was approved.`,
+        url: `/documents/${id}`,
+      }),
+    )
     .catch(() => {});
   const updated = await docsRepo.findByIdAlive(id);
   if (!updated) throw notFound("Document not found");

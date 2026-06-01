@@ -19,6 +19,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "document.submit_for_review": "submitted for review",
   "document.approve": "approved",
   "document.reject": "rejected",
+  "document.admin_approve": "admin-approved",
+  "document.admin_reject": "admin-rejected",
   "document.version.create": "added a new version of",
   "document.version.restore": "restored a version of",
   "document.favorite": "favorited",

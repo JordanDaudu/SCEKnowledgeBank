@@ -30,6 +30,14 @@ function typeLabel(type: string): string {
       return "replied to your comment";
     case "account.deleted":
       return "deleted their account";
+    case "document.review_requested":
+      return "sent you a document to review";
+    case "document.admin_review_requested":
+      return "needs admin approval";
+    case "document.approved":
+      return "approved your document";
+    case "document.rejected":
+      return "rejected your document";
     default:
       return type;
   }

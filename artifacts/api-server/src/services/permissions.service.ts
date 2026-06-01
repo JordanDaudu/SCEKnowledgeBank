@@ -273,12 +273,23 @@ export function canUpload(user: AuthenticatedUser): boolean {
  *   never allowed — the review workflow needs a course to route to.
  */
 export function canUploadToCourse(
-  _user: AuthenticatedUser,
-  _courseId: string | null | undefined,
+  user: AuthenticatedUser,
+  courseId: string | null | undefined,
 ): boolean {
-  // SP4: any authenticated user may upload to any course; the approval
-  // workflow (lecturer → admin) governs visibility, not membership.
-  return true;
+  // NOTE: SP4 made document *uploads* open (uploadDocuments no longer calls
+  // this). This gate remains the authoritative check for *moving* an existing
+  // document into a course (documents.service.updateDocument), where course
+  // ownership still matters — so its original semantics are preserved.
+  if (isAdmin(user)) return true;
+  if (hasRole(user, "lecturer")) {
+    if (courseId) return isLecturerForCourse(user, courseId);
+    return lecturerCourseIds(user).length > 0;
+  }
+  if (hasRole(user, "student")) {
+    if (!courseId) return false;
+    return enrolledCourseIds(user).includes(courseId);
+  }
+  return false;
 }
 
 /**
