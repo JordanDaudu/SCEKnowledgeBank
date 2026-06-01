@@ -55,6 +55,13 @@ export async function listTrending(
   return collectionsService.summarize(rows, user);
 }
 
+export async function listFollowed(
+  user: AuthenticatedUser,
+): Promise<CollectionSummaryDTO[]> {
+  const rows = await collectionsRepo.listFollowedCollections(user.id);
+  return collectionsService.summarize(rows, user);
+}
+
 export async function getPublicCollection(
   id: string,
   user: AuthenticatedUser,

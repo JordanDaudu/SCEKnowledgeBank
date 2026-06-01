@@ -516,6 +516,25 @@ export async function recommendCollections(opts: {
   return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
 }
 
+/** Public/official collections the user follows, ordered newest-followed
+ *  first. Drops any that were since made private, hidden, or soft-deleted. */
+export async function listFollowedCollections(
+  userId: string,
+): Promise<Array<CollectionRow & { itemCount: number }>> {
+  const follows = await db.studyCollectionFollower.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: { collectionId: true },
+  });
+  const rows = await fetchCollectionsByIdOrder(follows.map((f) => f.collectionId));
+  return rows.filter(
+    (c) =>
+      c.deletedAt == null &&
+      c.hiddenAt == null &&
+      (c.visibility === "public" || c.isOfficial),
+  );
+}
+
 // ─── Tags (Phase 1 metadata) ──────────────────────────────────────
 
 /** Replace-set a collection's tags to exactly `tagIds`. */
