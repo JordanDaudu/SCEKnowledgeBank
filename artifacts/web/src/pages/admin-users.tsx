@@ -5,6 +5,10 @@ import {
   useDisableUser,
   getListUsersQueryKey,
   getListPendingLecturersQueryKey,
+  useListDeletedAccounts,
+  getListDeletedAccountsQueryKey,
+  useRestoreAccount,
+  usePurgeAccount,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDateTime } from "@/lib/format";
@@ -77,6 +81,13 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const approveMutation = useApproveUser();
   const disableMutation = useDisableUser();
+  const { data: deleted } = useListDeletedAccounts({
+    query: { queryKey: getListDeletedAccountsQueryKey() },
+  });
+  const restoreMut = useRestoreAccount();
+  const purgeMut = usePurgeAccount();
+  const refreshDeleted = () =>
+    queryClient.invalidateQueries({ queryKey: getListDeletedAccountsQueryKey() });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
@@ -341,6 +352,100 @@ export default function AdminUsers() {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-deleted-accounts">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <XCircle className="h-5 w-5 text-destructive" />
+            Deleted Accounts
+          </CardTitle>
+          <CardDescription>
+            Soft-deleted accounts. Restore within 30 days; permanent removal (purge) is
+            available after 30 days and anonymizes the account while keeping its files.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {deleted && deleted.length > 0 ? (
+            <div className="space-y-2" data-testid="deleted-accounts">
+              {deleted.map((u) => {
+                const busy = restoreMut.isPending || purgeMut.isPending;
+                return (
+                  <div
+                    key={u.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {u.displayName}{" "}
+                        <span className="text-muted-foreground">· {u.email}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {u.roles.join(", ") || "—"} · {u.fileCount} file(s) ·{" "}
+                        {u.anonymizedAt
+                          ? "permanently removed"
+                          : `deleted ${u.deletedAt ? formatDateTime(u.deletedAt) : ""}`}
+                      </p>
+                    </div>
+                    {!u.anonymizedAt && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() =>
+                            restoreMut.mutate(
+                              { userId: u.id },
+                              {
+                                onSuccess: () => {
+                                  toast({ title: "Account restored" });
+                                  refreshDeleted();
+                                },
+                                onError: () =>
+                                  toast({ variant: "destructive", title: "Could not restore" }),
+                              },
+                            )
+                          }
+                          data-testid={`account-restore-${u.id}`}
+                        >
+                          Restore
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={!u.eligibleForPurge || busy}
+                          title={
+                            u.eligibleForPurge
+                              ? "Permanently remove (anonymize)"
+                              : "Eligible 30 days after deletion"
+                          }
+                          onClick={() =>
+                            purgeMut.mutate(
+                              { userId: u.id },
+                              {
+                                onSuccess: () => {
+                                  toast({ title: "Account permanently removed" });
+                                  refreshDeleted();
+                                },
+                                onError: () =>
+                                  toast({ variant: "destructive", title: "Could not purge" }),
+                              },
+                            )
+                          }
+                          data-testid={`account-purge-${u.id}`}
+                        >
+                          Purge
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No deleted accounts.</p>
+          )}
         </CardContent>
       </Card>
     </div>

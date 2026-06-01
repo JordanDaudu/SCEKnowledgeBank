@@ -18,6 +18,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { apiUrl } from "@/lib/api-url";
 import { UserCircle, Upload, Trash2, Loader2 } from "lucide-react";
 import CourseMembership from "@/components/profile/CourseMembership";
+import DeleteAccount from "@/components/profile/DeleteAccount";
 
 export default function Profile() {
   const queryClient = useQueryClient();
@@ -186,9 +187,13 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Course membership (sub-project 2) for students/lecturers.
-              Account deletion (sub-project 3) will plug in below it. */}
-          {!isAdmin && <CourseMembership me={me} />}
+          {/* Course membership (SP2) + account deletion (SP3), students/lecturers. */}
+          {!isAdmin && (
+            <>
+              <CourseMembership me={me} />
+              <DeleteAccount />
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
