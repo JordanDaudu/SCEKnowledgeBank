@@ -4,6 +4,10 @@ import { z } from "zod";
 const DEFAULT_ALLOWED_MIME_TYPES =
   "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/markdown,text/csv,image/png,image/jpeg,application/zip";
 
+// Extensions that are allowed to upload but always require ADMIN approval
+// (SP4). Configurable so the policy can change without a code rewrite.
+const DEFAULT_RESTRICTED_FILE_EXTENSIONS = "zip,rar,7z,exe,msi,bat,cmd,apk,iso";
+
 const DEV_SESSION_SECRET =
   "dev-session-secret-not-for-production-knowledge-bank-32chars";
 const DEV_SIGNED_URL_SECRET =
@@ -66,6 +70,7 @@ const envSchema = z.object({
   DEFAULT_LECTURER_QUOTA_MB: z.coerce.number().int().positive().default(10240),
 
   ALLOWED_MIME_TYPES: csvList.default(DEFAULT_ALLOWED_MIME_TYPES),
+  RESTRICTED_FILE_EXTENSIONS: csvList.default(DEFAULT_RESTRICTED_FILE_EXTENSIONS),
 
   STORAGE_DRIVER: z.enum(["local", "s3", "gcs"]).optional(),
   STORAGE_LOCAL_ROOT: z.string().optional(),
@@ -119,6 +124,7 @@ export const env = {
   // never traps. ≈ 8 EB.
   unlimitedQuotaBytes: BigInt("9000000000000000000"),
   allowedMimeTypes: e.ALLOWED_MIME_TYPES,
+  restrictedFileExtensions: e.RESTRICTED_FILE_EXTENSIONS.map((x) => x.toLowerCase()),
   // Storage driver selection:
   //  - explicit STORAGE_DRIVER wins (local | s3 | gcs);
   //  - otherwise auto-pick `gcs` when Replit Object Storage is
