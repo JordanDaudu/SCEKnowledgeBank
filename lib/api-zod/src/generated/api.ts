@@ -66,6 +66,9 @@ export const LoginResponse = zod.object({
   id: zod.string().uuid(),
   email: zod.string().email(),
   displayName: zod.string(),
+  username: zod.string().nullable(),
+  avatarUrl: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
   primaryRole: zod.string(),
   roles: zod.array(zod.string()),
   enrollments: zod.array(
@@ -83,6 +86,89 @@ export const GetCurrentUserResponse = zod.object({
   id: zod.string().uuid(),
   email: zod.string().email(),
   displayName: zod.string(),
+  username: zod.string().nullable(),
+  avatarUrl: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  primaryRole: zod.string(),
+  roles: zod.array(zod.string()),
+  enrollments: zod.array(
+    zod.object({
+      courseId: zod.string().uuid(),
+      roleInCourse: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Check whether a username is available for the current user
+ */
+export const CheckUsernameAvailabilityQueryParams = zod.object({
+  username: zod.coerce.string(),
+});
+
+export const CheckUsernameAvailabilityResponse = zod.object({
+  available: zod.boolean(),
+  reason: zod.enum(["invalid", "reserved", "taken"]).optional(),
+});
+
+/**
+ * @summary Update the current user's editable profile fields (username)
+ */
+export const UpdateMyProfileBody = zod.object({
+  username: zod.string(),
+});
+
+export const UpdateMyProfileResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string().email(),
+  displayName: zod.string(),
+  username: zod.string().nullable(),
+  avatarUrl: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  primaryRole: zod.string(),
+  roles: zod.array(zod.string()),
+  enrollments: zod.array(
+    zod.object({
+      courseId: zod.string().uuid(),
+      roleInCourse: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Upload or replace the current user's avatar
+ */
+export const UploadMyAvatarBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+export const UploadMyAvatarResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string().email(),
+  displayName: zod.string(),
+  username: zod.string().nullable(),
+  avatarUrl: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  primaryRole: zod.string(),
+  roles: zod.array(zod.string()),
+  enrollments: zod.array(
+    zod.object({
+      courseId: zod.string().uuid(),
+      roleInCourse: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Remove the current user's avatar
+ */
+export const RemoveMyAvatarResponse = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string().email(),
+  displayName: zod.string(),
+  username: zod.string().nullable(),
+  avatarUrl: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
   primaryRole: zod.string(),
   roles: zod.array(zod.string()),
   enrollments: zod.array(

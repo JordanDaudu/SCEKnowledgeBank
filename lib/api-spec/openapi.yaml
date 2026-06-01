@@ -119,6 +119,75 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
 
+  /me/username-available:
+    get:
+      operationId: checkUsernameAvailability
+      tags: [profile]
+      summary: Check whether a username is available for the current user
+      parameters:
+        - { in: query, name: username, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Availability
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                properties:
+                  available: { type: boolean }
+                  reason: { type: string, enum: [invalid, reserved, taken] }
+  /me/profile:
+    patch:
+      operationId: updateMyProfile
+      tags: [profile]
+      summary: Update the current user's editable profile fields (username)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
+      responses:
+        "200":
+          description: Updated current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+  /me/avatar:
+    put:
+      operationId: uploadMyAvatar
+      tags: [profile]
+      summary: Upload or replace the current user's avatar
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Updated current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+    delete:
+      operationId: removeMyAvatar
+      tags: [profile]
+      summary: Remove the current user's avatar
+      responses:
+        "200":
+          description: Updated current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+
   /documents:
     get:
       operationId: listDocuments
@@ -1576,11 +1645,14 @@ components:
 
     CurrentUser:
       type: object
-      required: [id, email, displayName, roles, primaryRole, enrollments]
+      required: [id, email, displayName, username, avatarUrl, createdAt, roles, primaryRole, enrollments]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
         displayName: { type: string }
+        username: { type: string, nullable: true }
+        avatarUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
         primaryRole: { type: string }
         roles:
           type: array

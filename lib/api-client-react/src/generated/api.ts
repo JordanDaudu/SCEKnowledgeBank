@@ -25,6 +25,8 @@ import type {
   BulkDocumentActionResult,
   Category,
   CheckDuplicateDocumentParams,
+  CheckUsernameAvailability200,
+  CheckUsernameAvailabilityParams,
   CollectionModerationList,
   Comment,
   CommentReaction,
@@ -87,9 +89,11 @@ import type {
   UpdateCollectionRequest,
   UpdateCommentRequest,
   UpdateDocumentRequest,
+  UpdateMyProfileBody,
   UpdateRequestRequest,
   UploadDocumentVersionBody,
   UploadDocumentsBody,
+  UploadMyAvatarBody,
   UploadResult,
   UserSummary,
 } from "./api.schemas";
@@ -504,6 +508,367 @@ export function useGetCurrentUser<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Check whether a username is available for the current user
+ */
+export const getCheckUsernameAvailabilityUrl = (
+  params: CheckUsernameAvailabilityParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/me/username-available?${stringifiedParams}`
+    : `/api/me/username-available`;
+};
+
+export const checkUsernameAvailability = async (
+  params: CheckUsernameAvailabilityParams,
+  options?: RequestInit,
+): Promise<CheckUsernameAvailability200> => {
+  return customFetch<CheckUsernameAvailability200>(
+    getCheckUsernameAvailabilityUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getCheckUsernameAvailabilityQueryKey = (
+  params?: CheckUsernameAvailabilityParams,
+) => {
+  return [`/api/me/username-available`, ...(params ? [params] : [])] as const;
+};
+
+export const getCheckUsernameAvailabilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof checkUsernameAvailability>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckUsernameAvailabilityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkUsernameAvailability>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getCheckUsernameAvailabilityQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof checkUsernameAvailability>>
+  > = ({ signal }) =>
+    checkUsernameAvailability(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof checkUsernameAvailability>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type CheckUsernameAvailabilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof checkUsernameAvailability>>
+>;
+export type CheckUsernameAvailabilityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check whether a username is available for the current user
+ */
+
+export function useCheckUsernameAvailability<
+  TData = Awaited<ReturnType<typeof checkUsernameAvailability>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckUsernameAvailabilityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkUsernameAvailability>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCheckUsernameAvailabilityQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update the current user's editable profile fields (username)
+ */
+export const getUpdateMyProfileUrl = () => {
+  return `/api/me/profile`;
+};
+
+export const updateMyProfile = async (
+  updateMyProfileBody: UpdateMyProfileBody,
+  options?: RequestInit,
+): Promise<CurrentUser> => {
+  return customFetch<CurrentUser>(getUpdateMyProfileUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMyProfileBody),
+  });
+};
+
+export const getUpdateMyProfileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    TError,
+    { data: BodyType<UpdateMyProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  { data: BodyType<UpdateMyProfileBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMyProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    { data: BodyType<UpdateMyProfileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyProfile>>
+>;
+export type UpdateMyProfileMutationBody = BodyType<UpdateMyProfileBody>;
+export type UpdateMyProfileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update the current user's editable profile fields (username)
+ */
+export const useUpdateMyProfile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    TError,
+    { data: BodyType<UpdateMyProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  { data: BodyType<UpdateMyProfileBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMyProfileMutationOptions(options));
+};
+
+/**
+ * @summary Upload or replace the current user's avatar
+ */
+export const getUploadMyAvatarUrl = () => {
+  return `/api/me/avatar`;
+};
+
+export const uploadMyAvatar = async (
+  uploadMyAvatarBody: UploadMyAvatarBody,
+  options?: RequestInit,
+): Promise<CurrentUser> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadMyAvatarBody.file);
+
+  return customFetch<CurrentUser>(getUploadMyAvatarUrl(), {
+    ...options,
+    method: "PUT",
+    body: formData,
+  });
+};
+
+export const getUploadMyAvatarMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadMyAvatar>>,
+    TError,
+    { data: BodyType<UploadMyAvatarBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadMyAvatar>>,
+  TError,
+  { data: BodyType<UploadMyAvatarBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadMyAvatar"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadMyAvatar>>,
+    { data: BodyType<UploadMyAvatarBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadMyAvatar(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadMyAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadMyAvatar>>
+>;
+export type UploadMyAvatarMutationBody = BodyType<UploadMyAvatarBody>;
+export type UploadMyAvatarMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upload or replace the current user's avatar
+ */
+export const useUploadMyAvatar = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadMyAvatar>>,
+    TError,
+    { data: BodyType<UploadMyAvatarBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadMyAvatar>>,
+  TError,
+  { data: BodyType<UploadMyAvatarBody> },
+  TContext
+> => {
+  return useMutation(getUploadMyAvatarMutationOptions(options));
+};
+
+/**
+ * @summary Remove the current user's avatar
+ */
+export const getRemoveMyAvatarUrl = () => {
+  return `/api/me/avatar`;
+};
+
+export const removeMyAvatar = async (
+  options?: RequestInit,
+): Promise<CurrentUser> => {
+  return customFetch<CurrentUser>(getRemoveMyAvatarUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveMyAvatarMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMyAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeMyAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["removeMyAvatar"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeMyAvatar>>,
+    void
+  > = () => {
+    return removeMyAvatar(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveMyAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeMyAvatar>>
+>;
+
+export type RemoveMyAvatarMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove the current user's avatar
+ */
+export const useRemoveMyAvatar = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMyAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeMyAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRemoveMyAvatarMutationOptions(options));
+};
 
 /**
  * @summary List documents with filters, sort, pagination (use /v2/documents/search for full-text)

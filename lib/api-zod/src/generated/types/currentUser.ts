@@ -11,6 +11,9 @@ export interface CurrentUser {
   id: string;
   email: string;
   displayName: string;
+  username: string | null;
+  avatarUrl: string | null;
+  createdAt: Date;
   primaryRole: string;
   roles: string[];
   enrollments: CurrentUserEnrollmentsItem[];

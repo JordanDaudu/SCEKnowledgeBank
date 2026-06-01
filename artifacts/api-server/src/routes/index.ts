@@ -15,6 +15,7 @@ import activityRouter from "./activity";
 import collectionsRouter from "./collections";
 import prepHubRouter from "./prep-hub";
 import moderationRouter from "./moderation";
+import profileRouter from "./profile";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(activityRouter);
 router.use(collectionsRouter);
 router.use(prepHubRouter);
 router.use(moderationRouter);
+router.use(profileRouter);
 
 export default router;

@@ -35,6 +35,9 @@ export interface CurrentUser {
   id: string;
   email: string;
   displayName: string;
+  username: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
   primaryRole: string;
   roles: string[];
   enrollments: CurrentUserEnrollmentsItem[];
@@ -1031,6 +1034,32 @@ export interface CourseAnalytics {
   uploadsLast14Days: AnalyticsDailyCount[];
   generatedAt: string;
 }
+
+export type CheckUsernameAvailabilityParams = {
+  username: string;
+};
+
+export type CheckUsernameAvailability200Reason =
+  (typeof CheckUsernameAvailability200Reason)[keyof typeof CheckUsernameAvailability200Reason];
+
+export const CheckUsernameAvailability200Reason = {
+  invalid: "invalid",
+  reserved: "reserved",
+  taken: "taken",
+} as const;
+
+export type CheckUsernameAvailability200 = {
+  available: boolean;
+  reason?: CheckUsernameAvailability200Reason;
+};
+
+export type UpdateMyProfileBody = {
+  username: string;
+};
+
+export type UploadMyAvatarBody = {
+  file: Blob;
+};
 
 export type ListDocumentsParams = {
   courseId?: string;
