@@ -22,6 +22,7 @@ import {
   X,
   ChevronDown,
   Shield,
+  UserCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./logo";
@@ -70,16 +71,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   // Primary items stay inline on desktop; the rest live behind a "More"
   // dropdown to keep the bar uncluttered. The mobile sheet shows everything.
-  // Prep Hub is for students/lecturers (admins manage, not study); Activity
-  // logs live inside the admin Analytics page rather than a top-level item.
+  // Collections and Prep Hub are for students/lecturers (admins manage, not
+  // study — they moderate via "Prep Hub Moderation"); Activity logs live
+  // inside the admin Analytics page rather than a top-level item.
   const primaryNav: NavItem[] = user
     ? [
         { href: "/", icon: BookOpen, label: "Home" },
         { href: "/browse", icon: Search, label: "Browse" },
         ...(!isAdmin
-          ? [{ href: "/collections", icon: FolderOpen, label: "Collections" }]
+          ? [
+              { href: "/collections", icon: FolderOpen, label: "Collections" },
+              { href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" },
+            ]
           : []),
-        { href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" },
         { href: "/requests", icon: MessageSquare, label: "Requests" },
         { href: "/upload", icon: Upload, label: "Upload" },
       ]
@@ -87,6 +91,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const moreNav: NavItem[] = user
     ? [
+        { href: "/profile", icon: UserCircle, label: "Profile" },
         { href: "/uploads", icon: History, label: "My Uploads" },
         ...(isLecturerOrAdmin
           ? [{ href: "/review-queue", icon: ShieldCheck, label: "Review" }]
@@ -185,8 +190,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <ThemeToggle />
               <NotificationBell />
 
-              {/* User info — hidden on very small screens */}
-              <div className="hidden sm:flex items-center gap-3">
+              {/* User info — hidden on very small screens; links to Profile */}
+              <Link
+                href="/profile"
+                className="hidden sm:flex items-center gap-3 hover:opacity-80"
+                aria-label="Open your profile"
+              >
                 <div className="flex flex-col items-end">
                   <span className="text-sm font-medium leading-none">
                     {user.displayName}
@@ -198,7 +207,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                   {user.displayName.charAt(0)}
                 </div>
-              </div>
+              </Link>
 
               {/* Avatar only on very small screens */}
               <div className="sm:hidden h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">

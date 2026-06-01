@@ -16,6 +16,7 @@ import PrepHub from "@/pages/prep-hub";
 import PrepHubCollection from "@/pages/prep-hub-collection";
 import Collections from "@/pages/collections";
 import CollectionManage from "@/pages/collection-manage";
+import Profile from "@/pages/profile";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
 import AdminUsers from "@/pages/admin-users";
@@ -115,13 +116,15 @@ function Router() {
       </Route>
 
       <Route path="/prep-hub">
-        <AuthGuard>
+        <AuthGuard blockAdmin>
           <Layout>
             <PrepHub />
           </Layout>
         </AuthGuard>
       </Route>
 
+      {/* Detail stays open to admins: they reach it from Prep Hub Moderation
+          to hide/unhide individual collections. */}
       <Route path="/prep-hub/:id">
         <AuthGuard>
           <Layout>
@@ -142,6 +145,14 @@ function Router() {
         <AuthGuard>
           <Layout>
             <Notifications />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/profile">
+        <AuthGuard>
+          <Layout>
+            <Profile />
           </Layout>
         </AuthGuard>
       </Route>
