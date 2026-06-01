@@ -360,32 +360,13 @@ router.post(
         input.autoSubmitForReview = body.autoSubmitForReview;
       }
 
+      // SP4: status is decided per-file inside uploadDocuments (students →
+      // pending_review, lecturer restricted → pending_admin_approval, etc.),
+      // so the old auto-submit detour is no longer needed.
       const results = await documentsService.uploadDocuments(
         input,
         req.authUser!,
       );
-
-      // Sprint-3 completion: after a successful upload, if the caller
-      // asked for auto-submit (student UI default), route every fresh
-      // draft through the M2 submit-for-review service so the audit
-      // row + downstream notify pipeline fire exactly once. A
-      // per-doc failure here is non-fatal — the file is uploaded and
-      // the uploader can retry submission from the doc detail page.
-      if (body.autoSubmitForReview) {
-        for (const r of results) {
-          if (r.success && r.document && r.document.status === "draft") {
-            try {
-              const dto = await documentsService.submitForReview(
-                r.document.id,
-                req.authUser!,
-              );
-              r.document = dto;
-            } catch {
-              // swallow — doc is still uploaded as draft
-            }
-          }
-        }
-      }
       res.status(201).json({ results });
     } catch (err) {
       next(err);
