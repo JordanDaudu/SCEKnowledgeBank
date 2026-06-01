@@ -41,6 +41,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "user.role_change_attempt": "attempted an unauthorized role change",
   "user.email_change_attempt": "attempted an unauthorized email change",
   "user.profile_tamper_attempt": "attempted an unauthorized profile change",
+  "user.course_added": "joined a course",
+  "user.course_removed": "left a course",
 };
 
 export function describeAction(action: string): string {
