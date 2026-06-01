@@ -1,32 +1,19 @@
 import { useState } from "react";
 import {
-  useListContinueStudying,
-  getListContinueStudyingQueryKey,
-  useListMyFavorites,
-  getListMyFavoritesQueryKey,
-  useListRecentDocuments,
-  getListRecentDocumentsQueryKey,
-  useListRecommendations,
-  getListRecommendationsQueryKey,
   useListRecommendedCollections,
   getListRecommendedCollectionsQueryKey,
   useListDiscoverableCollections,
   getListDiscoverableCollectionsQueryKey,
   useListTrendingCollections,
   getListTrendingCollectionsQueryKey,
-  type Document,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { CollectionGrid } from "@/components/collections/CollectionCard";
 import { DiscoverySection } from "@/components/collections/DiscoverySection";
-import { DocMiniGrid } from "@/components/doc-mini-grid";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   GraduationCap,
-  PlayCircle,
-  Heart,
-  Clock,
   Sparkles,
   Compass,
   Search,
@@ -76,53 +63,10 @@ function SearchResults({ q }: { q: string }) {
   );
 }
 
-/** Compact horizontal list of documents for a Quick Access lane. */
-function QuickLane({
-  title,
-  icon: Icon,
-  docs,
-}: {
-  title: string;
-  icon: typeof Clock;
-  docs: Document[] | undefined;
-}) {
-  if (!docs || docs.length === 0) return null;
-  return (
-    <div>
-      <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
-        <Icon className="h-4 w-4" />
-        {title}
-      </h3>
-      <DocMiniGrid docs={docs} />
-    </div>
-  );
-}
-
 export default function PrepHub() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQ = useDebounce(searchQuery, 300);
   const isSearching = debouncedQ.trim().length > 0;
-
-  // ── Quick Access (document lanes) ──────────────────────────────────────
-  const { data: continueDocs } = useListContinueStudying({
-    query: { queryKey: getListContinueStudyingQueryKey(), staleTime: 15_000 },
-  });
-  const { data: favorites } = useListMyFavorites({
-    query: { queryKey: getListMyFavoritesQueryKey(), staleTime: 30_000 },
-  });
-  const recentParams = { limit: 6 };
-  const { data: recent } = useListRecentDocuments(recentParams, {
-    query: { queryKey: getListRecentDocumentsQueryKey(recentParams), staleTime: 30_000 },
-  });
-  const { data: recommended } = useListRecommendations({
-    query: { queryKey: getListRecommendationsQueryKey(), staleTime: 60_000 },
-  });
-
-  const hasQuickAccess =
-    (recommended?.length ?? 0) > 0 ||
-    (continueDocs?.length ?? 0) > 0 ||
-    (favorites?.length ?? 0) > 0 ||
-    (recent?.length ?? 0) > 0;
 
   // ── Discovery sections (collection bundles) ────────────────────────────
   const trendingParams = { limit: 12 };
@@ -225,16 +169,6 @@ export default function PrepHub() {
         <SearchResults q={debouncedQ.trim()} />
       ) : (
         <>
-          {/* Quick Access — document lanes (continue studying, saved, recent) */}
-          {hasQuickAccess && (
-            <section className="space-y-4" aria-label="Quick access">
-              <QuickLane title="Recommended for you" icon={Sparkles} docs={recommended} />
-              <QuickLane title="Continue studying" icon={PlayCircle} docs={continueDocs} />
-              <QuickLane title="Saved" icon={Heart} docs={favorites} />
-              <QuickLane title="Recently viewed" icon={Clock} docs={recent} />
-            </section>
-          )}
-
           {/* 7 discovery sections — each hides itself when empty */}
           <DiscoverySection
             title="Trending"
