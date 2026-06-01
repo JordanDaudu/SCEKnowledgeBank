@@ -3,6 +3,7 @@ import { z } from "zod";
 import { LoginBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import * as authService from "../services/auth.service";
+import { currentUserDto } from "../lib/current-user-dto";
 
 const router: IRouter = Router();
 
@@ -90,19 +91,7 @@ router.post("/logout", (req, res, next) => {
 });
 
 router.get("/me", requireAuth, (req, res) => {
-  const u = req.authUser!;
-  res.json({
-    id: u.id,
-    email: u.email,
-    displayName: u.displayName,
-    primaryRole: u.primaryRole,
-    roles: u.roles,
-    // Sprint-3 completion: expose enrollments so the web client can
-    // filter the upload course-picker for students (enrolled-only)
-    // and so the layout can scope navigation without an extra round
-    // trip.
-    enrollments: u.enrollments,
-  });
+  res.json(currentUserDto(req.authUser!));
 });
 
 export default router;

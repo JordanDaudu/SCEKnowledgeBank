@@ -65,6 +65,9 @@ export async function loadAuthenticatedUser(
     primaryRole,
     roles: u.roles,
     enrollments,
+    username: u.username,
+    avatarStoragePath: u.avatarStoragePath,
+    createdAt: u.createdAt.toISOString(),
   };
 }
 

@@ -112,6 +112,9 @@ async function setup(): Promise<Ctx> {
     primaryRole: "admin",
     roles: ["admin"],
     enrollments: [],
+    username: null,
+    avatarStoragePath: null,
+    createdAt: "2025-01-01T00:00:00.000Z",
   };
 
   return {

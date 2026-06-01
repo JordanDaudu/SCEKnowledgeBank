@@ -22,6 +22,9 @@ function makeUser(roles: string[]): AuthenticatedUser {
     primaryRole: roles[0] ?? "student",
     roles,
     enrollments: [],
+    username: null,
+    avatarStoragePath: null,
+    createdAt: "2025-01-01T00:00:00.000Z",
   } as AuthenticatedUser;
 }
 

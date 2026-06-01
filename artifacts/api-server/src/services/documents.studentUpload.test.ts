@@ -70,6 +70,9 @@ const enrolledStudent: AuthenticatedUser = {
   primaryRole: "student",
   roles: ["student"],
   enrollments: [{ courseId: "c-enrolled", roleInCourse: "student" }],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 const unenrolledStudent: AuthenticatedUser = {
@@ -80,6 +83,9 @@ const unenrolledStudent: AuthenticatedUser = {
   primaryRole: "student",
   roles: ["student"],
   enrollments: [],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 const lecturer: AuthenticatedUser = {
@@ -90,6 +96,9 @@ const lecturer: AuthenticatedUser = {
   primaryRole: "lecturer",
   roles: ["lecturer"],
   enrollments: [{ courseId: "c-mine", roleInCourse: "lecturer" }],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 function makeFile(name: string, body: string, mimetype = "application/pdf") {

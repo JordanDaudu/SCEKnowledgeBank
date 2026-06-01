@@ -90,6 +90,9 @@ const lecturer: AuthenticatedUser = {
   primaryRole: "lecturer",
   roles: ["lecturer"],
   enrollments: [{ courseId: "c1", roleInCourse: "lecturer" }],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 const student: AuthenticatedUser = {
@@ -100,6 +103,9 @@ const student: AuthenticatedUser = {
   primaryRole: "student",
   roles: ["student"],
   enrollments: [],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 function fakeFile(name = "v2.pdf", body = "hello v2") {
