@@ -42,6 +42,25 @@ export interface MyCourse {
   roleInCourse: MyCourseRoleInCourse;
 }
 
+export interface DeletedAccount {
+  id: string;
+  email: string;
+  displayName: string;
+  roles: string[];
+  deletedAt: string | null;
+  anonymizedAt: string | null;
+  fileCount: number;
+  eligibleForPurge: boolean;
+}
+
+export interface OrphanedFile {
+  id: string;
+  title: string;
+  materialType: string;
+  courseCode: string | null;
+  createdAt: string;
+}
+
 export type CurrentUserEnrollmentsItem = {
   courseId: string;
   roleInCourse: string;
@@ -1071,6 +1090,10 @@ export type CheckUsernameAvailability200 = {
 
 export type UpdateMyProfileBody = {
   username: string;
+};
+
+export type ReassignOrphanedFileBody = {
+  newOwnerId: string;
 };
 
 export type AddMyCourseBody = {

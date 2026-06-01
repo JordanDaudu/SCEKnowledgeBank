@@ -136,6 +136,69 @@ export const UpdateMyProfileResponse = zod.object({
 });
 
 /**
+ * @summary List soft-deleted accounts
+ */
+export const ListDeletedAccountsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  email: zod.string(),
+  displayName: zod.string(),
+  roles: zod.array(zod.string()),
+  deletedAt: zod.coerce.date().nullable(),
+  anonymizedAt: zod.coerce.date().nullable(),
+  fileCount: zod.number(),
+  eligibleForPurge: zod.boolean(),
+});
+export const ListDeletedAccountsResponse = zod.array(
+  ListDeletedAccountsResponseItem,
+);
+
+/**
+ * @summary Restore a soft-deleted account
+ */
+export const RestoreAccountParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Permanently anonymize a deleted account (eligible after 30 days)
+ */
+export const PurgeAccountParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary List documents whose uploader/owner is a deleted user
+ */
+export const ListOrphanedFilesResponseItem = zod.object({
+  id: zod.string().uuid(),
+  title: zod.string(),
+  materialType: zod.string(),
+  courseCode: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+});
+export const ListOrphanedFilesResponse = zod.array(
+  ListOrphanedFilesResponseItem,
+);
+
+/**
+ * @summary Reassign an orphaned document to an active user
+ */
+export const ReassignOrphanedFileParams = zod.object({
+  documentId: zod.coerce.string().uuid(),
+});
+
+export const ReassignOrphanedFileBody = zod.object({
+  newOwnerId: zod.string().uuid(),
+});
+
+/**
+ * @summary Soft-delete an orphaned document
+ */
+export const DeleteOrphanedFileParams = zod.object({
+  documentId: zod.coerce.string().uuid(),
+});
+
+/**
  * @summary List the current user's course memberships
  */
 export const ListMyCoursesResponseItem = zod.object({

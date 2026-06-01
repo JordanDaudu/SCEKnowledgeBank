@@ -7,6 +7,7 @@ import { loadAuthenticatedUser } from "../services/auth.service";
 import * as profileService from "../services/profile.service";
 import * as avatarService from "../services/avatar.service";
 import * as enrollmentsService from "../services/enrollments.service";
+import * as accountService from "../services/account.service";
 import * as auditService from "../services/audit.service";
 import { currentUserDto } from "../lib/current-user-dto";
 import { forbiddenProfileKey, auditActionForForbiddenKey } from "../lib/profile-guard";
@@ -78,6 +79,19 @@ router.get("/users/:id/avatar", requireAuth, async (req, res, next) => {
   try {
     const { id } = AvatarParams.parse(req.params);
     await avatarService.streamAvatar(id, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/me", requireAuth, async (req, res, next) => {
+  try {
+    await accountService.deleteOwnAccount(req.authUser!);
+    req.session.destroy((err) => {
+      if (err) return next(err);
+      res.clearCookie("kb.sid");
+      res.status(204).end();
+    });
   } catch (err) {
     next(err);
   }

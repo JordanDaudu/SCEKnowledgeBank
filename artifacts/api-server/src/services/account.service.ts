@@ -13,7 +13,7 @@ export async function deleteOwnAccount(user: AuthenticatedUser): Promise<void> {
   if (!lifecycle) throw notFound("Account not found");
   if (lifecycle.deletedAt) throw conflict("Account is already deleted");
 
-  const fileCount = await docsRepo.countDocuments({ uploaderId: user.id });
+  const fileCount = await docsRepo.countDocuments({ uploaderId: user.id, visibility: undefined });
   await usersRepo.softDeleteUser(user.id);
   await auditService.record(user.id, "account.deleted", "user", user.id, { fileCount });
 
@@ -77,7 +77,7 @@ export async function listDeletedAccounts(): Promise<DeletedAccountDTO[]> {
   const rows = await usersRepo.listDeletedWithRoles();
   const out: DeletedAccountDTO[] = [];
   for (const r of rows) {
-    const fileCount = await docsRepo.countDocuments({ uploaderId: r.id });
+    const fileCount = await docsRepo.countDocuments({ uploaderId: r.id, visibility: undefined });
     const eligibleForPurge =
       !r.anonymizedAt &&
       !!r.deletedAt &&

@@ -38,6 +38,7 @@ import type {
   CreateCommentRequest,
   CreateRequestRequest,
   CurrentUser,
+  DeletedAccount,
   Document,
   DocumentDetail,
   DocumentPage,
@@ -65,8 +66,10 @@ import type {
   Notification,
   NotificationMarkAllResponse,
   NotificationUnreadCount,
+  OrphanedFile,
   PreviewDocumentParams,
   RateCollectionBody,
+  ReassignOrphanedFileBody,
   RegisterRequest,
   RegisterResponse,
   RejectDocumentRequest,
@@ -702,6 +705,575 @@ export const useUpdateMyProfile = <
   TContext
 > => {
   return useMutation(getUpdateMyProfileMutationOptions(options));
+};
+
+/**
+ * @summary Soft-delete the current user's own account
+ */
+export const getDeleteMyAccountUrl = () => {
+  return `/api/me`;
+};
+
+export const deleteMyAccount = async (options?: RequestInit): Promise<void> => {
+  return customFetch<void>(getDeleteMyAccountUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMyAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyAccount>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMyAccount>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["deleteMyAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMyAccount>>,
+    void
+  > = () => {
+    return deleteMyAccount(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMyAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMyAccount>>
+>;
+
+export type DeleteMyAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Soft-delete the current user's own account
+ */
+export const useDeleteMyAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyAccount>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMyAccount>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDeleteMyAccountMutationOptions(options));
+};
+
+/**
+ * @summary List soft-deleted accounts
+ */
+export const getListDeletedAccountsUrl = () => {
+  return `/api/admin/deleted-users`;
+};
+
+export const listDeletedAccounts = async (
+  options?: RequestInit,
+): Promise<DeletedAccount[]> => {
+  return customFetch<DeletedAccount[]>(getListDeletedAccountsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDeletedAccountsQueryKey = () => {
+  return [`/api/admin/deleted-users`] as const;
+};
+
+export const getListDeletedAccountsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDeletedAccounts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDeletedAccounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDeletedAccountsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDeletedAccounts>>
+  > = ({ signal }) => listDeletedAccounts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDeletedAccounts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDeletedAccountsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDeletedAccounts>>
+>;
+export type ListDeletedAccountsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List soft-deleted accounts
+ */
+
+export function useListDeletedAccounts<
+  TData = Awaited<ReturnType<typeof listDeletedAccounts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDeletedAccounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDeletedAccountsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Restore a soft-deleted account
+ */
+export const getRestoreAccountUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/restore`;
+};
+
+export const restoreAccount = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRestoreAccountUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRestoreAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["restoreAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreAccount>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return restoreAccount(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreAccount>>
+>;
+
+export type RestoreAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore a soft-deleted account
+ */
+export const useRestoreAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getRestoreAccountMutationOptions(options));
+};
+
+/**
+ * @summary Permanently anonymize a deleted account (eligible after 30 days)
+ */
+export const getPurgeAccountUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/purge`;
+};
+
+export const purgeAccount = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getPurgeAccountUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getPurgeAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purgeAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof purgeAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["purgeAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof purgeAccount>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return purgeAccount(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PurgeAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof purgeAccount>>
+>;
+
+export type PurgeAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Permanently anonymize a deleted account (eligible after 30 days)
+ */
+export const usePurgeAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purgeAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof purgeAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getPurgeAccountMutationOptions(options));
+};
+
+/**
+ * @summary List documents whose uploader/owner is a deleted user
+ */
+export const getListOrphanedFilesUrl = () => {
+  return `/api/admin/orphaned-files`;
+};
+
+export const listOrphanedFiles = async (
+  options?: RequestInit,
+): Promise<OrphanedFile[]> => {
+  return customFetch<OrphanedFile[]>(getListOrphanedFilesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOrphanedFilesQueryKey = () => {
+  return [`/api/admin/orphaned-files`] as const;
+};
+
+export const getListOrphanedFilesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrphanedFiles>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOrphanedFiles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListOrphanedFilesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrphanedFiles>>
+  > = ({ signal }) => listOrphanedFiles({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrphanedFiles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrphanedFilesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrphanedFiles>>
+>;
+export type ListOrphanedFilesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List documents whose uploader/owner is a deleted user
+ */
+
+export function useListOrphanedFiles<
+  TData = Awaited<ReturnType<typeof listOrphanedFiles>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOrphanedFiles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrphanedFilesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Reassign an orphaned document to an active user
+ */
+export const getReassignOrphanedFileUrl = (documentId: string) => {
+  return `/api/admin/orphaned-files/${documentId}/reassign`;
+};
+
+export const reassignOrphanedFile = async (
+  documentId: string,
+  reassignOrphanedFileBody: ReassignOrphanedFileBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getReassignOrphanedFileUrl(documentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reassignOrphanedFileBody),
+  });
+};
+
+export const getReassignOrphanedFileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrphanedFile>>,
+    TError,
+    { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reassignOrphanedFile>>,
+  TError,
+  { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+  TContext
+> => {
+  const mutationKey = ["reassignOrphanedFile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reassignOrphanedFile>>,
+    { documentId: string; data: BodyType<ReassignOrphanedFileBody> }
+  > = (props) => {
+    const { documentId, data } = props ?? {};
+
+    return reassignOrphanedFile(documentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReassignOrphanedFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reassignOrphanedFile>>
+>;
+export type ReassignOrphanedFileMutationBody =
+  BodyType<ReassignOrphanedFileBody>;
+export type ReassignOrphanedFileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reassign an orphaned document to an active user
+ */
+export const useReassignOrphanedFile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrphanedFile>>,
+    TError,
+    { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reassignOrphanedFile>>,
+  TError,
+  { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+  TContext
+> => {
+  return useMutation(getReassignOrphanedFileMutationOptions(options));
+};
+
+/**
+ * @summary Soft-delete an orphaned document
+ */
+export const getDeleteOrphanedFileUrl = (documentId: string) => {
+  return `/api/admin/orphaned-files/${documentId}`;
+};
+
+export const deleteOrphanedFile = async (
+  documentId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteOrphanedFileUrl(documentId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteOrphanedFileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrphanedFile>>,
+    TError,
+    { documentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteOrphanedFile>>,
+  TError,
+  { documentId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteOrphanedFile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteOrphanedFile>>,
+    { documentId: string }
+  > = (props) => {
+    const { documentId } = props ?? {};
+
+    return deleteOrphanedFile(documentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteOrphanedFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteOrphanedFile>>
+>;
+
+export type DeleteOrphanedFileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Soft-delete an orphaned document
+ */
+export const useDeleteOrphanedFile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrphanedFile>>,
+    TError,
+    { documentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteOrphanedFile>>,
+  TError,
+  { documentId: string },
+  TContext
+> => {
+  return useMutation(getDeleteOrphanedFileMutationOptions(options));
 };
 
 /**
