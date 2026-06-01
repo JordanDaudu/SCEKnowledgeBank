@@ -31,6 +31,11 @@ import {
   isItemReady,
   type ItemMeta,
 } from "@/lib/upload-analysis";
+import {
+  saveDraft,
+  loadDraft,
+  type DraftItem,
+} from "@/lib/upload-draft-store";
 
 const MAX_UPLOAD_MB = Number(import.meta.env.VITE_MAX_UPLOAD_MB ?? 50);
 const MAX_FILE_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
@@ -113,20 +118,69 @@ export default function Upload() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analysisAbortsRef = useRef<Map<string, AbortController>>(new Map());
-
-  // Abort any in-flight analysis requests if the user navigates away.
-  useEffect(() => {
-    const aborts = analysisAbortsRef.current;
-    return () => {
-      for (const controller of aborts.values()) controller.abort();
-      aborts.clear();
-    };
-  }, []);
+  // Always-current snapshot of `items` for the unmount/pagehide save, whose
+  // effect closure would otherwise capture a stale `items` value.
+  const itemsRef = useRef<QueueItem[]>([]);
+  // Gate write-through until the initial restore attempt has finished, so the
+  // empty starting `items` can't clear a freshly-loaded draft.
+  const hydratedRef = useRef(false);
 
   const currentYear = useMemo(() => new Date().getFullYear().toString(), []);
   const [items, setItems] = useState<QueueItem[]>([]);
+  itemsRef.current = items;
+
+  // Restore a recent draft on mount (files + metadata survive reloads).
+  useEffect(() => {
+    let cancelled = false;
+    loadDraft()
+      .then((draft: DraftItem[] | null) => {
+        if (cancelled || !draft || draft.length === 0) return;
+        const restored: QueueItem[] = draft.map((d) => ({
+          ...d,
+          progress: 0,
+          analyzing: false,
+        }));
+        setItems(restored);
+        toast({
+          title: `Restored ${restored.length} file${restored.length === 1 ? "" : "s"} from your previous session.`,
+        });
+      })
+      .catch(() => {})
+      .finally(() => {
+        hydratedRef.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced write-through: the freshest queue is always persisted.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const t = setTimeout(() => {
+      void saveDraft(items);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [items]);
+
+  // Abort in-flight analysis AND save a final draft when leaving (SPA unmount
+  // or a hard reload/close via pagehide). itemsRef holds the latest queue.
+  useEffect(() => {
+    const aborts = analysisAbortsRef.current;
+    const onPageHide = () => {
+      void saveDraft(itemsRef.current);
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      for (const controller of aborts.values()) controller.abort();
+      aborts.clear();
+      void saveDraft(itemsRef.current);
+    };
+  }, []);
+
   const [isUploading, setIsUploading] = useState(false);
-  const [autoSubmitForReview, setAutoSubmitForReview] = useState(true);
 
   const { data: user } = useGetCurrentUser();
   const { data: allCourses } = useListCourses();
@@ -137,12 +191,8 @@ export default function Upload() {
   const isStudentUploader =
     !!user && !user.roles.includes("admin") && !user.roles.includes("lecturer");
 
-  const courses = useMemo(() => {
-    if (!allCourses) return undefined;
-    if (!isStudentUploader || !user) return allCourses;
-    const enrolledIds = new Set(user.enrollments.map((e) => e.courseId));
-    return allCourses.filter((c) => enrolledIds.has(c.id));
-  }, [allCourses, isStudentUploader, user]);
+  // SP4: uploads are open — any user may upload to any course.
+  const courses = allCourses;
 
   const updateItem = (id: string, patch: Partial<QueueItem>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -278,8 +328,6 @@ export default function Upload() {
         semester: item.semester || undefined,
         academicYear: item.academicYear || undefined,
         title: item.title.trim() || undefined,
-        autoSubmitForReview:
-          isStudentUploader && autoSubmitForReview ? "true" : undefined,
       };
       updateItem(item.id, { status: "uploading", progress: 0, error: undefined });
       const handle = uploadOne(item.file, fields, item.tagIds, (pct) =>
@@ -396,9 +444,10 @@ export default function Upload() {
         >
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <div className="flex-1">
-            <span className="font-medium">Student uploads require lecturer or admin approval before they appear publicly.</span>{" "}
+            <span className="font-medium">Student uploads require lecturer approval before they appear publicly.</span>{" "}
             <span className="text-muted-foreground">
-              You can only upload to courses you are enrolled in.
+              Pick the course to send it to its lecturers. Restricted file types
+              (zip, exe, …) also require admin approval.
             </span>
           </div>
         </div>
@@ -452,25 +501,6 @@ export default function Upload() {
                 onRetry={() => retryItem(item.id)}
               />
             ))}
-          </div>
-        )}
-
-        {isStudentUploader && items.length > 0 && (
-          <div className="flex items-start gap-2 rounded-md border bg-secondary/40 px-3 py-2" data-testid="upload-autosubmit-row">
-            <input
-              id="upload-autosubmit"
-              type="checkbox"
-              className="mt-1 h-4 w-4"
-              checked={autoSubmitForReview}
-              onChange={(e) => setAutoSubmitForReview(e.target.checked)}
-              data-testid="upload-autosubmit"
-            />
-            <label htmlFor="upload-autosubmit" className="text-sm flex-1 cursor-pointer">
-              <span className="font-medium">Submit for review immediately after upload</span>
-              <span className="block text-xs text-muted-foreground mt-0.5">
-                Recommended. Uncheck to keep documents as drafts and submit later.
-              </span>
-            </label>
           </div>
         )}
 

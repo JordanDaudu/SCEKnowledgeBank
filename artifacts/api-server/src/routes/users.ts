@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, requireRole } from "../middlewares/auth";
 import * as usersService from "../services/users.service";
 import * as authService from "../services/auth.service";
+import * as accountService from "../services/account.service";
 
 const router: IRouter = Router();
 
@@ -112,6 +113,35 @@ router.post(
     }
   },
 );
+
+// ─── Admin: deleted accounts (SP3) ─────────────────────────────────
+router.get("/admin/deleted-users", requireRole("admin"), async (_req, res, next) => {
+  try {
+    res.json(await accountService.listDeletedAccounts());
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/admin/users/:userId/restore", requireRole("admin"), async (req, res, next) => {
+  try {
+    const { userId } = AdminUserIdParam.parse(req.params);
+    await accountService.restoreAccount(req.authUser!, userId);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/admin/users/:userId/purge", requireRole("admin"), async (req, res, next) => {
+  try {
+    const { userId } = AdminUserIdParam.parse(req.params);
+    await accountService.purgeAccount(req.authUser!, userId);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Authenticated user search for the @mention picker. Returns a small,
 // capped list of active users matching by display name / email.

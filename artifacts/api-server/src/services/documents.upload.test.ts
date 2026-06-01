@@ -278,18 +278,15 @@ describe("uploadDocuments restricted/course guards", () => {
     );
   });
 
-  it("blocks a lecturer uploading restricted material to a course they do not teach", async () => {
-    canUploadToCourse.mockReturnValue(false);
+  it("SP4: a lecturer may upload to a course they do not teach (uploads are open)", async () => {
     courseExists.mockResolvedValue(true);
-    const badInput = { ...input([makeFile("a.pdf", "x")]) };
-    badInput.visibility = "restricted";
-    badInput.courseId = "c-not-mine";
+    const okInput = { ...input([makeFile("a.pdf", "x")]) };
+    okInput.visibility = "restricted";
+    okInput.courseId = "c-not-mine";
 
-    await expect(uploadDocuments(badInput, uploader)).rejects.toMatchObject({
-      status: 403,
-    });
-    expect(storagePut).not.toHaveBeenCalled();
-    expect(insertTx).not.toHaveBeenCalled();
+    const res = await uploadDocuments(okInput, uploader);
+    expect(res[0].success).toBe(true);
+    expect(insertTx).toHaveBeenCalled();
   });
 
   it("returns a clean 400 when courseId is well-formed but unknown", async () => {

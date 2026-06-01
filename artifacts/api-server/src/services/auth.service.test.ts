@@ -77,6 +77,8 @@ const baseRoleRow = {
   primaryRoleId: null,
   createdAt: new Date("2025-01-01T00:00:00Z"),
   roles: ["student"],
+  username: "tester",
+  avatarStoragePath: null,
 };
 
 beforeEach(() => {

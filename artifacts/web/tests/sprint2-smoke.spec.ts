@@ -197,7 +197,8 @@ test.describe("sprint 2 smoke", () => {
 test.describe("nav role-gating (C7)", () => {
   /**
    * The desktop nav (`aria-label="Main navigation"`) is the target.
-   * Collections is excluded for admins; Prep Hub is visible to all roles.
+   * Collections and Prep Hub are excluded for admins (they moderate, not
+   * study); both are visible to students and lecturers.
    */
   const desktopNav = (page: Page) =>
     page.getByRole("navigation", { name: "Main navigation" });
@@ -224,12 +225,12 @@ test.describe("nav role-gating (C7)", () => {
     ).toBeVisible();
   });
 
-  test("admin sees Prep Hub but NOT Collections in nav", async ({ page }) => {
+  test("admin sees neither Prep Hub nor Collections in nav", async ({ page }) => {
     await login(page, ADMIN_EMAIL);
     await page.goto("/");
     await expect(
       desktopNav(page).getByRole("link", { name: "Prep Hub" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       desktopNav(page).getByRole("link", { name: "Collections" }),
     ).toHaveCount(0);

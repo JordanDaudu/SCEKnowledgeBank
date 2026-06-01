@@ -24,8 +24,25 @@ export interface TagRow {
   createdAt: Date;
 }
 
-export async function listAllCourses(): Promise<CourseRow[]> {
-  return db.course.findMany({ orderBy: { code: "asc" } });
+export interface ListCoursesOptions {
+  q?: string;
+  limit?: number;
+}
+
+export async function listAllCourses(opts: ListCoursesOptions = {}): Promise<CourseRow[]> {
+  const q = opts.q?.trim();
+  return db.course.findMany({
+    where: q
+      ? {
+          OR: [
+            { code: { contains: q, mode: "insensitive" } },
+            { title: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : undefined,
+    orderBy: { code: "asc" },
+    take: opts.limit ?? undefined,
+  });
 }
 
 export async function listAllCategories(): Promise<CategoryRow[]> {

@@ -6,6 +6,9 @@ import * as taxonomyRepo from "../repositories/taxonomy.repo";
 import * as commentsRepo from "../repositories/comments.repo";
 import * as favoritesRepo from "../repositories/favorites.repo";
 import * as viewRepo from "../repositories/viewHistory.repo";
+import * as enrollmentsRepo from "../repositories/enrollments.repo";
+import * as usersRepo from "../repositories/users.repo";
+import { isRestrictedFilename } from "../lib/restricted-files";
 import * as usersService from "./users.service";
 import * as quotaService from "./quota.service";
 import * as taxonomyService from "./taxonomy.service";
@@ -161,7 +164,7 @@ export async function assembleDocuments(
     const uploader = uploadersMap.get(d.uploaderId) ?? {
       id: d.uploaderId,
       email: "",
-      displayName: "Unknown",
+      displayName: "Original uploader removed",
       roles: [],
       isActive: false,
       status: "ACTIVE",
@@ -658,11 +661,17 @@ export async function approveDocument(
       `Only documents in 'pending_review' can be approved (was '${doc.status}')`,
     );
   }
+  // SP4: a restricted-type file does not publish on lecturer approval —
+  // it advances to the admin-approval stage. Normal files publish.
+  const restricted = isRestrictedFilename(
+    (await docsRepo.findOriginalFilename(id)) ?? "",
+  );
+  const nextStatus = restricted ? "pending_admin_approval" : "approved";
   const affected = await docsRepo.updateDocumentByIdIfStatus(
     id,
     "pending_review",
     {
-      status: "approved",
+      status: nextStatus,
       reviewedBy: user.id,
       reviewedAt: new Date(),
       reviewReason: null,
@@ -672,12 +681,77 @@ export async function approveDocument(
   );
   if (affected === 0) {
     // Lost the race to another reviewer (or the uploader resubmitted).
-    // Surface as 400 rather than silently double-notify the uploader.
     throw badRequest("Document is no longer pending review");
   }
-  await auditService.record(user.id, "document.approve", "document", id);
-  // Fire-and-forget: notify swallows its own failures, but wrap in a
-  // .catch anyway so an awaitless rejection can't crash the process.
+  await auditService.record(user.id, "document.approve", "document", id, {
+    to: nextStatus,
+  });
+  if (restricted) {
+    const adminIds = await usersRepo.findAdminUserIds();
+    for (const adminId of adminIds) {
+      void Promise.resolve()
+        .then(() =>
+          notificationsService.notify({
+            recipientId: adminId,
+            actorId: user.id,
+            type: "document.admin_review_requested",
+            subjectType: "document",
+            subjectId: id,
+            body: `Restricted file "${doc.title}" awaiting admin approval.`,
+            url: "/admin/approvals",
+          }),
+        )
+        .catch(() => {});
+    }
+  } else {
+    void Promise.resolve()
+      .then(() =>
+        notificationsService.notify({
+          recipientId: doc.uploaderId,
+          actorId: user.id,
+          type: "document.approved",
+          subjectType: "document",
+          subjectId: id,
+          body: `Your document "${doc.title}" was approved.`,
+          url: `/documents/${id}`,
+        }),
+      )
+      .catch(() => {});
+  }
+  const updated = await docsRepo.findByIdAlive(id);
+  if (!updated) throw notFound("Document not found");
+  const [assembled] = await assembleDocuments([updated], user);
+  return assembled;
+}
+
+export async function adminApproveDocument(
+  id: string,
+  user: AuthenticatedUser,
+): Promise<DocumentDTO> {
+  if (!permissions.isAdmin(user)) {
+    throw forbidden("Only admins can approve restricted files");
+  }
+  const doc = await docsRepo.findByIdAlive(id);
+  if (!doc) throw notFound("Document not found");
+  if (doc.status !== "pending_admin_approval") {
+    throw badRequest(
+      `Only documents in 'pending_admin_approval' can be admin-approved (was '${doc.status}')`,
+    );
+  }
+  const affected = await docsRepo.updateDocumentByIdIfStatus(
+    id,
+    "pending_admin_approval",
+    {
+      status: "approved",
+      reviewedBy: user.id,
+      reviewedAt: new Date(),
+      reviewReason: null,
+      updatedAt: new Date(),
+      updatedBy: user.id,
+    },
+  );
+  if (affected === 0) throw badRequest("Document is no longer pending admin approval");
+  await auditService.record(user.id, "document.admin_approve", "document", id);
   void Promise.resolve()
     .then(() =>
       notificationsService.notify({
@@ -712,17 +786,21 @@ export async function rejectDocument(
   }
   const doc = await docsRepo.findByIdAlive(id);
   if (!doc) throw notFound("Document not found");
-  if (!permissions.canReview(doc, user)) {
-    throw forbidden("Cannot review this document");
-  }
-  if (doc.status !== "pending_review") {
+  // SP4: reject works at both review stages. Lecturers (or admins) reject
+  // from pending_review; only admins reject from pending_admin_approval.
+  if (doc.status === "pending_review") {
+    if (!permissions.canReview(doc, user)) throw forbidden("Cannot review this document");
+  } else if (doc.status === "pending_admin_approval") {
+    if (!permissions.isAdmin(user)) throw forbidden("Only admins can reject at admin approval");
+  } else {
     throw badRequest(
-      `Only documents in 'pending_review' can be rejected (was '${doc.status}')`,
+      `Only documents in review can be rejected (was '${doc.status}')`,
     );
   }
+  const fromStatus = doc.status;
   const affected = await docsRepo.updateDocumentByIdIfStatus(
     id,
-    "pending_review",
+    fromStatus,
     {
       status: "rejected",
       reviewedBy: user.id,
@@ -733,9 +811,14 @@ export async function rejectDocument(
     },
   );
   if (affected === 0) {
-    throw badRequest("Document is no longer pending review");
+    throw badRequest("Document is no longer awaiting review");
   }
-  await auditService.record(user.id, "document.reject", "document", id);
+  await auditService.record(
+    user.id,
+    fromStatus === "pending_admin_approval" ? "document.admin_reject" : "document.reject",
+    "document",
+    id,
+  );
   void Promise.resolve()
     .then(() =>
       notificationsService.notify({
@@ -780,6 +863,21 @@ export async function listPendingReview(
   const [total, rows] = await Promise.all([
     docsRepo.countPendingReview(filter),
     docsRepo.listPendingReview(filter, opts),
+  ]);
+  const items = await assembleDocuments(rows, user);
+  return { items, total, page: opts.page, pageSize: opts.pageSize };
+}
+
+export async function listPendingAdminApproval(
+  user: AuthenticatedUser,
+  opts: { page: number; pageSize: number },
+): Promise<ListPendingReviewResult> {
+  if (!permissions.isAdmin(user)) {
+    throw forbidden("Only admins can access the admin approval queue");
+  }
+  const [total, rows] = await Promise.all([
+    docsRepo.countPendingAdminApproval(),
+    docsRepo.listPendingAdminApproval(opts),
   ]);
   const items = await assembleDocuments(rows, user);
   return { items, total, page: opts.page, pageSize: opts.pageSize };
@@ -848,33 +946,17 @@ export async function uploadDocuments(
   // can never reach `published` directly — the review workflow is
   // the only publish path open to them. We enforce both before the
   // generic course-permission check so the error messages are clear.
+  // Uploads are open (SP4): any authenticated user may upload to any
+  // course. Students still must target a course so the review router can
+  // find lecturer reviewers. Status is decided per-file below (by role ×
+  // restricted-type), so we no longer force a single status here.
   const isStudent =
     !permissions.isAdmin(user) &&
     !user.roles.includes("lecturer") &&
     user.roles.includes("student");
-  if (isStudent) {
-    if (!input.courseId) {
-      throw badRequest(
-        "Students must select a course they are enrolled in to upload.",
-      );
-    }
-    // Force-draft regardless of client-supplied status; the M2 review
-    // workflow is the only publish path open to students.
-    input.status = "draft";
-  }
-
-  // Authoritative course-aware upload check — keeps internal callers
-  // (not just the HTTP route) honest. Lecturers may only upload into
-  // courses they actually teach; admins may upload anywhere; students
-  // only into courses they're enrolled in (re-verified here even when
-  // the route already checked, so non-HTTP callers are safe too).
-  if (!permissions.canUploadToCourse(user, input.courseId ?? null)) {
-    throw forbidden(
-      isStudent
-        ? "You can only upload to courses you are enrolled in"
-        : input.courseId
-          ? "You can only upload to courses you teach"
-          : "Only admins or lecturers with at least one taught course may upload",
+  if (isStudent && !input.courseId) {
+    throw badRequest(
+      "Please select a course for your upload so it can be reviewed.",
     );
   }
 
@@ -924,7 +1006,12 @@ export async function uploadDocuments(
 
   for (const file of input.files) {
     try {
+      const restricted = isRestrictedFilename(file.originalname);
+      // Restricted extensions are allowed-but-gated (they route to admin
+      // approval), so they bypass the MIME allowlist. Everything else must
+      // be an allowlisted MIME type.
       if (
+        !restricted &&
         env.allowedMimeTypes.length > 0 &&
         !env.allowedMimeTypes.includes(file.mimetype)
       ) {
@@ -936,7 +1023,10 @@ export async function uploadDocuments(
         });
         continue;
       }
-      if (!mimeMatchesContent(file.mimetype, file.buffer)) {
+      // Restricted (allowed-but-gated) types skip content-sniffing too —
+      // the sniffer only knows the normal allowlisted signatures and would
+      // otherwise reject every archive/binary.
+      if (!restricted && !mimeMatchesContent(file.mimetype, file.buffer)) {
         results.push({
           originalFilename: file.originalname,
           success: false,
@@ -1040,7 +1130,13 @@ export async function uploadDocuments(
         description: input.description,
         materialType: input.materialType,
         visibility: input.visibility,
-        status: input.status ?? "published",
+        // SP4 routing: students → lecturer review; lecturer restricted → admin
+        // approval; everything else (lecturer normal, admin) → published.
+        status: isStudent
+          ? "pending_review"
+          : restricted && !permissions.isAdmin(user)
+            ? "pending_admin_approval"
+            : "published",
         uploaderId: user.id,
         ownerId: user.id,
         createdBy: user.id,
@@ -1104,6 +1200,35 @@ export async function uploadDocuments(
         success: true,
         document: assembled[0],
       });
+
+      // SP4 approval-routing notifications (best-effort).
+      if (insertedDoc.status === "pending_review" && insertedDoc.courseId) {
+        const lecturerIds = await enrollmentsRepo.findCourseLecturerIds(insertedDoc.courseId);
+        for (const lecturerId of lecturerIds) {
+          await notificationsService.notify({
+            recipientId: lecturerId,
+            actorId: user.id,
+            type: "document.review_requested",
+            subjectType: "document",
+            subjectId: insertedDoc.id,
+            body: `New upload "${insertedDoc.title}" awaiting your review.`,
+            url: "/review-queue",
+          });
+        }
+      } else if (insertedDoc.status === "pending_admin_approval") {
+        const adminIds = await usersRepo.findAdminUserIds();
+        for (const adminId of adminIds) {
+          await notificationsService.notify({
+            recipientId: adminId,
+            actorId: user.id,
+            type: "document.admin_review_requested",
+            subjectType: "document",
+            subjectId: insertedDoc.id,
+            body: `Restricted file "${insertedDoc.title}" awaiting admin approval.`,
+            url: "/admin/approvals",
+          });
+        }
+      }
 
       // US-60: best-effort, non-destructive — notify authors of open requests
       // in this course that a possibly-matching document was uploaded. Dynamic

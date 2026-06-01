@@ -119,6 +119,192 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
 
+  /me/username-available:
+    get:
+      operationId: checkUsernameAvailability
+      tags: [profile]
+      summary: Check whether a username is available for the current user
+      parameters:
+        - { in: query, name: username, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Availability
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                properties:
+                  available: { type: boolean }
+                  reason: { type: string, enum: [invalid, reserved, taken] }
+  /me/profile:
+    patch:
+      operationId: updateMyProfile
+      tags: [profile]
+      summary: Update the current user's editable profile fields (username)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
+      responses:
+        "200":
+          description: Updated current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+  /me:
+    delete:
+      operationId: deleteMyAccount
+      tags: [profile]
+      summary: Soft-delete the current user's own account
+      responses:
+        "204": { description: Account deleted }
+  /admin/deleted-users:
+    get:
+      operationId: listDeletedAccounts
+      tags: [admin]
+      summary: List soft-deleted accounts
+      responses:
+        "200":
+          description: Deleted accounts
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/DeletedAccount" } }
+  /admin/users/{userId}/restore:
+    parameters:
+      - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: restoreAccount
+      tags: [admin]
+      summary: Restore a soft-deleted account
+      responses:
+        "204": { description: Restored }
+  /admin/users/{userId}/purge:
+    parameters:
+      - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: purgeAccount
+      tags: [admin]
+      summary: Permanently anonymize a deleted account (eligible after 30 days)
+      responses:
+        "204": { description: Purged }
+  /admin/orphaned-files:
+    get:
+      operationId: listOrphanedFiles
+      tags: [admin]
+      summary: List documents whose uploader/owner is a deleted user
+      responses:
+        "200":
+          description: Orphaned files
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/OrphanedFile" } }
+  /admin/orphaned-files/{documentId}/reassign:
+    parameters:
+      - { in: path, name: documentId, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: reassignOrphanedFile
+      tags: [admin]
+      summary: Reassign an orphaned document to an active user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newOwnerId]
+              properties:
+                newOwnerId: { type: string, format: uuid }
+      responses:
+        "204": { description: Reassigned }
+  /admin/orphaned-files/{documentId}:
+    parameters:
+      - { in: path, name: documentId, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: deleteOrphanedFile
+      tags: [admin]
+      summary: Soft-delete an orphaned document
+      responses:
+        "204": { description: Deleted }
+  /me/courses:
+    get:
+      operationId: listMyCourses
+      tags: [profile]
+      summary: List the current user's course memberships
+      responses:
+        "200":
+          description: Courses
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/MyCourse" } }
+    post:
+      operationId: addMyCourse
+      tags: [profile]
+      summary: Add the current user to a course (role derived from their global role)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId]
+              properties:
+                courseId: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Updated course list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/MyCourse" } }
+  /me/courses/{courseId}:
+    parameters:
+      - { in: path, name: courseId, required: true, schema: { type: string, format: uuid } }
+    delete:
+      operationId: removeMyCourse
+      tags: [profile]
+      summary: Remove the current user from a course
+      responses:
+        "200":
+          description: Updated course list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/MyCourse" } }
+  /me/avatar:
+    put:
+      operationId: uploadMyAvatar
+      tags: [profile]
+      summary: Upload or replace the current user's avatar
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Updated current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+    delete:
+      operationId: removeMyAvatar
+      tags: [profile]
+      summary: Remove the current user's avatar
+      responses:
+        "200":
+          description: Updated current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentUser" }
+
   /documents:
     get:
       operationId: listDocuments
@@ -772,6 +958,10 @@ paths:
     get:
       operationId: listCourses
       tags: [taxonomy]
+      summary: List courses (optional case-insensitive search by code/title)
+      parameters:
+        - { in: query, name: q, required: false, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - { in: query, name: limit, required: false, schema: { type: integer, minimum: 1, maximum: 50 } }
       responses:
         "200":
           description: Courses
@@ -1002,6 +1192,34 @@ paths:
         "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
         "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
         "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /documents/pending-admin-approval:
+    get:
+      operationId: listPendingAdminApprovalDocuments
+      tags: [documents]
+      summary: Admin approval queue — restricted-type docs awaiting admin sign-off
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Pending admin-approval page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentPage" }
+  /documents/{id}/admin-approve:
+    post:
+      operationId: adminApproveDocument
+      tags: [documents]
+      summary: Admin-approve a document in 'pending_admin_approval'
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
 
   /notifications:
     get:
@@ -1287,6 +1505,17 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
+  /prep-hub/followed:
+    get:
+      operationId: listFollowedCollections
+      tags: [prep-hub]
+      summary: Public/official collections the current user follows
+      responses:
+        "200":
+          description: Collections
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/StudyCollectionSummary" } }
   /prep-hub/collections/{id}:
     parameters:
       - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -1563,13 +1792,46 @@ components:
         email: { type: string, minLength: 1 }
         password: { type: string, minLength: 1 }
 
+    MyCourse:
+      type: object
+      required: [id, code, title, lecturerName, roleInCourse]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        title: { type: string }
+        lecturerName: { type: string }
+        roleInCourse: { type: string, enum: [student, lecturer] }
+    DeletedAccount:
+      type: object
+      required: [id, email, displayName, roles, deletedAt, anonymizedAt, fileCount, eligibleForPurge]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+        roles: { type: array, items: { type: string } }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        anonymizedAt: { type: string, format: date-time, nullable: true }
+        fileCount: { type: integer }
+        eligibleForPurge: { type: boolean }
+    OrphanedFile:
+      type: object
+      required: [id, title, materialType, courseCode, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        materialType: { type: string }
+        courseCode: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
     CurrentUser:
       type: object
-      required: [id, email, displayName, roles, primaryRole, enrollments]
+      required: [id, email, displayName, username, avatarUrl, createdAt, roles, primaryRole, enrollments]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
         displayName: { type: string }
+        username: { type: string, nullable: true }
+        avatarUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
         primaryRole: { type: string }
         roles:
           type: array

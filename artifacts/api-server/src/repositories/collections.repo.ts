@@ -516,6 +516,39 @@ export async function recommendCollections(opts: {
   return rows.map(({ _count, ...r }) => ({ ...r, itemCount: _count.items }));
 }
 
+/** Public/official collections the user follows, ordered newest-followed
+ *  first. Drops any that were since made private, hidden, or soft-deleted
+ *  (filtered at the DB level, then reordered to match follow recency). */
+export async function listFollowedCollections(
+  userId: string,
+): Promise<Array<CollectionRow & { itemCount: number }>> {
+  const follows = await db.studyCollectionFollower.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: { collectionId: true },
+  });
+  const ids = follows.map((f) => f.collectionId);
+  if (ids.length === 0) return [];
+  const rows = await db.studyCollection.findMany({
+    where: {
+      id: { in: ids },
+      deletedAt: null,
+      hiddenAt: null,
+      OR: [{ visibility: "public" }, { isOfficial: true }],
+    },
+    include: { _count: { select: { items: true } } },
+  });
+  const byId = new Map(
+    rows.map((r) => {
+      const { _count, ...rest } = r;
+      return [r.id, { ...rest, itemCount: _count.items } as CollectionRow & { itemCount: number }];
+    }),
+  );
+  return ids
+    .map((id) => byId.get(id))
+    .filter((r): r is CollectionRow & { itemCount: number } => !!r);
+}
+
 // ─── Tags (Phase 1 metadata) ──────────────────────────────────────
 
 /** Replace-set a collection's tags to exactly `tagIds`. */

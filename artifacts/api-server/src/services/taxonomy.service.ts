@@ -19,8 +19,10 @@ export interface TagDTO {
   name: string;
 }
 
-export async function listCourses(): Promise<CourseDTO[]> {
-  const rows = await taxonomyRepo.listAllCourses();
+export async function listCourses(
+  opts: { q?: string; limit?: number } = {},
+): Promise<CourseDTO[]> {
+  const rows = await taxonomyRepo.listAllCourses(opts);
   return rows.map((r) => ({
     id: r.id,
     code: r.code,

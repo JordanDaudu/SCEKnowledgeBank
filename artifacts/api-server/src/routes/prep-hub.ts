@@ -58,6 +58,14 @@ router.get("/prep-hub/recommended", requireAuth, async (req, res, next) => {
   }
 });
 
+router.get("/prep-hub/followed", requireAuth, async (req, res, next) => {
+  try {
+    res.json(await prepHubService.listFollowed(req.authUser!));
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/prep-hub/collections/:id", requireAuth, async (req, res, next) => {
   try {
     const { id } = IdParams.parse(req.params);

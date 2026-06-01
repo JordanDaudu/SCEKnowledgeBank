@@ -16,7 +16,12 @@ vi.mock("../repositories/documents.repo", () => ({
 }));
 vi.mock("../repositories/users.repo", () => ({
   findQuotaById: vi.fn().mockResolvedValue({ usedBytes: 0n, quotaBytes: 1_000_000n }),
+  findAdminUserIds: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("../repositories/enrollments.repo", () => ({
+  findCourseLecturerIds: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("./notifications.service", () => ({ notify: vi.fn() }));
 vi.mock("./users.service", async () => {
   const actual = await vi.importActual<typeof import("./users.service")>(
     "./users.service",
@@ -70,6 +75,9 @@ const enrolledStudent: AuthenticatedUser = {
   primaryRole: "student",
   roles: ["student"],
   enrollments: [{ courseId: "c-enrolled", roleInCourse: "student" }],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 const unenrolledStudent: AuthenticatedUser = {
@@ -80,6 +88,9 @@ const unenrolledStudent: AuthenticatedUser = {
   primaryRole: "student",
   roles: ["student"],
   enrollments: [],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 const lecturer: AuthenticatedUser = {
@@ -90,6 +101,9 @@ const lecturer: AuthenticatedUser = {
   primaryRole: "lecturer",
   roles: ["lecturer"],
   enrollments: [{ courseId: "c-mine", roleInCourse: "lecturer" }],
+  username: null,
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 } as AuthenticatedUser;
 
 function makeFile(name: string, body: string, mimetype = "application/pdf") {
@@ -139,17 +153,15 @@ beforeEach(() => {
   }) as never);
 });
 
-describe("uploadDocuments — student-upload gating", () => {
-  it("enrolled student uploading to their course succeeds and lands as draft", async () => {
+describe("uploadDocuments — SP4 open uploads + approval routing", () => {
+  it("student upload lands in pending_review (auto-submitted to lecturer review)", async () => {
     const res = await uploadDocuments(baseInput(), enrolledStudent);
     expect(res).toHaveLength(1);
     expect(res[0].success).toBe(true);
-    // The forced status is the headline guarantee: students never
-    // direct-publish, even when the route would accept "published".
     expect(insertTx).toHaveBeenCalledWith(
       expect.objectContaining({
         documentValues: expect.objectContaining({
-          status: "draft",
+          status: "pending_review",
           uploaderId: "stu1",
           courseId: "c-enrolled",
         }),
@@ -157,64 +169,49 @@ describe("uploadDocuments — student-upload gating", () => {
     );
   });
 
-  it("client-supplied status=published is ignored for students (forced to draft)", async () => {
+  it("student can upload to a course they are NOT enrolled in (uploads are open)", async () => {
     const res = await uploadDocuments(
-      baseInput({ status: "published" } as never),
-      enrolledStudent,
+      baseInput({ courseId: "c-other" }),
+      unenrolledStudent,
     );
     expect(res[0].success).toBe(true);
     expect(insertTx).toHaveBeenCalledWith(
       expect.objectContaining({
-        documentValues: expect.objectContaining({ status: "draft" }),
+        documentValues: expect.objectContaining({ status: "pending_review" }),
       }),
     );
   });
 
-  it("student uploading to a course they are NOT enrolled in is rejected with 403", async () => {
+  it("student upload without courseId is rejected with 400 (need a course to route to)", async () => {
     await expect(
-      uploadDocuments(baseInput({ courseId: "c-other" }), enrolledStudent),
-    ).rejects.toMatchObject({
-      status: 403,
-      message: expect.stringContaining("enrolled"),
-    });
+      uploadDocuments(baseInput({ courseId: undefined } as never), enrolledStudent),
+    ).rejects.toMatchObject({ status: 400, message: expect.stringContaining("course") });
     expect(storagePut).not.toHaveBeenCalled();
     expect(insertTx).not.toHaveBeenCalled();
   });
 
-  it("student upload without courseId is rejected with 400 (explicit error)", async () => {
-    await expect(
-      uploadDocuments(
-        baseInput({ courseId: undefined } as never),
-        enrolledStudent,
-      ),
-    ).rejects.toMatchObject({
-      status: 400,
-      message: expect.stringContaining("course"),
-    });
-    expect(storagePut).not.toHaveBeenCalled();
-    expect(insertTx).not.toHaveBeenCalled();
+  it("lecturer normal upload publishes directly", async () => {
+    const res = await uploadDocuments(baseInput({ courseId: "c-mine" }), lecturer);
+    expect(res[0].success).toBe(true);
+    expect(insertTx.mock.calls[0][0].documentValues.status).toBe("published");
   });
 
-  it("student with zero enrollments cannot upload anywhere", async () => {
-    // Even with a real courseId in hand — the per-course check fails
-    // because the user is enrolled in NO courses at all.
-    await expect(
-      uploadDocuments(
-        baseInput({ courseId: "c-enrolled" }),
-        unenrolledStudent,
-      ),
-    ).rejects.toMatchObject({ status: 403 });
-    expect(insertTx).not.toHaveBeenCalled();
+  it("lecturer restricted-type upload goes to pending_admin_approval", async () => {
+    const res = await uploadDocuments(
+      baseInput({ files: [makeFile("bundle.zip", "data", "application/zip")] }),
+      lecturer,
+    );
+    expect(res[0].success).toBe(true);
+    expect(insertTx.mock.calls[0][0].documentValues.status).toBe("pending_admin_approval");
   });
 
-  it("student uploads do not write to storage when the course gate fails", async () => {
-    await expect(
-      uploadDocuments(baseInput({ courseId: "c-other" }), enrolledStudent),
-    ).rejects.toMatchObject({ status: 403 });
-    expect(storagePut).not.toHaveBeenCalled();
+  it("lecturer can upload to a course they don't teach (uploads are open)", async () => {
+    const res = await uploadDocuments(baseInput({ courseId: "c-not-mine" }), lecturer);
+    expect(res[0].success).toBe(true);
+    expect(insertTx.mock.calls[0][0].documentValues.status).toBe("published");
   });
 
-  it("student-supplied visibility=restricted is honoured (gate is enrollment, not role)", async () => {
+  it("student visibility=restricted is honoured (status still pending_review)", async () => {
     const res = await uploadDocuments(
       baseInput({ visibility: "restricted" }),
       enrolledStudent,
@@ -224,47 +221,8 @@ describe("uploadDocuments — student-upload gating", () => {
       expect.objectContaining({
         documentValues: expect.objectContaining({
           visibility: "restricted",
-          status: "draft",
+          status: "pending_review",
         }),
-      }),
-    );
-  });
-
-  it("lecturer upload is NOT forced to draft (legacy publish path preserved)", async () => {
-    // Default `status` is undefined; the service should leave it
-    // alone for non-students. The repo insert receives whatever the
-    // service decided (undefined → repo default).
-    const res = await uploadDocuments(
-      baseInput({ courseId: "c-mine" }),
-      lecturer,
-    );
-    expect(res[0].success).toBe(true);
-    const call = insertTx.mock.calls[0][0];
-    // Critical assertion: NOT force-set to "draft".
-    expect(call.documentValues.status).not.toBe("draft");
-  });
-
-  it("lecturer uploading to a course they don't teach is rejected with 403", async () => {
-    await expect(
-      uploadDocuments(baseInput({ courseId: "c-not-mine" }), lecturer),
-    ).rejects.toMatchObject({ status: 403 });
-    expect(insertTx).not.toHaveBeenCalled();
-  });
-
-  it("autoSubmitForReview flag is accepted on UploadInput without changing the upload-level status", async () => {
-    // The actual submit-for-review side effect lives in the HTTP
-    // route (it iterates UploadResultEntry and calls submitForReview
-    // per drafted doc). At the service layer the flag must NOT alter
-    // the persisted status — that stays "draft" so the route's later
-    // submitForReview call sees the correct precondition.
-    const res = await uploadDocuments(
-      baseInput({ autoSubmitForReview: true } as never),
-      enrolledStudent,
-    );
-    expect(res[0].success).toBe(true);
-    expect(insertTx).toHaveBeenCalledWith(
-      expect.objectContaining({
-        documentValues: expect.objectContaining({ status: "draft" }),
       }),
     );
   });

@@ -432,6 +432,50 @@ const checks: Check[] = [
     },
   },
   {
+    name: "demo: >=10 public Prep Hub collections with items + engagement",
+    run: async () => {
+      // Public, discoverable collections owned by the demo lecturers/students.
+      const owners = await db.user.findMany({
+        where: {
+          email: {
+            in: [
+              "maya.cohen@knowledgebank.demo",
+              "daniel.levi@knowledgebank.demo",
+              "noa.student@knowledgebank.demo",
+              "amir.student@knowledgebank.demo",
+              "yael.student@knowledgebank.demo",
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      const ownerIds = owners.map((u) => u.id);
+      const cols = await db.studyCollection.findMany({
+        where: { ownerId: { in: ownerIds }, visibility: "public", deletedAt: null },
+        select: {
+          id: true,
+          examDate: true,
+          ratingCount: true,
+          viewCount: true,
+          followerCount: true,
+          _count: { select: { items: true } },
+        },
+      });
+      if (cols.length < 10) return `only ${cols.length} public collections`;
+      // Every collection must have at least one item (an empty collection
+      // never surfaces meaningfully in discovery).
+      const empty = cols.filter((c) => c._count.items === 0).length;
+      if (empty > 0) return `${empty} public collection(s) have no items`;
+      // At least one collection per discovery dimension so the lanes populate.
+      if (!cols.some((c) => c.examDate && c.examDate > new Date()))
+        return "no collection with a future exam date (Upcoming Exams lane)";
+      if (!cols.some((c) => c.ratingCount > 0)) return "no rated collection (Highest Rated lane)";
+      if (!cols.some((c) => c.viewCount > 0)) return "no viewed collection (Most Viewed lane)";
+      if (!cols.some((c) => c.followerCount > 0)) return "no followed collection (Popular lane)";
+      return true;
+    },
+  },
+  {
     name: "demo: 14 permissions seeded",
     run: async () => {
       const allKeys = [

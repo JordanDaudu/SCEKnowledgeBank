@@ -14,7 +14,7 @@ The `status` field in `ensureRequest` must be widened to include all valid trans
 `DocSpec` interface has optional `status?` and `reviewReason?`. Both must be passed to `db.document.create` in `ensureDocument`. The `else` branch converges status+reviewReason on re-runs so the seed is idempotent.
 
 ## Verify check count
-As of Sprint-3 completion: **22 checks** in seed-demo.verify.ts. When adding new checks, update:
+As of the Prep Hub collection-seed work: **23 checks** in seed-demo.verify.ts (was 22 at Sprint-3 completion; +1 for the public Prep Hub collections check). When adding new checks, update:
 1. The verify script itself.
 2. The `replit.md` seed:demo:verify description line.
 3. The regression baselines table in replit.md.

@@ -112,6 +112,8 @@ export async function listByStatusWithRoles(
       primaryRoleId: true,
       createdAt: true,
       status: true,
+      username: true,
+      avatarStoragePath: true,
       userRoles: { select: { role: { select: { name: true } } } },
     },
   });
@@ -123,6 +125,8 @@ export async function listByStatusWithRoles(
     primaryRoleId: r.primaryRoleId,
     createdAt: r.createdAt,
     status: r.status as AccountStatus,
+    username: r.username,
+    avatarStoragePath: r.avatarStoragePath,
     roles: Array.from(new Set(r.userRoles.map((ur) => ur.role.name))),
   }));
 }
@@ -149,6 +153,8 @@ export interface UserWithRoles {
   createdAt: Date;
   roles: string[];
   status?: AccountStatus;
+  username: string | null;
+  avatarStoragePath: string | null;
 }
 
 export async function findManyWithRolesByIds(
@@ -166,6 +172,8 @@ export async function findManyWithRolesByIds(
       primaryRoleId: true,
       createdAt: true,
       status: true,
+      username: true,
+      avatarStoragePath: true,
       userRoles: { select: { role: { select: { name: true } } } },
     },
   });
@@ -177,6 +185,8 @@ export async function findManyWithRolesByIds(
     primaryRoleId: r.primaryRoleId,
     createdAt: r.createdAt,
     status: r.status as AccountStatus,
+    username: r.username,
+    avatarStoragePath: r.avatarStoragePath,
     roles: Array.from(new Set(r.userRoles.map((ur) => ur.role.name))),
   }));
 }
@@ -211,6 +221,8 @@ export async function searchByQuery(
       isActive: true,
       primaryRoleId: true,
       createdAt: true,
+      username: true,
+      avatarStoragePath: true,
       userRoles: { select: { role: { select: { name: true } } } },
     },
   });
@@ -221,6 +233,8 @@ export async function searchByQuery(
     isActive: r.isActive,
     primaryRoleId: r.primaryRoleId,
     createdAt: r.createdAt,
+    username: r.username,
+    avatarStoragePath: r.avatarStoragePath,
     roles: Array.from(new Set(r.userRoles.map((ur) => ur.role.name))),
   }));
 }
@@ -285,4 +299,120 @@ export async function findRoleNameById(id: string): Promise<string | null> {
     select: { name: true },
   });
   return row?.name ?? null;
+}
+
+// ─── Profile foundation: username + avatar ────────────────────────────
+
+export async function findByUsername(
+  username: string,
+): Promise<{ id: string } | null> {
+  return db.user.findFirst({
+    where: { username, deletedAt: null },
+    select: { id: true },
+  });
+}
+
+export async function updateUsername(id: string, username: string): Promise<void> {
+  await db.user.update({
+    where: { id },
+    data: { username, updatedAt: new Date() },
+  });
+}
+
+export async function updateAvatar(
+  id: string,
+  storagePath: string | null,
+  mimeType: string | null,
+): Promise<void> {
+  await db.user.update({
+    where: { id },
+    data: {
+      avatarStoragePath: storagePath,
+      avatarMimeType: mimeType,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+export async function findAvatarById(
+  id: string,
+): Promise<{ avatarStoragePath: string | null; avatarMimeType: string | null } | null> {
+  return db.user.findFirst({
+    where: { id, deletedAt: null },
+    select: { avatarStoragePath: true, avatarMimeType: true },
+  });
+}
+
+// ─── Account deletion (SP3) ───────────────────────────────────────
+
+export async function findAdminUserIds(): Promise<string[]> {
+  const rows = await db.user.findMany({
+    where: { deletedAt: null, userRoles: { some: { role: { name: "admin" } } } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
+export interface DeletedUserRow {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: Date;
+  deletedAt: Date | null;
+  anonymizedAt: Date | null;
+  roles: string[];
+}
+
+export async function listDeletedWithRoles(): Promise<DeletedUserRow[]> {
+  const rows = await db.user.findMany({
+    where: { deletedAt: { not: null } },
+    orderBy: { deletedAt: "desc" },
+    select: {
+      id: true, email: true, displayName: true, createdAt: true,
+      deletedAt: true, anonymizedAt: true,
+      userRoles: { select: { role: { select: { name: true } } } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id, email: r.email, displayName: r.displayName, createdAt: r.createdAt,
+    deletedAt: r.deletedAt, anonymizedAt: r.anonymizedAt,
+    roles: Array.from(new Set(r.userRoles.map((ur) => ur.role.name))),
+  }));
+}
+
+export async function findLifecycleById(
+  id: string,
+): Promise<{ id: string; deletedAt: Date | null; anonymizedAt: Date | null } | null> {
+  return db.user.findUnique({
+    where: { id },
+    select: { id: true, deletedAt: true, anonymizedAt: true },
+  });
+}
+
+export async function softDeleteUser(id: string): Promise<void> {
+  await db.user.update({ where: { id }, data: { deletedAt: new Date(), updatedAt: new Date() } });
+}
+
+export async function restoreUser(id: string): Promise<void> {
+  await db.user.update({ where: { id }, data: { deletedAt: null, updatedAt: new Date() } });
+}
+
+export async function anonymizeUser(
+  id: string,
+  scrub: { email: string; passwordHash: string },
+): Promise<void> {
+  await db.user.update({
+    where: { id },
+    data: {
+      email: scrub.email,
+      username: null,
+      displayName: "Removed user",
+      passwordHash: scrub.passwordHash,
+      avatarStoragePath: null,
+      avatarMimeType: null,
+      status: "DISABLED",
+      anonymizedAt: new Date(),
+      updatedAt: new Date(),
+    },
+  });
 }

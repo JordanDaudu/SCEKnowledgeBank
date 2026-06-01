@@ -4,6 +4,8 @@ import {
   useListMyCollections,
   getListMyCollectionsQueryKey,
   useCreateCollection,
+  useListFollowedCollections,
+  getListFollowedCollectionsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -157,6 +159,9 @@ export default function Collections() {
   const { data: collections, isLoading } = useListMyCollections({
     query: { queryKey: getListMyCollectionsQueryKey(), staleTime: 15_000 },
   });
+  const { data: followed, isLoading: followedLoading } = useListFollowedCollections({
+    query: { queryKey: getListFollowedCollectionsQueryKey(), staleTime: 15_000 },
+  });
 
   return (
     <div className="space-y-8">
@@ -199,6 +204,34 @@ export default function Collections() {
             <FolderOpen className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
             <p className="text-muted-foreground">
               No collections yet. Create one to start organizing your study materials.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section aria-label="Followed collections">
+        <h2 className="mb-3 font-serif text-xl font-bold text-foreground">
+          Followed collections
+        </h2>
+        {followedLoading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full" />
+            ))}
+          </div>
+        ) : followed && followed.length > 0 ? (
+          <CollectionGrid
+            collections={followed}
+            basePath="/prep-hub"
+            testid="followed-collections-grid"
+          />
+        ) : (
+          <div
+            className="rounded-xl border border-dashed bg-card py-12 text-center"
+            data-testid="followed-collections-empty"
+          >
+            <p className="text-sm text-muted-foreground">
+              Collections you follow in Prep Hub appear here.
             </p>
           </div>
         )}

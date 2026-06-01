@@ -82,6 +82,9 @@ const user: AuthenticatedUser = {
   primaryRole: "student",
   roles: ["student"],
   enrollments: [],
+  username: "u1",
+  avatarStoragePath: null,
+  createdAt: "2025-01-01T00:00:00.000Z",
 };
 const admin: AuthenticatedUser = { ...user, id: "admin", roles: ["admin"] };
 

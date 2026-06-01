@@ -298,13 +298,13 @@ describe("permissions.canUpload", () => {
     expect(permissions.canUpload(studentEnrolledA)).toBe(true);
   });
 
-  it("students with zero enrollments still cannot upload (no legal target)", () => {
+  it("SP4: any authenticated user may upload (even a student with no enrollments)", () => {
     const detached = makeUser({
       id: "stu-detached",
       roles: ["student"],
       primaryRole: "student",
     });
-    expect(permissions.canUpload(detached)).toBe(false);
+    expect(permissions.canUpload(detached)).toBe(true);
   });
 });
 
@@ -411,7 +411,7 @@ describe("permissions.visibleDocumentFilter", () => {
   // to close the "public-draft never submitted" review-gate bypass.
   const statusClauseFor = (uid: string) => ({
     OR: [
-      { status: { notIn: ["draft", "pending_review", "rejected"] } },
+      { status: { notIn: ["draft", "pending_review", "rejected", "pending_admin_approval"] } },
       { uploaderId: uid },
       { ownerId: uid },
     ],

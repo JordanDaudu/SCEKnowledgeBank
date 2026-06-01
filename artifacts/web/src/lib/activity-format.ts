@@ -19,6 +19,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "document.submit_for_review": "submitted for review",
   "document.approve": "approved",
   "document.reject": "rejected",
+  "document.admin_approve": "admin-approved",
+  "document.admin_reject": "admin-rejected",
   "document.version.create": "added a new version of",
   "document.version.restore": "restored a version of",
   "document.favorite": "favorited",
@@ -36,6 +38,17 @@ export const ACTION_LABELS: Record<string, string> = {
   "user.logout": "signed out",
   "user.approve": "approved an account",
   "user.disable": "disabled an account",
+  "user.username_changed": "changed their username",
+  "user.avatar_changed": "updated their profile image",
+  "user.role_change_attempt": "attempted an unauthorized role change",
+  "user.email_change_attempt": "attempted an unauthorized email change",
+  "user.profile_tamper_attempt": "attempted an unauthorized profile change",
+  "user.course_added": "joined a course",
+  "user.course_removed": "left a course",
+  "account.deleted": "deleted their account",
+  "account.restored": "restored an account",
+  "account.purged": "permanently removed an account",
+  "document.reassign": "reassigned a document",
 };
 
 export function describeAction(action: string): string {

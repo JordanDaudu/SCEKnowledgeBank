@@ -45,3 +45,30 @@ export async function findEnrolledUserIds(
   });
   return rows.map((r) => r.userId);
 }
+
+/** Self-service single add — idempotent against the (userId, courseId) unique key. */
+export async function addEnrollment(
+  userId: string,
+  courseId: string,
+  roleInCourse: string,
+): Promise<void> {
+  await db.courseEnrollment.createMany({
+    data: [{ userId, courseId, roleInCourse }],
+    skipDuplicates: true,
+  });
+}
+
+/** Remove the user's enrollment for a course. Returns the number of rows removed. */
+export async function removeEnrollment(userId: string, courseId: string): Promise<number> {
+  const res = await db.courseEnrollment.deleteMany({ where: { userId, courseId } });
+  return res.count;
+}
+
+/** User ids of all lecturers assigned to a course (roleInCourse='lecturer'). */
+export async function findCourseLecturerIds(courseId: string): Promise<string[]> {
+  const rows = await db.courseEnrollment.findMany({
+    where: { courseId, roleInCourse: "lecturer" },
+    select: { userId: true },
+  });
+  return rows.map((r) => r.userId);
+}

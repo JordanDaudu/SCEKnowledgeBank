@@ -16,11 +16,14 @@ import PrepHub from "@/pages/prep-hub";
 import PrepHubCollection from "@/pages/prep-hub-collection";
 import Collections from "@/pages/collections";
 import CollectionManage from "@/pages/collection-manage";
+import Profile from "@/pages/profile";
 import Requests from "@/pages/requests";
 import Notifications from "@/pages/notifications";
 import AdminUsers from "@/pages/admin-users";
 import AdminAnalytics from "@/pages/admin-analytics";
 import AdminPrepHubModeration from "@/pages/admin-prep-hub-moderation";
+import AdminOrphanedFiles from "@/pages/admin-orphaned-files";
+import AdminApprovals from "@/pages/admin-approvals";
 import CourseAnalytics from "@/pages/course-analytics";
 import ReviewQueue from "@/pages/review-queue";
 
@@ -115,13 +118,15 @@ function Router() {
       </Route>
 
       <Route path="/prep-hub">
-        <AuthGuard>
+        <AuthGuard blockAdmin>
           <Layout>
             <PrepHub />
           </Layout>
         </AuthGuard>
       </Route>
 
+      {/* Detail stays open to admins: they reach it from Prep Hub Moderation
+          to hide/unhide individual collections. */}
       <Route path="/prep-hub/:id">
         <AuthGuard>
           <Layout>
@@ -146,6 +151,14 @@ function Router() {
         </AuthGuard>
       </Route>
 
+      <Route path="/profile">
+        <AuthGuard>
+          <Layout>
+            <Profile />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
       <Route path="/review-queue">
         <AuthGuard requireRole="lecturer">
           <Layout>
@@ -166,6 +179,22 @@ function Router() {
         <AuthGuard requireRole="admin">
           <Layout>
             <AdminAnalytics />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/admin/approvals">
+        <AuthGuard requireRole="admin">
+          <Layout>
+            <AdminApprovals />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/admin/orphaned-files">
+        <AuthGuard requireRole="admin">
+          <Layout>
+            <AdminOrphanedFiles />
           </Layout>
         </AuthGuard>
       </Route>

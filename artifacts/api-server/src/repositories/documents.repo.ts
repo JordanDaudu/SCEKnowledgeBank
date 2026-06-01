@@ -216,6 +216,38 @@ export async function countDocuments(
   return db.document.count({ where: buildBaseWhere(filters) });
 }
 
+export interface OrphanedFileRow {
+  id: string;
+  title: string;
+  materialType: string;
+  createdAt: Date;
+  uploaderId: string;
+  courseCode: string | null;
+}
+
+/** Alive documents whose uploader OR owner is a soft-deleted user. */
+export async function listByDeletedUploaders(limit: number): Promise<OrphanedFileRow[]> {
+  const rows = await db.document.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        { uploader: { deletedAt: { not: null } } },
+        { owner: { deletedAt: { not: null } } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true, title: true, materialType: true, createdAt: true, uploaderId: true,
+      course: { select: { code: true } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id, title: r.title, materialType: r.materialType, createdAt: r.createdAt,
+    uploaderId: r.uploaderId, courseCode: r.course?.code ?? null,
+  }));
+}
+
 /** Refinement Phase 2: bump the denormalised download counter (best-effort). */
 export async function incrementDownloadCount(documentId: string): Promise<void> {
   await db.document.update({
@@ -1433,6 +1465,35 @@ export async function listPendingReview(
     take: options.pageSize,
     skip: (options.page - 1) * options.pageSize,
   });
+}
+
+export async function countPendingAdminApproval(): Promise<number> {
+  return db.document.count({
+    where: { deletedAt: null, status: "pending_admin_approval" },
+  });
+}
+
+export async function listPendingAdminApproval(
+  options: { page: number; pageSize: number },
+): Promise<DocumentRow[]> {
+  return db.document.findMany({
+    where: { deletedAt: null, status: "pending_admin_approval" },
+    orderBy: [
+      { submittedForReviewAt: { sort: "asc", nulls: "last" } },
+      { createdAt: "asc" },
+    ],
+    take: options.pageSize,
+    skip: (options.page - 1) * options.pageSize,
+  });
+}
+
+/** The current file's original filename for a document (for restricted-type checks). */
+export async function findOriginalFilename(documentId: string): Promise<string | null> {
+  const f = await db.documentFile.findFirst({
+    where: { documentId },
+    select: { originalFilename: true },
+  });
+  return f?.originalFilename ?? null;
 }
 
 export async function findUploaderDisplayFilenames(

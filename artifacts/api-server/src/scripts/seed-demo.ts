@@ -1189,6 +1189,282 @@ async function main() {
   await setProgress("cs220-arrays", "reviewing");
   logger.info("✓ Seeded Prep Hub collection + study progress for Noa");
 
+  // ─── Prep Hub: a catalogue of PUBLIC study collections ────────────
+  // Gives every Prep Hub discovery lane (Trending / Popular / Highest
+  // Rated / Most Viewed / New / Upcoming Exams / For You) real demo data.
+  // Each collection is find-or-created by (ownerId, title); items are
+  // reset and re-added in order so the script stays idempotent. Engagement
+  // (views / likes / follows / ratings / comments) is seeded into the
+  // event tables and the denormalised counters are recomputed afterwards
+  // (see the engagement-counter sync block below), mirroring how the
+  // documents counters are rebuilt from their event tables.
+  const daysFromNow = (n: number) => new Date(now + n * 86_400_000);
+
+  interface CollectionSpec {
+    owner: { id: string };
+    title: string;
+    description: string;
+    kind: "collection" | "exam_prep" | "revision" | "semester" | "learning_path";
+    isOfficial?: boolean;
+    course?: { id: string };
+    category?: { id: string };
+    examName?: string;
+    examDate?: Date;
+    createdAt?: Date;
+    itemKeys: string[];
+    tagNames?: string[];
+    // Engagement — user ids drive the denormalised counters.
+    views?: string[];
+    likes?: string[];
+    followers?: string[];
+    ratings?: Array<[string, number]>; // [userId, 1..5]
+    comments?: Array<[string, string]>; // [authorId, body]
+  }
+
+  const collectionSpecs: CollectionSpec[] = [
+    {
+      owner: maya, title: "CS101 Crash Course",
+      description: "A guided path through the CS101 fundamentals — start here if you're new to programming.",
+      kind: "learning_path", isOfficial: true, course: cs101, category: catLectureNotes,
+      createdAt: daysAgo(40),
+      itemKeys: ["cs101-l1", "cs101-summary", "cs101-a1", "cs101-midterm-q"],
+      tagNames: ["important", "summary"],
+      views: [noa.id, amir.id, yael.id, restricted.id, daniel.id, admin.id],
+      likes: [noa.id, amir.id, restricted.id],
+      followers: [noa.id, amir.id, yael.id, restricted.id],
+      ratings: [[noa.id, 5], [amir.id, 4], [yael.id, 5]],
+      comments: [[noa.id, "This made CS101 finally click for me!"], [amir.id, "Perfect for a last-minute review."]],
+    },
+    {
+      owner: maya, title: "Data Structures Mastery",
+      description: "Everything you need to ace CS220 — arrays, lists, recursion, and complexity.",
+      kind: "learning_path", isOfficial: true, course: cs220, category: catLectureNotes,
+      createdAt: daysAgo(35),
+      itemKeys: ["cs220-arrays", "cs220-recursion", "cs220-bigo"],
+      tagNames: ["algorithms", "arrays", "recursion"],
+      views: [noa.id, amir.id, yael.id],
+      likes: [noa.id, yael.id],
+      followers: [noa.id, amir.id],
+      ratings: [[noa.id, 5], [amir.id, 5], [yael.id, 5], [restricted.id, 5]],
+      comments: [[noa.id, "The recursion section is gold."]],
+    },
+    {
+      owner: maya, title: "Big-O & Complexity Essentials",
+      description: "A compact revision pack on algorithmic complexity and common Big-O classes.",
+      kind: "revision", course: cs220, category: catSummaries,
+      createdAt: daysAgo(25),
+      itemKeys: ["cs220-bigo", "cs220-arrays"],
+      tagNames: ["algorithms", "summary"],
+      views: [amir.id, yael.id],
+      likes: [amir.id],
+      followers: [yael.id],
+      ratings: [[amir.id, 4], [yael.id, 4]],
+    },
+    {
+      owner: daniel, title: "Agile & Scrum Foundations",
+      description: "Lecture-curated intro to Agile, Scrum, and sprint cadence for IS310.",
+      kind: "learning_path", isOfficial: true, course: is310, category: catPresentations,
+      createdAt: daysAgo(38),
+      itemKeys: ["is310-agile-slides", "is310-sprint"],
+      tagNames: ["agile", "sprint", "presentation"],
+      views: [noa.id, amir.id, yael.id, restricted.id, maya.id],
+      likes: [amir.id, yael.id],
+      followers: [amir.id, yael.id, noa.id],
+      ratings: [[amir.id, 4], [yael.id, 5]],
+      comments: [[amir.id, "Clearest explanation of Scrum I've seen."]],
+    },
+    {
+      owner: daniel, title: "IS310 Final Project Toolkit",
+      description: "Templates and guides for the IS310 final project — risk register, planning, and brief.",
+      kind: "collection", course: is310, category: catProjects,
+      createdAt: daysAgo(15),
+      examName: "IS310 Final Project Defense", examDate: daysFromNow(21),
+      itemKeys: ["is310-risk", "is310-final", "is310-sprint"],
+      tagNames: ["risk-management", "sprint", "important"],
+      views: [yael.id, amir.id],
+      followers: [yael.id, amir.id],
+      ratings: [[yael.id, 4]],
+    },
+    {
+      owner: daniel, title: "Knowledge Management Deep Dive",
+      description: "A curated path through knowledge-base architecture, metadata, and search design.",
+      kind: "learning_path", isOfficial: true, course: is420, category: catLectureNotes,
+      createdAt: daysAgo(30),
+      itemKeys: ["is420-arch", "is420-metadata", "is420-search"],
+      tagNames: ["knowledge-base", "database"],
+      views: [yael.id, noa.id],
+      likes: [yael.id],
+      followers: [yael.id],
+      ratings: [[yael.id, 5], [amir.id, 5]],
+    },
+    {
+      owner: daniel, title: "IS420 Final Exam Prep",
+      description: "Focused review pack for the IS420 final — key topics and sample questions.",
+      kind: "exam_prep", course: is420, category: catExams,
+      createdAt: daysAgo(12),
+      examName: "IS420 Final Exam", examDate: daysFromNow(14),
+      itemKeys: ["is420-final-review", "is420-arch", "is420-search"],
+      tagNames: ["exam-prep", "knowledge-base", "important"],
+      views: [yael.id],
+      followers: [yael.id],
+    },
+    {
+      owner: noa, title: "My CS101 Exam Survival Kit",
+      description: "The lectures, summaries, and practice questions I'm using to cram for the CS101 final.",
+      kind: "exam_prep", course: cs101, category: catExams,
+      createdAt: daysAgo(2),
+      examName: "CS101 Final", examDate: daysFromNow(10),
+      itemKeys: ["cs101-l1", "cs101-midterm-q", "cs101-summary"],
+      tagNames: ["exam-prep", "summary"],
+      views: [amir.id, restricted.id],
+      likes: [amir.id],
+      followers: [amir.id],
+      comments: [[amir.id, "Borrowing this for the final!"]],
+    },
+    {
+      owner: amir, title: "Recursion Practice Pack",
+      description: "Hand-picked recursion drills and a Big-O cheat sheet to go with them.",
+      kind: "revision", course: cs220, category: catAssignments,
+      createdAt: daysAgo(3),
+      itemKeys: ["cs220-recursion", "cs220-bigo"],
+      tagNames: ["recursion", "algorithms"],
+      views: [noa.id],
+      likes: [noa.id],
+      followers: [noa.id],
+    },
+    {
+      owner: yael, title: "Search & Discovery Patterns",
+      description: "Reading and slides on relevance ranking, faceted search, and metadata pipelines.",
+      kind: "collection", course: is420, category: catReading,
+      createdAt: daysAgo(8),
+      itemKeys: ["is420-search", "is420-metadata"],
+      tagNames: ["knowledge-base", "database"],
+      views: [noa.id, amir.id],
+      ratings: [[noa.id, 4]],
+    },
+    {
+      owner: yael, title: "Sprint Planning Quickref",
+      description: "A two-item quick reference for sprint planning meetings.",
+      kind: "revision", course: is310, category: catReading,
+      createdAt: daysAgo(1),
+      itemKeys: ["is310-sprint", "is310-agile-slides"],
+      tagNames: ["sprint", "agile"],
+      views: [amir.id],
+      likes: [amir.id],
+    },
+    {
+      owner: amir, title: "Arrays vs Linked Lists",
+      description: "A focused look at the access/insert/delete trade-offs between arrays and linked lists.",
+      kind: "collection", course: cs220, category: catSummaries,
+      createdAt: daysAgo(4),
+      itemKeys: ["cs220-arrays"],
+      tagNames: ["arrays", "linked-list"],
+      views: [noa.id, yael.id],
+      followers: [noa.id],
+    },
+  ];
+
+  async function ensureCollection(spec: CollectionSpec) {
+    let c = await db.studyCollection.findFirst({
+      where: { ownerId: spec.owner.id, title: spec.title },
+    });
+    const data = {
+      description: spec.description,
+      kind: spec.kind,
+      visibility: "public",
+      isOfficial: spec.isOfficial ?? false,
+      courseId: spec.course?.id ?? null,
+      categoryId: spec.category?.id ?? null,
+      examName: spec.examName ?? null,
+      examDate: spec.examDate ?? null,
+      semester: "Spring",
+      academicYear: 2026,
+    };
+    if (!c) {
+      c = await db.studyCollection.create({
+        data: {
+          ownerId: spec.owner.id,
+          title: spec.title,
+          ...data,
+          ...(spec.createdAt ? { createdAt: spec.createdAt, updatedAt: spec.createdAt } : {}),
+        },
+      });
+    } else {
+      c = await db.studyCollection.update({
+        where: { id: c.id },
+        data: { ...data, ...(spec.createdAt ? { createdAt: spec.createdAt } : {}) },
+      });
+    }
+
+    // Items — reset and re-add in order.
+    await db.studyCollectionItem.deleteMany({ where: { collectionId: c.id } });
+    let pos = 0;
+    for (const k of spec.itemKeys) {
+      const docId = docs[k]?.id;
+      if (!docId) continue;
+      await db.studyCollectionItem.create({
+        data: { collectionId: c.id, documentId: docId, position: pos++ },
+      });
+    }
+
+    // Tags.
+    if (spec.tagNames?.length) {
+      await db.studyCollectionTag.createMany({
+        data: spec.tagNames
+          .map((t) => tagsByName[t])
+          .filter((id): id is string => !!id)
+          .map((tagId) => ({ collectionId: c!.id, tagId })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Engagement — likes / followers / ratings have a (collection,user)
+    // unique key (skipDuplicates is idempotent). Views and comments have
+    // no unique key, so guard with find-first.
+    if (spec.likes?.length) {
+      await db.studyCollectionLike.createMany({
+        data: spec.likes.map((userId) => ({ collectionId: c!.id, userId })),
+        skipDuplicates: true,
+      });
+    }
+    if (spec.followers?.length) {
+      await db.studyCollectionFollower.createMany({
+        data: spec.followers.map((userId) => ({ collectionId: c!.id, userId })),
+        skipDuplicates: true,
+      });
+    }
+    if (spec.ratings?.length) {
+      await db.studyCollectionRating.createMany({
+        data: spec.ratings.map(([userId, value]) => ({ collectionId: c!.id, userId, value })),
+        skipDuplicates: true,
+      });
+    }
+    for (const userId of spec.views ?? []) {
+      const exists = await db.studyCollectionView.findFirst({
+        where: { collectionId: c.id, userId },
+      });
+      if (!exists) {
+        await db.studyCollectionView.create({ data: { collectionId: c.id, userId } });
+      }
+    }
+    for (const [authorId, body] of spec.comments ?? []) {
+      const exists = await db.studyCollectionComment.findFirst({
+        where: { collectionId: c.id, body },
+      });
+      if (!exists) {
+        await db.studyCollectionComment.create({
+          data: { collectionId: c.id, authorId, body },
+        });
+      }
+    }
+    return c;
+  }
+
+  for (const spec of collectionSpecs) {
+    await ensureCollection(spec);
+  }
+  logger.info(`✓ Seeded ${collectionSpecs.length} public study collections for Prep Hub`);
+
   // ─── Sync engagement counters from the seeded event tables ────────
   // The seed inserts view-history / favorites / download audits directly via
   // Prisma, which bypasses the incremental maintenance of the denormalised
@@ -1209,6 +1485,39 @@ async function main() {
           WHERE action = 'document.download' AND entity_type = 'document' GROUP BY entity_id) sub
     WHERE sub.entity_id = d.id::text`;
   logger.info("✓ Synced engagement counters from seeded events");
+
+  // ─── Sync collection engagement counters + popularity ─────────────
+  // Same pattern as documents: the seed writes collection engagement
+  // directly via Prisma, bypassing the transactional counter maintenance
+  // the ranking SQL reads. Reset and rebuild the denormalised columns so
+  // every Prep Hub discovery lane reflects the seeded data. popularity_score
+  // mirrors computePopularity(): followers * 3 + items.
+  await db.$executeRaw`UPDATE study_collections SET like_count = 0, rating_count = 0, rating_sum = 0, view_count = 0, comment_count = 0, follower_count = 0`;
+  await db.$executeRaw`
+    UPDATE study_collections sc SET like_count = sub.c
+    FROM (SELECT collection_id, count(*)::int AS c FROM study_collection_likes GROUP BY collection_id) sub
+    WHERE sub.collection_id = sc.id`;
+  await db.$executeRaw`
+    UPDATE study_collections sc SET rating_count = sub.c, rating_sum = sub.s
+    FROM (SELECT collection_id, count(*)::int AS c, sum(value)::int AS s FROM study_collection_ratings GROUP BY collection_id) sub
+    WHERE sub.collection_id = sc.id`;
+  await db.$executeRaw`
+    UPDATE study_collections sc SET view_count = sub.c
+    FROM (SELECT collection_id, count(*)::int AS c FROM study_collection_views GROUP BY collection_id) sub
+    WHERE sub.collection_id = sc.id`;
+  await db.$executeRaw`
+    UPDATE study_collections sc SET comment_count = sub.c
+    FROM (SELECT collection_id, count(*)::int AS c FROM study_collection_comments WHERE deleted_at IS NULL GROUP BY collection_id) sub
+    WHERE sub.collection_id = sc.id`;
+  await db.$executeRaw`
+    UPDATE study_collections sc SET follower_count = sub.c
+    FROM (SELECT collection_id, count(*)::int AS c FROM study_collection_followers GROUP BY collection_id) sub
+    WHERE sub.collection_id = sc.id`;
+  await db.$executeRaw`
+    UPDATE study_collections sc SET popularity_score =
+      sc.follower_count * 3
+      + COALESCE((SELECT count(*) FROM study_collection_items i WHERE i.collection_id = sc.id), 0)::int`;
+  logger.info("✓ Synced collection engagement counters + popularity");
 
   // ─── Output ───────────────────────────────────────────────────────
   /* eslint-disable no-console */
@@ -1239,8 +1548,9 @@ async function main() {
   console.log(" 8. Test storage quota display (Yael is near quota)");
   console.log(" 9. Test duplicate upload detection by re-uploading the same file");
   console.log("    (e.g. lib/db/src/seed/fixtures/sample-lecture-notes.pdf — same sha256)");
-  console.log(" 10. Login as Noa and open Prep Hub — see the 'CS101 Final Prep'");
-  console.log("     collection, Continue studying, and Recommended for you");
+  console.log(" 10. Login as Noa and open Prep Hub — browse the discovery lanes");
+  console.log("     (Trending, Popular, Highest Rated, Most Viewed, New, Upcoming");
+  console.log("     Exams, For You) populated by the seeded public collections");
   console.log(" 11. Login as Admin → Analytics → Activity logs tab; check the dashboard");
   /* eslint-enable no-console */
 

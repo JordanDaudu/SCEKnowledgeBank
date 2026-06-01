@@ -15,6 +15,9 @@ export interface AuthenticatedUser {
   primaryRole: string;
   roles: string[];
   enrollments: UserCourseEnrollment[];
+  username: string | null;
+  avatarStoragePath: string | null;
+  createdAt: string;
 }
 
 declare global {

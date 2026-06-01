@@ -64,7 +64,7 @@ function toDTO(
     author: authors.get(r.authorId) ?? {
       id: r.authorId,
       email: "",
-      displayName: "Unknown",
+      displayName: "Original author removed",
       roles: [],
       isActive: false,
       createdAt: r.createdAt.toISOString(),

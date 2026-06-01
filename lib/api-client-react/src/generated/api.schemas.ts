@@ -26,6 +26,41 @@ export interface LoginRequest {
   password: string;
 }
 
+export type MyCourseRoleInCourse =
+  (typeof MyCourseRoleInCourse)[keyof typeof MyCourseRoleInCourse];
+
+export const MyCourseRoleInCourse = {
+  student: "student",
+  lecturer: "lecturer",
+} as const;
+
+export interface MyCourse {
+  id: string;
+  code: string;
+  title: string;
+  lecturerName: string;
+  roleInCourse: MyCourseRoleInCourse;
+}
+
+export interface DeletedAccount {
+  id: string;
+  email: string;
+  displayName: string;
+  roles: string[];
+  deletedAt: string | null;
+  anonymizedAt: string | null;
+  fileCount: number;
+  eligibleForPurge: boolean;
+}
+
+export interface OrphanedFile {
+  id: string;
+  title: string;
+  materialType: string;
+  courseCode: string | null;
+  createdAt: string;
+}
+
 export type CurrentUserEnrollmentsItem = {
   courseId: string;
   roleInCourse: string;
@@ -35,6 +70,9 @@ export interface CurrentUser {
   id: string;
   email: string;
   displayName: string;
+  username: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
   primaryRole: string;
   roles: string[];
   enrollments: CurrentUserEnrollmentsItem[];
@@ -1032,6 +1070,40 @@ export interface CourseAnalytics {
   generatedAt: string;
 }
 
+export type CheckUsernameAvailabilityParams = {
+  username: string;
+};
+
+export type CheckUsernameAvailability200Reason =
+  (typeof CheckUsernameAvailability200Reason)[keyof typeof CheckUsernameAvailability200Reason];
+
+export const CheckUsernameAvailability200Reason = {
+  invalid: "invalid",
+  reserved: "reserved",
+  taken: "taken",
+} as const;
+
+export type CheckUsernameAvailability200 = {
+  available: boolean;
+  reason?: CheckUsernameAvailability200Reason;
+};
+
+export type UpdateMyProfileBody = {
+  username: string;
+};
+
+export type ReassignOrphanedFileBody = {
+  newOwnerId: string;
+};
+
+export type AddMyCourseBody = {
+  courseId: string;
+};
+
+export type UploadMyAvatarBody = {
+  file: Blob;
+};
+
 export type ListDocumentsParams = {
   courseId?: string;
   courseCode?: string;
@@ -1262,6 +1334,19 @@ export const ListRequestsStatus = {
   closed: "closed",
 } as const;
 
+export type ListCoursesParams = {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  q?: string;
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+};
+
 export type SearchUsersParams = {
   /**
    * @minLength 1
@@ -1276,6 +1361,18 @@ export type SearchUsersParams = {
 };
 
 export type ListPendingReviewDocumentsParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+};
+
+export type ListPendingAdminApprovalDocumentsParams = {
   /**
    * @minimum 1
    */

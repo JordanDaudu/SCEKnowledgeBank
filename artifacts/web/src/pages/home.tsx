@@ -338,8 +338,9 @@ export default function Home() {
           {/* Storage usage — shown to anyone who can upload */}
           {user && canUpload && <StorageCard />}
 
-          {/* Continue studying — Prep Hub progress (renders only when non-empty) */}
-          {user && <ContinueStudyingWidget />}
+          {/* Continue studying — Prep Hub progress (renders only when non-empty).
+              Admins don't study (they moderate), so this is hidden for them. */}
+          {user && !isAdmin && <ContinueStudyingWidget />}
         </div>
 
         {/* ── Discovery zone: the content the page is really about, set apart

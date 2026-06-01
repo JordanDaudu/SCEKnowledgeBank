@@ -19,12 +19,15 @@ import type {
 import type {
   ActivityPage,
   AddCollectionItemRequest,
+  AddMyCourseBody,
   AdminAnalyticsOverview,
   ApiError,
   BulkDocumentActionRequest,
   BulkDocumentActionResult,
   Category,
   CheckDuplicateDocumentParams,
+  CheckUsernameAvailability200,
+  CheckUsernameAvailabilityParams,
   CollectionModerationList,
   Comment,
   CommentReaction,
@@ -35,6 +38,7 @@ import type {
   CreateCommentRequest,
   CreateRequestRequest,
   CurrentUser,
+  DeletedAccount,
   Document,
   DocumentDetail,
   DocumentPage,
@@ -48,20 +52,25 @@ import type {
   HideCollectionBody,
   ListActivityParams,
   ListCollectionModerationParams,
+  ListCoursesParams,
   ListDiscoverableCollectionsParams,
   ListDocumentsParams,
   ListNotificationsParams,
+  ListPendingAdminApprovalDocumentsParams,
   ListPendingReviewDocumentsParams,
   ListRecentDocumentsParams,
   ListRequestsParams,
   ListTrendingCollectionsParams,
   LoginRequest,
   MaterialRequest,
+  MyCourse,
   Notification,
   NotificationMarkAllResponse,
   NotificationUnreadCount,
+  OrphanedFile,
   PreviewDocumentParams,
   RateCollectionBody,
+  ReassignOrphanedFileBody,
   RegisterRequest,
   RegisterResponse,
   RejectDocumentRequest,
@@ -87,9 +96,11 @@ import type {
   UpdateCollectionRequest,
   UpdateCommentRequest,
   UpdateDocumentRequest,
+  UpdateMyProfileBody,
   UpdateRequestRequest,
   UploadDocumentVersionBody,
   UploadDocumentsBody,
+  UploadMyAvatarBody,
   UploadResult,
   UserSummary,
 } from "./api.schemas";
@@ -504,6 +515,1181 @@ export function useGetCurrentUser<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Check whether a username is available for the current user
+ */
+export const getCheckUsernameAvailabilityUrl = (
+  params: CheckUsernameAvailabilityParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/me/username-available?${stringifiedParams}`
+    : `/api/me/username-available`;
+};
+
+export const checkUsernameAvailability = async (
+  params: CheckUsernameAvailabilityParams,
+  options?: RequestInit,
+): Promise<CheckUsernameAvailability200> => {
+  return customFetch<CheckUsernameAvailability200>(
+    getCheckUsernameAvailabilityUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getCheckUsernameAvailabilityQueryKey = (
+  params?: CheckUsernameAvailabilityParams,
+) => {
+  return [`/api/me/username-available`, ...(params ? [params] : [])] as const;
+};
+
+export const getCheckUsernameAvailabilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof checkUsernameAvailability>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckUsernameAvailabilityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkUsernameAvailability>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getCheckUsernameAvailabilityQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof checkUsernameAvailability>>
+  > = ({ signal }) =>
+    checkUsernameAvailability(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof checkUsernameAvailability>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type CheckUsernameAvailabilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof checkUsernameAvailability>>
+>;
+export type CheckUsernameAvailabilityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check whether a username is available for the current user
+ */
+
+export function useCheckUsernameAvailability<
+  TData = Awaited<ReturnType<typeof checkUsernameAvailability>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckUsernameAvailabilityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkUsernameAvailability>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCheckUsernameAvailabilityQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update the current user's editable profile fields (username)
+ */
+export const getUpdateMyProfileUrl = () => {
+  return `/api/me/profile`;
+};
+
+export const updateMyProfile = async (
+  updateMyProfileBody: UpdateMyProfileBody,
+  options?: RequestInit,
+): Promise<CurrentUser> => {
+  return customFetch<CurrentUser>(getUpdateMyProfileUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMyProfileBody),
+  });
+};
+
+export const getUpdateMyProfileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    TError,
+    { data: BodyType<UpdateMyProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  { data: BodyType<UpdateMyProfileBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMyProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    { data: BodyType<UpdateMyProfileBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMyProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMyProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMyProfile>>
+>;
+export type UpdateMyProfileMutationBody = BodyType<UpdateMyProfileBody>;
+export type UpdateMyProfileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update the current user's editable profile fields (username)
+ */
+export const useUpdateMyProfile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMyProfile>>,
+    TError,
+    { data: BodyType<UpdateMyProfileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMyProfile>>,
+  TError,
+  { data: BodyType<UpdateMyProfileBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMyProfileMutationOptions(options));
+};
+
+/**
+ * @summary Soft-delete the current user's own account
+ */
+export const getDeleteMyAccountUrl = () => {
+  return `/api/me`;
+};
+
+export const deleteMyAccount = async (options?: RequestInit): Promise<void> => {
+  return customFetch<void>(getDeleteMyAccountUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMyAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyAccount>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMyAccount>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["deleteMyAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMyAccount>>,
+    void
+  > = () => {
+    return deleteMyAccount(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMyAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMyAccount>>
+>;
+
+export type DeleteMyAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Soft-delete the current user's own account
+ */
+export const useDeleteMyAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyAccount>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMyAccount>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDeleteMyAccountMutationOptions(options));
+};
+
+/**
+ * @summary List soft-deleted accounts
+ */
+export const getListDeletedAccountsUrl = () => {
+  return `/api/admin/deleted-users`;
+};
+
+export const listDeletedAccounts = async (
+  options?: RequestInit,
+): Promise<DeletedAccount[]> => {
+  return customFetch<DeletedAccount[]>(getListDeletedAccountsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDeletedAccountsQueryKey = () => {
+  return [`/api/admin/deleted-users`] as const;
+};
+
+export const getListDeletedAccountsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDeletedAccounts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDeletedAccounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDeletedAccountsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDeletedAccounts>>
+  > = ({ signal }) => listDeletedAccounts({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDeletedAccounts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDeletedAccountsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDeletedAccounts>>
+>;
+export type ListDeletedAccountsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List soft-deleted accounts
+ */
+
+export function useListDeletedAccounts<
+  TData = Awaited<ReturnType<typeof listDeletedAccounts>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDeletedAccounts>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDeletedAccountsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Restore a soft-deleted account
+ */
+export const getRestoreAccountUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/restore`;
+};
+
+export const restoreAccount = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRestoreAccountUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRestoreAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof restoreAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["restoreAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof restoreAccount>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return restoreAccount(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RestoreAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof restoreAccount>>
+>;
+
+export type RestoreAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Restore a soft-deleted account
+ */
+export const useRestoreAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof restoreAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof restoreAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getRestoreAccountMutationOptions(options));
+};
+
+/**
+ * @summary Permanently anonymize a deleted account (eligible after 30 days)
+ */
+export const getPurgeAccountUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/purge`;
+};
+
+export const purgeAccount = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getPurgeAccountUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getPurgeAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purgeAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof purgeAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["purgeAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof purgeAccount>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return purgeAccount(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PurgeAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof purgeAccount>>
+>;
+
+export type PurgeAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Permanently anonymize a deleted account (eligible after 30 days)
+ */
+export const usePurgeAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof purgeAccount>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof purgeAccount>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getPurgeAccountMutationOptions(options));
+};
+
+/**
+ * @summary List documents whose uploader/owner is a deleted user
+ */
+export const getListOrphanedFilesUrl = () => {
+  return `/api/admin/orphaned-files`;
+};
+
+export const listOrphanedFiles = async (
+  options?: RequestInit,
+): Promise<OrphanedFile[]> => {
+  return customFetch<OrphanedFile[]>(getListOrphanedFilesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListOrphanedFilesQueryKey = () => {
+  return [`/api/admin/orphaned-files`] as const;
+};
+
+export const getListOrphanedFilesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrphanedFiles>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOrphanedFiles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListOrphanedFilesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrphanedFiles>>
+  > = ({ signal }) => listOrphanedFiles({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrphanedFiles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrphanedFilesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrphanedFiles>>
+>;
+export type ListOrphanedFilesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List documents whose uploader/owner is a deleted user
+ */
+
+export function useListOrphanedFiles<
+  TData = Awaited<ReturnType<typeof listOrphanedFiles>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listOrphanedFiles>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrphanedFilesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Reassign an orphaned document to an active user
+ */
+export const getReassignOrphanedFileUrl = (documentId: string) => {
+  return `/api/admin/orphaned-files/${documentId}/reassign`;
+};
+
+export const reassignOrphanedFile = async (
+  documentId: string,
+  reassignOrphanedFileBody: ReassignOrphanedFileBody,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getReassignOrphanedFileUrl(documentId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reassignOrphanedFileBody),
+  });
+};
+
+export const getReassignOrphanedFileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrphanedFile>>,
+    TError,
+    { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reassignOrphanedFile>>,
+  TError,
+  { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+  TContext
+> => {
+  const mutationKey = ["reassignOrphanedFile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reassignOrphanedFile>>,
+    { documentId: string; data: BodyType<ReassignOrphanedFileBody> }
+  > = (props) => {
+    const { documentId, data } = props ?? {};
+
+    return reassignOrphanedFile(documentId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReassignOrphanedFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reassignOrphanedFile>>
+>;
+export type ReassignOrphanedFileMutationBody =
+  BodyType<ReassignOrphanedFileBody>;
+export type ReassignOrphanedFileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reassign an orphaned document to an active user
+ */
+export const useReassignOrphanedFile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reassignOrphanedFile>>,
+    TError,
+    { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reassignOrphanedFile>>,
+  TError,
+  { documentId: string; data: BodyType<ReassignOrphanedFileBody> },
+  TContext
+> => {
+  return useMutation(getReassignOrphanedFileMutationOptions(options));
+};
+
+/**
+ * @summary Soft-delete an orphaned document
+ */
+export const getDeleteOrphanedFileUrl = (documentId: string) => {
+  return `/api/admin/orphaned-files/${documentId}`;
+};
+
+export const deleteOrphanedFile = async (
+  documentId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteOrphanedFileUrl(documentId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteOrphanedFileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrphanedFile>>,
+    TError,
+    { documentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteOrphanedFile>>,
+  TError,
+  { documentId: string },
+  TContext
+> => {
+  const mutationKey = ["deleteOrphanedFile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteOrphanedFile>>,
+    { documentId: string }
+  > = (props) => {
+    const { documentId } = props ?? {};
+
+    return deleteOrphanedFile(documentId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteOrphanedFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteOrphanedFile>>
+>;
+
+export type DeleteOrphanedFileMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Soft-delete an orphaned document
+ */
+export const useDeleteOrphanedFile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrphanedFile>>,
+    TError,
+    { documentId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteOrphanedFile>>,
+  TError,
+  { documentId: string },
+  TContext
+> => {
+  return useMutation(getDeleteOrphanedFileMutationOptions(options));
+};
+
+/**
+ * @summary List the current user's course memberships
+ */
+export const getListMyCoursesUrl = () => {
+  return `/api/me/courses`;
+};
+
+export const listMyCourses = async (
+  options?: RequestInit,
+): Promise<MyCourse[]> => {
+  return customFetch<MyCourse[]>(getListMyCoursesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyCoursesQueryKey = () => {
+  return [`/api/me/courses`] as const;
+};
+
+export const getListMyCoursesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyCourses>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCourses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyCoursesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyCourses>>> = ({
+    signal,
+  }) => listMyCourses({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCourses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyCoursesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyCourses>>
+>;
+export type ListMyCoursesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the current user's course memberships
+ */
+
+export function useListMyCourses<
+  TData = Awaited<ReturnType<typeof listMyCourses>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyCourses>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyCoursesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add the current user to a course (role derived from their global role)
+ */
+export const getAddMyCourseUrl = () => {
+  return `/api/me/courses`;
+};
+
+export const addMyCourse = async (
+  addMyCourseBody: AddMyCourseBody,
+  options?: RequestInit,
+): Promise<MyCourse[]> => {
+  return customFetch<MyCourse[]>(getAddMyCourseUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addMyCourseBody),
+  });
+};
+
+export const getAddMyCourseMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMyCourse>>,
+    TError,
+    { data: BodyType<AddMyCourseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addMyCourse>>,
+  TError,
+  { data: BodyType<AddMyCourseBody> },
+  TContext
+> => {
+  const mutationKey = ["addMyCourse"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addMyCourse>>,
+    { data: BodyType<AddMyCourseBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return addMyCourse(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddMyCourseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addMyCourse>>
+>;
+export type AddMyCourseMutationBody = BodyType<AddMyCourseBody>;
+export type AddMyCourseMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add the current user to a course (role derived from their global role)
+ */
+export const useAddMyCourse = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMyCourse>>,
+    TError,
+    { data: BodyType<AddMyCourseBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addMyCourse>>,
+  TError,
+  { data: BodyType<AddMyCourseBody> },
+  TContext
+> => {
+  return useMutation(getAddMyCourseMutationOptions(options));
+};
+
+/**
+ * @summary Remove the current user from a course
+ */
+export const getRemoveMyCourseUrl = (courseId: string) => {
+  return `/api/me/courses/${courseId}`;
+};
+
+export const removeMyCourse = async (
+  courseId: string,
+  options?: RequestInit,
+): Promise<MyCourse[]> => {
+  return customFetch<MyCourse[]>(getRemoveMyCourseUrl(courseId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveMyCourseMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMyCourse>>,
+    TError,
+    { courseId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeMyCourse>>,
+  TError,
+  { courseId: string },
+  TContext
+> => {
+  const mutationKey = ["removeMyCourse"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeMyCourse>>,
+    { courseId: string }
+  > = (props) => {
+    const { courseId } = props ?? {};
+
+    return removeMyCourse(courseId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveMyCourseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeMyCourse>>
+>;
+
+export type RemoveMyCourseMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove the current user from a course
+ */
+export const useRemoveMyCourse = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMyCourse>>,
+    TError,
+    { courseId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeMyCourse>>,
+  TError,
+  { courseId: string },
+  TContext
+> => {
+  return useMutation(getRemoveMyCourseMutationOptions(options));
+};
+
+/**
+ * @summary Upload or replace the current user's avatar
+ */
+export const getUploadMyAvatarUrl = () => {
+  return `/api/me/avatar`;
+};
+
+export const uploadMyAvatar = async (
+  uploadMyAvatarBody: UploadMyAvatarBody,
+  options?: RequestInit,
+): Promise<CurrentUser> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadMyAvatarBody.file);
+
+  return customFetch<CurrentUser>(getUploadMyAvatarUrl(), {
+    ...options,
+    method: "PUT",
+    body: formData,
+  });
+};
+
+export const getUploadMyAvatarMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadMyAvatar>>,
+    TError,
+    { data: BodyType<UploadMyAvatarBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadMyAvatar>>,
+  TError,
+  { data: BodyType<UploadMyAvatarBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadMyAvatar"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadMyAvatar>>,
+    { data: BodyType<UploadMyAvatarBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadMyAvatar(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadMyAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadMyAvatar>>
+>;
+export type UploadMyAvatarMutationBody = BodyType<UploadMyAvatarBody>;
+export type UploadMyAvatarMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upload or replace the current user's avatar
+ */
+export const useUploadMyAvatar = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadMyAvatar>>,
+    TError,
+    { data: BodyType<UploadMyAvatarBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadMyAvatar>>,
+  TError,
+  { data: BodyType<UploadMyAvatarBody> },
+  TContext
+> => {
+  return useMutation(getUploadMyAvatarMutationOptions(options));
+};
+
+/**
+ * @summary Remove the current user's avatar
+ */
+export const getRemoveMyAvatarUrl = () => {
+  return `/api/me/avatar`;
+};
+
+export const removeMyAvatar = async (
+  options?: RequestInit,
+): Promise<CurrentUser> => {
+  return customFetch<CurrentUser>(getRemoveMyAvatarUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveMyAvatarMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMyAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeMyAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["removeMyAvatar"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeMyAvatar>>,
+    void
+  > = () => {
+    return removeMyAvatar(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveMyAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeMyAvatar>>
+>;
+
+export type RemoveMyAvatarMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove the current user's avatar
+ */
+export const useRemoveMyAvatar = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeMyAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeMyAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRemoveMyAvatarMutationOptions(options));
+};
 
 /**
  * @summary List documents with filters, sort, pagination (use /v2/documents/search for full-text)
@@ -3698,39 +4884,60 @@ export const useVoteRequest = <
   return useMutation(getVoteRequestMutationOptions(options));
 };
 
-export const getListCoursesUrl = () => {
-  return `/api/courses`;
+/**
+ * @summary List courses (optional case-insensitive search by code/title)
+ */
+export const getListCoursesUrl = (params?: ListCoursesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/courses?${stringifiedParams}`
+    : `/api/courses`;
 };
 
-export const listCourses = async (options?: RequestInit): Promise<Course[]> => {
-  return customFetch<Course[]>(getListCoursesUrl(), {
+export const listCourses = async (
+  params?: ListCoursesParams,
+  options?: RequestInit,
+): Promise<Course[]> => {
+  return customFetch<Course[]>(getListCoursesUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListCoursesQueryKey = () => {
-  return [`/api/courses`] as const;
+export const getListCoursesQueryKey = (params?: ListCoursesParams) => {
+  return [`/api/courses`, ...(params ? [params] : [])] as const;
 };
 
 export const getListCoursesQueryOptions = <
   TData = Awaited<ReturnType<typeof listCourses>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listCourses>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListCoursesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCourses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListCoursesQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getListCoursesQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listCourses>>> = ({
     signal,
-  }) => listCourses({ signal, ...requestOptions });
+  }) => listCourses(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listCourses>>,
@@ -3744,18 +4951,25 @@ export type ListCoursesQueryResult = NonNullable<
 >;
 export type ListCoursesQueryError = ErrorType<unknown>;
 
+/**
+ * @summary List courses (optional case-insensitive search by code/title)
+ */
+
 export function useListCourses<
   TData = Awaited<ReturnType<typeof listCourses>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof listCourses>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListCoursesQueryOptions(options);
+>(
+  params?: ListCoursesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCourses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCoursesQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -4898,6 +6112,200 @@ export const useRejectDocument = <
   TContext
 > => {
   return useMutation(getRejectDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Admin approval queue — restricted-type docs awaiting admin sign-off
+ */
+export const getListPendingAdminApprovalDocumentsUrl = (
+  params?: ListPendingAdminApprovalDocumentsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/documents/pending-admin-approval?${stringifiedParams}`
+    : `/api/documents/pending-admin-approval`;
+};
+
+export const listPendingAdminApprovalDocuments = async (
+  params?: ListPendingAdminApprovalDocumentsParams,
+  options?: RequestInit,
+): Promise<DocumentPage> => {
+  return customFetch<DocumentPage>(
+    getListPendingAdminApprovalDocumentsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPendingAdminApprovalDocumentsQueryKey = (
+  params?: ListPendingAdminApprovalDocumentsParams,
+) => {
+  return [
+    `/api/documents/pending-admin-approval`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListPendingAdminApprovalDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPendingAdminApprovalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListPendingAdminApprovalDocumentsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>
+  > = ({ signal }) =>
+    listPendingAdminApprovalDocuments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPendingAdminApprovalDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>
+>;
+export type ListPendingAdminApprovalDocumentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin approval queue — restricted-type docs awaiting admin sign-off
+ */
+
+export function useListPendingAdminApprovalDocuments<
+  TData = Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPendingAdminApprovalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPendingAdminApprovalDocumentsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin-approve a document in 'pending_admin_approval'
+ */
+export const getAdminApproveDocumentUrl = (id: string) => {
+  return `/api/documents/${id}/admin-approve`;
+};
+
+export const adminApproveDocument = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Document> => {
+  return customFetch<Document>(getAdminApproveDocumentUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminApproveDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminApproveDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["adminApproveDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminApproveDocument>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminApproveDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminApproveDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminApproveDocument>>
+>;
+
+export type AdminApproveDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-approve a document in 'pending_admin_approval'
+ */
+export const useAdminApproveDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminApproveDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getAdminApproveDocumentMutationOptions(options));
 };
 
 /**
@@ -6608,6 +8016,85 @@ export function useListRecommendedCollections<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListRecommendedCollectionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Public/official collections the current user follows
+ */
+export const getListFollowedCollectionsUrl = () => {
+  return `/api/prep-hub/followed`;
+};
+
+export const listFollowedCollections = async (
+  options?: RequestInit,
+): Promise<StudyCollectionSummary[]> => {
+  return customFetch<StudyCollectionSummary[]>(
+    getListFollowedCollectionsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListFollowedCollectionsQueryKey = () => {
+  return [`/api/prep-hub/followed`] as const;
+};
+
+export const getListFollowedCollectionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listFollowedCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFollowedCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListFollowedCollectionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listFollowedCollections>>
+  > = ({ signal }) => listFollowedCollections({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listFollowedCollections>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListFollowedCollectionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listFollowedCollections>>
+>;
+export type ListFollowedCollectionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public/official collections the current user follows
+ */
+
+export function useListFollowedCollections<
+  TData = Awaited<ReturnType<typeof listFollowedCollections>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listFollowedCollections>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFollowedCollectionsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -15,6 +15,7 @@ import {
   getListRecommendedCollectionsQueryKey,
   useHideCollection,
   useUnhideCollection,
+  useSetDocumentProgress,
   type StudyCollectionItem,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,6 +23,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatMaterialType } from "@/lib/material-types";
 import { KIND_LABEL } from "@/components/collections/CollectionCard";
 import CollectionComments from "@/components/collections/CollectionComments";
@@ -58,6 +66,7 @@ export default function PrepHubCollection() {
   const clearRatingMut = useClearCollectionRating();
   const hideMut = useHideCollection();
   const unhideMut = useUnhideCollection();
+  const progressMut = useSetDocumentProgress();
 
   const { toast } = useToast();
 
@@ -77,6 +86,12 @@ export default function PrepHubCollection() {
     const message = data?.error?.message ?? (err as Error)?.message ?? "Something went wrong";
     toast({ variant: "destructive", title: "Action failed", description: message });
   };
+
+  const setProgress = (documentId: string, status: string) =>
+    progressMut.mutate(
+      { id: documentId, data: { status: status as "reviewing" | "completed" | "none" } },
+      { onSuccess: refresh, onError: handleError },
+    );
 
   const toggleLike = () => {
     if (!col) return;
@@ -146,6 +161,7 @@ export default function PrepHubCollection() {
     tagNames.length > 0;
 
   const items = col.items ?? [];
+  const canTrack = col.isFollowing && !isAdmin;
 
   return (
     <div className="space-y-6">
@@ -327,6 +343,27 @@ export default function PrepHubCollection() {
         </div>
       </div>
 
+      {canTrack && col.itemCount > 0 && (
+        <div className="rounded-lg border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium">Study progress</span>
+            <span className="text-muted-foreground tabular-nums">
+              {col.completedCount} of {col.itemCount} completed · {col.progressPercent}%
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${col.progressPercent}%` }}
+              role="progressbar"
+              aria-valuenow={col.progressPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            />
+          </div>
+        </div>
+      )}
+
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-card py-16 text-center" data-testid="collection-empty">
           <p className="text-muted-foreground">This collection has no materials yet.</p>
@@ -335,27 +372,45 @@ export default function PrepHubCollection() {
         <ul className="space-y-2" data-testid="collection-items">
           {items.map((item: StudyCollectionItem) => (
             <li key={item.document.id}>
-              <Link href={`/documents/${item.document.id}`}>
-                <Card className="hover-elevate cursor-pointer transition-colors">
-                  <CardContent className="flex flex-wrap items-center gap-3 p-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate font-medium">{item.document.title}</span>
-                        {item.progress === "completed" && (
-                          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatMaterialType(item.document.materialType)}
-                        {item.document.course ? ` · ${item.document.course.code}` : ""}
-                      </p>
-                      {item.note && (
-                        <p className="mt-0.5 text-xs italic text-muted-foreground">"{item.note}"</p>
+              <Card className={canTrack ? "" : "hover-elevate transition-colors"}>
+                <CardContent className="flex flex-wrap items-center gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/documents/${item.document.id}`}
+                        className="truncate font-medium hover:text-primary"
+                      >
+                        {item.document.title}
+                      </Link>
+                      {canTrack && item.progress === "completed" && (
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                    <p className="text-xs text-muted-foreground">
+                      {formatMaterialType(item.document.materialType)}
+                      {item.document.course ? ` · ${item.document.course.code}` : ""}
+                    </p>
+                    {item.note && (
+                      <p className="mt-0.5 text-xs italic text-muted-foreground">"{item.note}"</p>
+                    )}
+                  </div>
+                  {canTrack && (
+                    <Select
+                      value={item.progress ?? "none"}
+                      onValueChange={(v) => setProgress(item.document.id, v)}
+                    >
+                      <SelectTrigger className="h-8 w-32" data-testid="item-progress">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not started</SelectItem>
+                        <SelectItem value="reviewing">Reviewing</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </CardContent>
+              </Card>
             </li>
           ))}
         </ul>

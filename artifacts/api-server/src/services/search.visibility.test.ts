@@ -40,6 +40,9 @@ function mkAuthed(id: string, opts: Partial<AuthenticatedUser> = {}): Authentica
     primaryRole: "student",
     roles: ["student"],
     enrollments: [],
+    username: null,
+    avatarStoragePath: null,
+    createdAt: "2025-01-01T00:00:00.000Z",
     ...opts,
   };
 }
