@@ -56,6 +56,7 @@ import type {
   ListDiscoverableCollectionsParams,
   ListDocumentsParams,
   ListNotificationsParams,
+  ListPendingAdminApprovalDocumentsParams,
   ListPendingReviewDocumentsParams,
   ListRecentDocumentsParams,
   ListRequestsParams,
@@ -6111,6 +6112,200 @@ export const useRejectDocument = <
   TContext
 > => {
   return useMutation(getRejectDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Admin approval queue — restricted-type docs awaiting admin sign-off
+ */
+export const getListPendingAdminApprovalDocumentsUrl = (
+  params?: ListPendingAdminApprovalDocumentsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/documents/pending-admin-approval?${stringifiedParams}`
+    : `/api/documents/pending-admin-approval`;
+};
+
+export const listPendingAdminApprovalDocuments = async (
+  params?: ListPendingAdminApprovalDocumentsParams,
+  options?: RequestInit,
+): Promise<DocumentPage> => {
+  return customFetch<DocumentPage>(
+    getListPendingAdminApprovalDocumentsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPendingAdminApprovalDocumentsQueryKey = (
+  params?: ListPendingAdminApprovalDocumentsParams,
+) => {
+  return [
+    `/api/documents/pending-admin-approval`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListPendingAdminApprovalDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPendingAdminApprovalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListPendingAdminApprovalDocumentsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>
+  > = ({ signal }) =>
+    listPendingAdminApprovalDocuments(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPendingAdminApprovalDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>
+>;
+export type ListPendingAdminApprovalDocumentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin approval queue — restricted-type docs awaiting admin sign-off
+ */
+
+export function useListPendingAdminApprovalDocuments<
+  TData = Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPendingAdminApprovalDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPendingAdminApprovalDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPendingAdminApprovalDocumentsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin-approve a document in 'pending_admin_approval'
+ */
+export const getAdminApproveDocumentUrl = (id: string) => {
+  return `/api/documents/${id}/admin-approve`;
+};
+
+export const adminApproveDocument = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Document> => {
+  return customFetch<Document>(getAdminApproveDocumentUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminApproveDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminApproveDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["adminApproveDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminApproveDocument>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminApproveDocument(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminApproveDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminApproveDocument>>
+>;
+
+export type AdminApproveDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-approve a document in 'pending_admin_approval'
+ */
+export const useAdminApproveDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminApproveDocument>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminApproveDocument>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getAdminApproveDocumentMutationOptions(options));
 };
 
 /**

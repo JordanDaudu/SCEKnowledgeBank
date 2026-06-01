@@ -322,15 +322,8 @@ router.post(
   "/documents/upload",
   requireAuth,
   (req, res, next) => {
-    if (!req.authUser || !permissions.canUpload(req.authUser)) {
-      // Students with zero enrollments fall through canUpload — the
-      // message has to cover all three roles now (Sprint-3 completion).
-      return next(
-        forbidden(
-          "You do not have permission to upload. Students must be enrolled in at least one course.",
-        ),
-      );
-    }
+    // SP4: uploads are open to any authenticated user.
+    if (!req.authUser) return next(forbidden("You must be signed in to upload."));
     next();
   },
   upload.array("files"),
@@ -378,6 +371,37 @@ router.post(
 // IMPORTANT: `/documents/pending-review` MUST come before
 // `/documents/:id` — Express matches in order, and otherwise the :id
 // route would swallow `pending-review` as an id and 400 on UUID parse.
+
+router.get(
+  "/documents/pending-admin-approval",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const q = ListPendingReviewDocumentsQueryParams.parse(req.query);
+      const result = await documentsService.listPendingAdminApproval(req.authUser!, {
+        page: q.page,
+        pageSize: q.pageSize,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/documents/:id/admin-approve",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const { id } = ApproveDocumentParams.parse(req.params);
+      const dto = await documentsService.adminApproveDocument(id, req.authUser!);
+      res.json(dto);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 router.get(
   "/documents/pending-review",

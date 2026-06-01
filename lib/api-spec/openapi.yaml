@@ -1193,6 +1193,34 @@ paths:
         "403": { description: Not a reviewer, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
         "404": { description: Not found / review disabled, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 
+  /documents/pending-admin-approval:
+    get:
+      operationId: listPendingAdminApprovalDocuments
+      tags: [documents]
+      summary: Admin approval queue — restricted-type docs awaiting admin sign-off
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: pageSize, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: Pending admin-approval page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentPage" }
+  /documents/{id}/admin-approve:
+    post:
+      operationId: adminApproveDocument
+      tags: [documents]
+      summary: Admin-approve a document in 'pending_admin_approval'
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+
   /notifications:
     get:
       operationId: listNotifications

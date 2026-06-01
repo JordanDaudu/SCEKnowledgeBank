@@ -81,6 +81,7 @@ export * from "./listDocumentsParams";
 export * from "./listDocumentsSemester";
 export * from "./listDocumentsSort";
 export * from "./listNotificationsParams";
+export * from "./listPendingAdminApprovalDocumentsParams";
 export * from "./listPendingReviewDocumentsParams";
 export * from "./listRecentDocumentsParams";
 export * from "./listRequestsParams";
