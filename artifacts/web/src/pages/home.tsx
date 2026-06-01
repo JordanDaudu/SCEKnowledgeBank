@@ -335,8 +335,9 @@ export default function Home() {
           {/* Admin: operational platform intelligence (Phase 8) */}
           {user && isAdmin && <AdminInsights />}
 
-          {/* Storage usage — shown to anyone who can upload */}
-          {user && canUpload && <StorageCard />}
+          {/* Storage usage — shown to non-admin uploaders. Admins have no
+              quota (unlimited), so the bar would just read multiple EB free. */}
+          {user && canUpload && !isAdmin && <StorageCard />}
 
           {/* Continue studying — Prep Hub progress (renders only when non-empty).
               Admins don't study (they moderate), so this is hidden for them. */}
