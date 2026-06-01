@@ -342,3 +342,77 @@ export async function findAvatarById(
     select: { avatarStoragePath: true, avatarMimeType: true },
   });
 }
+
+// ─── Account deletion (SP3) ───────────────────────────────────────
+
+export async function findAdminUserIds(): Promise<string[]> {
+  const rows = await db.user.findMany({
+    where: { deletedAt: null, userRoles: { some: { role: { name: "admin" } } } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
+export interface DeletedUserRow {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: Date;
+  deletedAt: Date | null;
+  anonymizedAt: Date | null;
+  roles: string[];
+}
+
+export async function listDeletedWithRoles(): Promise<DeletedUserRow[]> {
+  const rows = await db.user.findMany({
+    where: { deletedAt: { not: null } },
+    orderBy: { deletedAt: "desc" },
+    select: {
+      id: true, email: true, displayName: true, createdAt: true,
+      deletedAt: true, anonymizedAt: true,
+      userRoles: { select: { role: { select: { name: true } } } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id, email: r.email, displayName: r.displayName, createdAt: r.createdAt,
+    deletedAt: r.deletedAt, anonymizedAt: r.anonymizedAt,
+    roles: Array.from(new Set(r.userRoles.map((ur) => ur.role.name))),
+  }));
+}
+
+export async function findLifecycleById(
+  id: string,
+): Promise<{ id: string; deletedAt: Date | null; anonymizedAt: Date | null } | null> {
+  return db.user.findUnique({
+    where: { id },
+    select: { id: true, deletedAt: true, anonymizedAt: true },
+  });
+}
+
+export async function softDeleteUser(id: string): Promise<void> {
+  await db.user.update({ where: { id }, data: { deletedAt: new Date(), updatedAt: new Date() } });
+}
+
+export async function restoreUser(id: string): Promise<void> {
+  await db.user.update({ where: { id }, data: { deletedAt: null, updatedAt: new Date() } });
+}
+
+export async function anonymizeUser(
+  id: string,
+  scrub: { email: string; passwordHash: string },
+): Promise<void> {
+  await db.user.update({
+    where: { id },
+    data: {
+      email: scrub.email,
+      username: null,
+      displayName: "Removed user",
+      passwordHash: scrub.passwordHash,
+      avatarStoragePath: null,
+      avatarMimeType: null,
+      status: "DISABLED",
+      anonymizedAt: new Date(),
+      updatedAt: new Date(),
+    },
+  });
+}

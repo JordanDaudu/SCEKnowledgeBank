@@ -216,6 +216,38 @@ export async function countDocuments(
   return db.document.count({ where: buildBaseWhere(filters) });
 }
 
+export interface OrphanedFileRow {
+  id: string;
+  title: string;
+  materialType: string;
+  createdAt: Date;
+  uploaderId: string;
+  courseCode: string | null;
+}
+
+/** Alive documents whose uploader OR owner is a soft-deleted user. */
+export async function listByDeletedUploaders(limit: number): Promise<OrphanedFileRow[]> {
+  const rows = await db.document.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        { uploader: { deletedAt: { not: null } } },
+        { owner: { deletedAt: { not: null } } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true, title: true, materialType: true, createdAt: true, uploaderId: true,
+      course: { select: { code: true } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id, title: r.title, materialType: r.materialType, createdAt: r.createdAt,
+    uploaderId: r.uploaderId, courseCode: r.course?.code ?? null,
+  }));
+}
+
 /** Refinement Phase 2: bump the denormalised download counter (best-effort). */
 export async function incrementDownloadCount(documentId: string): Promise<void> {
   await db.document.update({
