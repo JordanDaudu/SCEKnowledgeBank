@@ -23,6 +23,7 @@ import AdminUsers from "@/pages/admin-users";
 import AdminAnalytics from "@/pages/admin-analytics";
 import AdminPrepHubModeration from "@/pages/admin-prep-hub-moderation";
 import AdminOrphanedFiles from "@/pages/admin-orphaned-files";
+import AdminApprovals from "@/pages/admin-approvals";
 import CourseAnalytics from "@/pages/course-analytics";
 import ReviewQueue from "@/pages/review-queue";
 
@@ -178,6 +179,14 @@ function Router() {
         <AuthGuard requireRole="admin">
           <Layout>
             <AdminAnalytics />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/admin/approvals">
+        <AuthGuard requireRole="admin">
+          <Layout>
+            <AdminApprovals />
           </Layout>
         </AuthGuard>
       </Route>
