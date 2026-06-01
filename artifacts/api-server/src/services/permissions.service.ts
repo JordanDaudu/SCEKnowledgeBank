@@ -44,7 +44,7 @@ export interface DocumentForPermission {
 // owner, and reviewers (admin / lecturer-of-course) still see it so
 // the M2 submit/approve flow keeps working. Closes the "student uploads
 // a public draft, never submits, doc is visible without review" bypass.
-const REVIEW_HIDDEN_STATUSES = ["draft", "pending_review", "rejected"] as const;
+const REVIEW_HIDDEN_STATUSES = ["draft", "pending_review", "rejected", "pending_admin_approval"] as const;
 function isReviewHidden(status: string | undefined): boolean {
   return !!status && (REVIEW_HIDDEN_STATUSES as readonly string[]).includes(status);
 }
@@ -254,14 +254,9 @@ export function canManageVersions(
  * this is only the "do you have ANY upload path at all" filter.
  */
 export function canUpload(user: AuthenticatedUser): boolean {
-  if (isAdmin(user) || hasRole(user, "lecturer")) return true;
-  // Students may upload only when they have at least one enrolled
-  // course to target — otherwise there is nowhere they could legally
-  // upload to, and `canUploadToCourse` would reject every attempt.
-  if (hasRole(user, "student") && enrolledCourseIds(user).length > 0) {
-    return true;
-  }
-  return false;
+  // SP4: uploads are open to any authenticated user. Course membership now
+  // governs approval routing (lecturer → admin), not upload permission.
+  return !!user;
 }
 
 /**
@@ -278,20 +273,12 @@ export function canUpload(user: AuthenticatedUser): boolean {
  *   never allowed — the review workflow needs a course to route to.
  */
 export function canUploadToCourse(
-  user: AuthenticatedUser,
-  courseId: string | null | undefined,
+  _user: AuthenticatedUser,
+  _courseId: string | null | undefined,
 ): boolean {
-  if (isAdmin(user)) return true;
-  if (hasRole(user, "lecturer")) {
-    if (courseId) return isLecturerForCourse(user, courseId);
-    // No course → must teach at least one course to upload cross-course material.
-    return lecturerCourseIds(user).length > 0;
-  }
-  if (hasRole(user, "student")) {
-    if (!courseId) return false;
-    return enrolledCourseIds(user).includes(courseId);
-  }
-  return false;
+  // SP4: any authenticated user may upload to any course; the approval
+  // workflow (lecturer → admin) governs visibility, not membership.
+  return true;
 }
 
 /**
