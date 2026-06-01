@@ -66,6 +66,67 @@ function minimalPdf(title: string, body: string): Buffer {
   return Buffer.from(parts.join(""), "binary");
 }
 
+// Multi-line single-page PDF for realistic-looking generated documents
+// (lecture slides, assignments, practice exams). Mirrors minimalPdf's
+// object/xref structure but lays out a title plus wrapped body lines and
+// supports a bold "## " subheading convention. Non-ASCII is stripped so
+// the base-14 Helvetica fonts render cleanly without an embedded encoding.
+function richPdf(title: string, paragraphs: string[]): Buffer {
+  const esc = (s: string) =>
+    s.replace(/[—–]/g, "-").replace(/[^\x20-\x7E]/g, "").replace(/([()\\])/g, "\\$1");
+  const wrap = (s: string, width: number): string[] => {
+    const words = s.split(/\s+/).filter(Boolean);
+    const out: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      if (!cur) cur = w;
+      else if ((cur + " " + w).length <= width) cur += " " + w;
+      else { out.push(cur); cur = w; }
+    }
+    if (cur) out.push(cur);
+    return out.length ? out : [""];
+  };
+  interface Ln { t: string; f: "/F1" | "/F2"; s: number; gap: number }
+  const lines: Ln[] = [{ t: title, f: "/F2", s: 18, gap: 28 }];
+  for (const p of paragraphs) {
+    if (p.startsWith("## ")) {
+      lines.push({ t: p.slice(3), f: "/F2", s: 13, gap: 20 });
+    } else {
+      for (const w of wrap(p, 92)) lines.push({ t: w, f: "/F1", s: 11, gap: 15 });
+      lines.push({ t: "", f: "/F1", s: 11, gap: 7 });
+    }
+  }
+  const LEFT = 56, TOP = 742, BOTTOM = 56;
+  let y = TOP;
+  let stream = "BT\n";
+  for (const ln of lines) {
+    if (y - ln.gap < BOTTOM) break;
+    if (ln.t) stream += `${ln.f} ${ln.s} Tf 1 0 0 1 ${LEFT} ${y} Tm (${esc(ln.t)}) Tj\n`;
+    y -= ln.gap;
+  }
+  stream += "ET";
+  const streamLen = Buffer.byteLength(stream, "binary");
+  const parts: string[] = [];
+  const offsets: number[] = [];
+  const add = (s: string) => {
+    offsets.push(Buffer.byteLength(parts.join(""), "binary"));
+    parts.push(s);
+  };
+  parts.push("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  add(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
+  add(`2 0 obj\n<< /Type /Pages /Count 1 /Kids [3 0 R] >>\nendobj\n`);
+  add(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>\nendobj\n`);
+  add(`4 0 obj\n<< /Length ${streamLen} >>\nstream\n${stream}\nendstream\nendobj\n`);
+  add(`5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`);
+  add(`6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n`);
+  const xrefStart = Buffer.byteLength(parts.join(""), "binary");
+  let xref = `xref\n0 ${offsets.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) xref += `${off.toString().padStart(10, "0")} 00000 n \n`;
+  parts.push(xref);
+  parts.push(`trailer\n<< /Size ${offsets.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`);
+  return Buffer.from(parts.join(""), "binary");
+}
+
 async function ensureRole(name: string, description: string) {
   return (
     (await db.role.findFirst({ where: { name } })) ??
@@ -851,6 +912,280 @@ async function main() {
     docs[key] = d;
   }
 
+  // ═══ Bulk realistic catalogue ═════════════════════════════════════
+  // A large engineering-college catalogue layered on top of the curated
+  // demo set above. Natural keys (course codes, emails, document titles)
+  // are disjoint from the demo + Playwright-smoke fixtures, so the 23
+  // verify checks and the smoke are unaffected, and the engagement-counter
+  // sync at the end of main() picks up these rows too.
+  const bulkUsed = (i: number) => BigInt(20 + ((i * 37) % 220)) * MB;
+
+  const BULK_LECTURERS = [
+    { key: "levin",     email: "sarah.levin@knowledgebank.demo",    name: "Dr. Sarah Levin",     dept: "Software Engineering",   lid: "L-2001" },
+    { key: "mizrahi",   email: "yossi.mizrahi@knowledgebank.demo",  name: "Prof. Yossi Mizrahi", dept: "Computer Science",       lid: "L-2002" },
+    { key: "abramov",   email: "rachel.abramov@knowledgebank.demo", name: "Dr. Rachel Abramov",  dept: "Data Science",           lid: "L-2003" },
+    { key: "shapira",   email: "tomer.shapira@knowledgebank.demo",  name: "Prof. Tomer Shapira", dept: "Electrical Engineering", lid: "L-2004" },
+    { key: "bendavid",  email: "lior.bendavid@knowledgebank.demo",  name: "Dr. Lior Ben-David",  dept: "Information Systems",    lid: "L-2005" },
+    { key: "friedman",  email: "hila.friedman@knowledgebank.demo",  name: "Dr. Hila Friedman",   dept: "Mathematics",            lid: "L-2006" },
+    { key: "rosenberg", email: "avi.rosenberg@knowledgebank.demo",  name: "Prof. Avi Rosenberg", dept: "Computer Science",       lid: "L-2007" },
+    { key: "katz",      email: "dana.katz@knowledgebank.demo",      name: "Dr. Dana Katz",       dept: "Cyber Security",         lid: "L-2008" },
+  ];
+  const lec: Record<string, { id: string; displayName: string }> = {};
+  for (const l of BULK_LECTURERS) {
+    lec[l.key] = await ensureUser(
+      { email: l.email, displayName: l.name, roleName: "lecturer", status: "ACTIVE", lecturerId: l.lid, department: l.dept },
+      roleMap,
+    );
+  }
+
+  const BULK_STUDENTS: Array<[string, string]> = [
+    ["Itai Bar-On", "itai.baron"], ["Shira Golan", "shira.golan"], ["Omer Peretz", "omer.peretz"],
+    ["Tamar Weiss", "tamar.weiss"], ["Eitan Navon", "eitan.navon"], ["Roni Adler", "roni.adler"],
+    ["Gilad Stern", "gilad.stern"], ["Yuval Harari", "yuval.harari"], ["Daniella Mor", "daniella.mor"],
+    ["Ronen Geva", "ronen.geva"], ["Maya Sharabi", "maya.sharabi"], ["Adi Cohen", "adi.cohen"],
+    ["Nadav Klein", "nadav.klein"], ["Hadar Vaknin", "hadar.vaknin"],
+  ];
+  const students: Array<{ id: string }> = [];
+  for (let i = 0; i < BULK_STUDENTS.length; i++) {
+    const [name, handle] = BULK_STUDENTS[i];
+    students.push(await ensureUser(
+      { email: `${handle}@knowledgebank.demo`, displayName: name, roleName: "student", status: "ACTIVE", studentId: `S-30${i + 10}`, quotaBytes: 500n * MB, usedBytes: bulkUsed(i) },
+      roleMap,
+    ));
+  }
+
+  // Topical tags (extend the curated 14; verify only checks the base set exists).
+  const BULK_TAGS = [
+    "operating-systems", "computer-networks", "machine-learning", "artificial-intelligence",
+    "cyber-security", "cryptography", "calculus", "linear-algebra", "discrete-math", "statistics",
+    "web-development", "mobile-development", "devops", "software-engineering", "databases",
+    "software-architecture", "compilers", "digital-logic", "data-structures", "scrum",
+  ];
+  for (const t of BULK_TAGS) if (!tagsByName[t]) tagsByName[t] = (await ensureTag(t)).id;
+
+  const areaTags: Record<string, string[]> = {
+    cs: ["software-engineering"], systems: ["operating-systems"], algo: ["algorithms", "data-structures"],
+    data: ["databases"], ai: ["machine-learning", "artificial-intelligence"], se: ["software-engineering"],
+    web: ["web-development"], security: ["cyber-security"], math: ["discrete-math"],
+  };
+
+  interface BulkCourseDef { code: string; title: string; lec: string; area: string; topics: string[] }
+  const BULK_COURSES: BulkCourseDef[] = [
+    { code: "CS102", title: "Programming Fundamentals", lec: "mizrahi", area: "cs", topics: ["Primitive types and expressions", "Conditionals and boolean logic", "Loops and iteration", "Functions and scope", "Arrays and strings", "Files and error handling"] },
+    { code: "CS150", title: "Object-Oriented Programming", lec: "mizrahi", area: "cs", topics: ["Classes and objects", "Encapsulation", "Inheritance and polymorphism", "Interfaces and abstract classes", "Generics", "Intro to design patterns"] },
+    { code: "CS210", title: "Computer Organization", lec: "rosenberg", area: "systems", topics: ["Data representation", "Logic gates and boolean algebra", "The CPU datapath", "Memory hierarchy and caching", "Assembly language", "Pipelining"] },
+    { code: "CS240", title: "Algorithms", lec: "rosenberg", area: "algo", topics: ["Asymptotic analysis", "Divide and conquer", "Greedy algorithms", "Dynamic programming", "Graph traversal", "Shortest paths", "NP-completeness"] },
+    { code: "CS301", title: "Operating Systems", lec: "rosenberg", area: "systems", topics: ["Processes and threads", "CPU scheduling", "Synchronization and deadlock", "Virtual memory and paging", "File systems", "Virtualization"] },
+    { code: "CS310", title: "Database Systems", lec: "abramov", area: "data", topics: ["The relational model", "SQL fundamentals", "Normalization", "Indexing and B-trees", "Transactions and ACID", "Query optimization"] },
+    { code: "CS330", title: "Computer Networks", lec: "shapira", area: "systems", topics: ["The TCP/IP model", "The link layer", "IP addressing and routing", "Reliable transport with TCP", "DNS and HTTP", "Network security basics"] },
+    { code: "CS340", title: "Introduction to Artificial Intelligence", lec: "abramov", area: "ai", topics: ["Search and problem solving", "Heuristics and A*", "Constraint satisfaction", "Adversarial search", "Knowledge representation", "Intro to learning"] },
+    { code: "CS370", title: "Machine Learning", lec: "abramov", area: "ai", topics: ["Linear regression", "Classification", "Decision trees and ensembles", "Neural networks", "Model evaluation", "Clustering"] },
+    { code: "CS401", title: "Compilers", lec: "mizrahi", area: "cs", topics: ["Lexical analysis", "Parsing and grammars", "Semantic analysis", "Intermediate representation", "Code generation", "Optimization"] },
+    { code: "SE201", title: "Software Engineering", lec: "levin", area: "se", topics: ["The software lifecycle", "Requirements engineering", "Version control with Git", "Testing strategies", "Code review", "Agile and Scrum"] },
+    { code: "SE310", title: "Software Architecture", lec: "levin", area: "se", topics: ["Architectural styles", "Layered and hexagonal design", "Microservices", "Designing for scale", "Domain-driven design", "Documenting architecture"] },
+    { code: "SE320", title: "Web Application Development", lec: "levin", area: "web", topics: ["HTTP and REST", "Frontend frameworks", "State management", "Authentication and sessions", "Building APIs", "Deployment"] },
+    { code: "SE330", title: "Mobile Application Development", lec: "levin", area: "web", topics: ["Mobile platforms", "UI layout and navigation", "Local storage", "Networking on mobile", "Push notifications", "Publishing apps"] },
+    { code: "SE340", title: "DevOps and Continuous Delivery", lec: "bendavid", area: "se", topics: ["CI/CD pipelines", "Containers and Docker", "Infrastructure as code", "Monitoring and observability", "Release strategies", "Incident response"] },
+    { code: "IS210", title: "Database Management", lec: "bendavid", area: "data", topics: ["Data modeling", "ER diagrams", "Relational algebra", "Advanced SQL", "Triggers and procedures", "NoSQL overview"] },
+    { code: "IS330", title: "Information Security", lec: "katz", area: "security", topics: ["The CIA triad", "Authentication and access control", "Common web vulnerabilities", "Secure development", "Risk assessment", "Security policy"] },
+    { code: "CY301", title: "Network Security", lec: "katz", area: "security", topics: ["Threat models", "Firewalls and IDS", "VPNs and tunneling", "TLS and PKI", "Wireless security", "Penetration testing"] },
+    { code: "CY320", title: "Applied Cryptography", lec: "katz", area: "security", topics: ["Classical ciphers", "Symmetric encryption", "Hash functions", "Public-key cryptography", "Digital signatures", "Key exchange"] },
+    { code: "MATH101", title: "Calculus I", lec: "friedman", area: "math", topics: ["Limits and continuity", "Derivatives", "Rules of differentiation", "Applications of derivatives", "Integrals", "The fundamental theorem"] },
+    { code: "MATH201", title: "Linear Algebra", lec: "friedman", area: "math", topics: ["Vectors and vector spaces", "Matrices", "Systems of equations", "Determinants", "Eigenvalues and eigenvectors", "Orthogonality"] },
+    { code: "MATH210", title: "Discrete Mathematics", lec: "friedman", area: "math", topics: ["Logic and proofs", "Set theory", "Functions and relations", "Combinatorics", "Graph theory", "Recurrences"] },
+    { code: "MATH220", title: "Probability and Statistics", lec: "friedman", area: "math", topics: ["Sample spaces", "Conditional probability", "Random variables", "Common distributions", "Expectation and variance", "Hypothesis testing"] },
+    { code: "EE201", title: "Digital Systems", lec: "shapira", area: "systems", topics: ["Binary and logic gates", "Combinational circuits", "Karnaugh maps", "Sequential circuits", "Finite state machines", "Registers and memory"] },
+  ];
+
+  const semesters = ["Fall", "Spring"];
+  const bulkCourseRows: Array<{ id: string; code: string; title: string; semester: string; row: BulkCourseDef }> = [];
+  for (let i = 0; i < BULK_COURSES.length; i++) {
+    const cdef = BULK_COURSES[i];
+    const lecturer = lec[cdef.lec];
+    const semester = semesters[i % 2];
+    const course = await ensureCourse({ code: cdef.code, title: cdef.title, lecturer, semester, academicYear: 2026 });
+    bulkCourseRows.push({ id: course.id, code: cdef.code, title: cdef.title, semester, row: cdef });
+    await db.courseEnrollment.createMany({
+      data: [{ userId: lecturer.id, courseId: course.id, roleInCourse: "lecturer" }],
+      skipDuplicates: true,
+    });
+  }
+
+  // Enroll each student into ~4 distinct bulk courses.
+  for (let s = 0; s < students.length; s++) {
+    const picks = new Set<string>();
+    for (let k = 0; k < 4; k++) picks.add(bulkCourseRows[(s * 3 + k * 7) % bulkCourseRows.length].id);
+    await db.courseEnrollment.createMany({
+      data: Array.from(picks).map((courseId) => ({ userId: students[s].id, courseId, roleInCourse: "student" })),
+      skipDuplicates: true,
+    });
+  }
+
+  // Realistic file-content builders.
+  const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 48);
+  const lectureLines = (code: string, title: string, topic: string, n: number) => [
+    `# ${code} — Lecture ${n}: ${topic}`, ``,
+    `Part of **${title}** (${code}). These notes introduce ${topic.toLowerCase()},`,
+    `explain why it matters, and connect it to the rest of the course.`, ``,
+    `## Overview`,
+    `We start with the intuition behind ${topic.toLowerCase()} before the formal`,
+    `definitions. Read this section twice if the idea is new to you.`, ``,
+    `## Key concepts`, `- Definition and notation`, `- The main result and why it holds`, `- Common mistakes and how to avoid them`, ``,
+    `## Worked example`,
+    `A step-by-step example follows. Reproduce it yourself before the next`,
+    `session — understanding the steps matters more than the final answer.`, ``,
+    `## Summary`,
+    `${topic} is foundational for what comes next. Review the key concepts`,
+    `and attempt the matching exercises in Assignment 1.`,
+  ];
+  const slidesParas = (title: string, topics: string[]) => [
+    `## Course overview`, `An introduction to ${title}.`,
+    `## Topics covered`, ...topics.map((t) => `- ${t}`),
+    `## Logistics`, `Weekly lectures, one assignment per unit, and a final examination.`,
+  ];
+  const assignParas = (code: string, title: string, topic: string) => [
+    `Course: ${title} (${code})`,
+    `Submit a single PDF before the deadline on the course page. Late work loses 10% per day.`,
+    `## Tasks`,
+    `1. Review the lecture notes on ${topic.toLowerCase()}.`,
+    `2. Complete the exercises below, showing all working.`,
+    `3. Write a short reflection on the hardest part.`,
+    `## Exercises`,
+    `Exercise 1: Apply the main technique from this unit to your own example.`,
+    `Exercise 2: Extend that example and analyse how the result changes.`,
+  ];
+  const examParas = (code: string, title: string, topics: string[]) => [
+    `Course: ${title} (${code})`,
+    `Practice examination — time allowed: 2 hours. Answer all questions.`,
+    `## Section A — short answers`,
+    ...topics.slice(0, 4).map((t, i) => `A${i + 1}. Briefly explain the key idea behind "${t}".`),
+    `## Section B — problems`,
+    ...topics.slice(0, 3).map((t, i) => `B${i + 1}. Solve a problem involving ${t.toLowerCase()}. Show all steps.`),
+  ];
+  const summaryLines = (code: string, title: string, topics: string[]) => [
+    `# ${code} — ${title}: Course Summary`, ``,
+    `A condensed revision sheet for the whole course. Work through one topic`,
+    `per study session and self-test with the practice exam.`, ``,
+    ...topics.map((t, i) => `${i + 1}. **${t}** — key definitions, the central result, and one example.`),
+  ];
+
+  const bulkCreatedAt = (i: number) => daysAgo((i * 11) % 130 + 3);
+  let bi = 0;
+  for (const c of bulkCourseRows) {
+    const cdef = c.row;
+    const lecturer = lec[cdef.lec];
+    const tags = (areaTags[cdef.area] ?? []).map((n) => tagsByName[n]).filter((x): x is string => !!x);
+
+    for (let t = 0; t < cdef.topics.length; t++) {
+      const topic = cdef.topics[t];
+      docs[`b:${cdef.code}:lec${t}`] = await ensureDocument({
+        title: `${cdef.code} Lecture ${t + 1}: ${topic}`,
+        description: `Lecture notes for ${cdef.title} — ${topic}.`,
+        uploaderId: lecturer.id, courseId: c.id, categoryId: catLectureNotes.id,
+        materialType: "lecture-notes", visibility: "public",
+        semester: c.semester, academicYear: 2026, tagIds: tags,
+        mimeType: "text/markdown", filename: `${slug(`${cdef.code}-lecture-${t + 1}`)}.md`,
+        body: txt(...lectureLines(cdef.code, cdef.title, topic, t + 1)),
+        createdAt: bulkCreatedAt(bi++),
+      });
+    }
+
+    docs[`b:${cdef.code}:slides`] = await ensureDocument({
+      title: `${cdef.code} Slides: ${cdef.title}`,
+      description: `Lecture slide deck for ${cdef.title}.`,
+      uploaderId: lecturer.id, courseId: c.id, categoryId: catPresentations.id,
+      materialType: "slides", visibility: "public",
+      semester: c.semester, academicYear: 2026,
+      tagIds: [...tags, tagsByName["presentation"]].filter((x): x is string => !!x),
+      mimeType: "application/pdf", filename: `${slug(`${cdef.code}-slides`)}.pdf`,
+      body: richPdf(`${cdef.code} — ${cdef.title}`, slidesParas(cdef.title, cdef.topics)),
+      createdAt: bulkCreatedAt(bi++),
+    });
+
+    const a1Topic = cdef.topics[Math.min(1, cdef.topics.length - 1)];
+    docs[`b:${cdef.code}:a1`] = await ensureDocument({
+      title: `${cdef.code} Assignment 1: ${a1Topic}`,
+      description: `First assignment for ${cdef.title}.`,
+      uploaderId: lecturer.id, courseId: c.id, categoryId: catAssignments.id,
+      materialType: "assignment", visibility: "restricted",
+      semester: c.semester, academicYear: 2026,
+      tagIds: [...tags, tagsByName["important"]].filter((x): x is string => !!x),
+      mimeType: "application/pdf", filename: `${slug(`${cdef.code}-assignment-1`)}.pdf`,
+      body: richPdf(`${cdef.code} Assignment 1`, assignParas(cdef.code, cdef.title, a1Topic)),
+      createdAt: bulkCreatedAt(bi++),
+    });
+
+    docs[`b:${cdef.code}:exam`] = await ensureDocument({
+      title: `${cdef.code} Practice Exam`,
+      description: `Practice examination for ${cdef.title}.`,
+      uploaderId: lecturer.id, courseId: c.id, categoryId: catExams.id,
+      materialType: "exam", visibility: "restricted",
+      semester: c.semester, academicYear: 2026,
+      tagIds: [tagsByName["exam-prep"], tagsByName["important"]].filter((x): x is string => !!x),
+      mimeType: "application/pdf", filename: `${slug(`${cdef.code}-practice-exam`)}.pdf`,
+      body: richPdf(`${cdef.code} Practice Exam`, examParas(cdef.code, cdef.title, cdef.topics)),
+      createdAt: bulkCreatedAt(bi++),
+    });
+
+    docs[`b:${cdef.code}:sum`] = await ensureDocument({
+      title: `${cdef.code} Course Summary`,
+      description: `One-sheet revision summary for ${cdef.title}.`,
+      uploaderId: lecturer.id, courseId: c.id, categoryId: catSummaries.id,
+      materialType: "summary", visibility: "public",
+      semester: c.semester, academicYear: 2026,
+      tagIds: [tagsByName["summary"]].filter((x): x is string => !!x),
+      mimeType: "text/markdown", filename: `${slug(`${cdef.code}-summary`)}.md`,
+      body: txt(...summaryLines(cdef.code, cdef.title, cdef.topics)),
+      createdAt: bulkCreatedAt(bi++),
+    });
+  }
+  logger.info(`✓ Seeded bulk catalogue: ${bulkCourseRows.length} courses, ${BULK_LECTURERS.length} lecturers, ${students.length} students`);
+
+  // Bulk engagement — views + favorites scoped to each student's courses.
+  const bulkKeysByCourseId = new Map<string, string[]>();
+  for (const r of bulkCourseRows) {
+    bulkKeysByCourseId.set(r.id, Object.keys(docs).filter((k) => k.startsWith(`b:${r.code}:`)));
+  }
+  for (let s = 0; s < students.length; s++) {
+    const enr = await db.courseEnrollment.findMany({ where: { userId: students[s].id }, select: { courseId: true } });
+    let fav = 0;
+    for (const e of enr) {
+      const keys = bulkKeysByCourseId.get(e.courseId);
+      if (!keys) continue;
+      for (const k of keys.slice(0, 4)) {
+        const docId = docs[k]?.id;
+        if (!docId) continue;
+        const seen = await db.materialViewHistory.findFirst({ where: { documentId: docId, userId: students[s].id } });
+        if (!seen) await db.materialViewHistory.create({ data: { documentId: docId, userId: students[s].id } });
+      }
+      if (fav < 3 && keys[0]) {
+        const docId = docs[keys[0]]?.id;
+        if (docId) {
+          await db.documentFavorite.createMany({ data: [{ userId: students[s].id, documentId: docId }], skipDuplicates: true });
+          fav++;
+        }
+      }
+    }
+  }
+
+  // Bulk comments — one per course on its first lecture.
+  const bulkCommentBodies = [
+    "This really helped clarify the topic — thank you!",
+    "Could you add a worked example for the second part?",
+    "Great notes — the summary at the end is very useful.",
+    "Found a small typo in the third section, otherwise perfect.",
+    "The diagram made this finally click for me.",
+  ];
+  for (let i = 0; i < bulkCourseRows.length; i++) {
+    const docId = docs[`b:${bulkCourseRows[i].code}:lec0`]?.id;
+    if (!docId) continue;
+    await ensureComment({
+      documentId: docId,
+      authorId: students[i % students.length].id,
+      body: `${bulkCourseRows[i].code}: ${bulkCommentBodies[i % bulkCommentBodies.length]}`,
+    });
+  }
+
   // ─── Recently viewed ──────────────────────────────────────────────
   // Course-aware: each viewer only "views" documents they can access.
   // Idempotent: skip insert when (user, document) already recorded.
@@ -1464,6 +1799,43 @@ async function main() {
     await ensureCollection(spec);
   }
   logger.info(`✓ Seeded ${collectionSpecs.length} public study collections for Prep Hub`);
+
+  // ─── Bulk catalogue: public "Full Course" collections for Prep Hub ─
+  // One per ~third bulk course, owned by the course lecturer, with seeded
+  // engagement so every discovery lane (Popular / Highest Rated / Most
+  // Viewed / Upcoming Exams / New) fills out. Reuses ensureCollection and
+  // the collection-counter sync below.
+  const bulkDaysFromNow = (n: number) => new Date(now + n * 86_400_000);
+  let bulkCollCount = 0;
+  for (let i = 0; i < bulkCourseRows.length; i++) {
+    if (i % 3 !== 0) continue;
+    const c = bulkCourseRows[i];
+    const itemKeys = Object.keys(docs)
+      .filter((k) => k.startsWith(`b:${c.code}:`))
+      .slice(0, 5);
+    if (itemKeys.length === 0) continue;
+    await ensureCollection({
+      owner: lec[c.row.lec],
+      title: `${c.code} — ${c.title} (Full Course)`,
+      description: `A complete study path for ${c.title}: lectures, slides, the assignment, and the practice exam.`,
+      kind: "learning_path",
+      isOfficial: true,
+      course: { id: c.id },
+      category: catLectureNotes,
+      createdAt: daysAgo((i * 9) % 90 + 5),
+      examName: `${c.code} Final Exam`,
+      examDate: bulkDaysFromNow(((i % 4) + 1) * 7),
+      itemKeys,
+      tagNames: areaTags[c.row.area] ?? [],
+      views: students.slice(0, 6 + (i % 5)).map((s) => s.id),
+      likes: students.slice(0, 3 + (i % 4)).map((s) => s.id),
+      followers: students.slice(0, 4 + (i % 5)).map((s) => s.id),
+      ratings: students.slice(0, 3 + (i % 3)).map((s, k) => [s.id, 3 + ((i + k) % 3)] as [string, number]),
+      comments: [[students[i % students.length].id, `Following this for ${c.code} — great structure.`]],
+    });
+    bulkCollCount++;
+  }
+  logger.info(`✓ Seeded ${bulkCollCount} bulk "Full Course" collections for Prep Hub`);
 
   // ─── Sync engagement counters from the seeded event tables ────────
   // The seed inserts view-history / favorites / download audits directly via
