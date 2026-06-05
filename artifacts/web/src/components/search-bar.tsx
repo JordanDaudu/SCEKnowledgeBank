@@ -45,12 +45,23 @@ export function SearchBar({
   const debounced = useDebounce(query.trim(), 250);
   const enabled = open && debounced.length >= MIN_CHARS;
 
-  const acParams = { q: debounced || "_", limit: PER_GROUP };
+  // Memoize the request params and the derived query key on the primitive
+  // `debounced` so TanStack Query keys stay referentially stable between
+  // renders — mirrors the convention in browse.tsx and avoids needless
+  // observer churn / duplicate in-flight fetches.
+  const acParams = useMemo(
+    () => ({ q: debounced || "_", limit: PER_GROUP }),
+    [debounced],
+  );
+  const acQueryKey = useMemo(
+    () => getSearchAutocompleteQueryKey(acParams),
+    [acParams],
+  );
   const { data, isFetching } = useSearchAutocomplete(acParams, {
     query: {
       enabled,
       staleTime: 30_000,
-      queryKey: getSearchAutocompleteQueryKey(acParams),
+      queryKey: acQueryKey,
     },
   });
 
