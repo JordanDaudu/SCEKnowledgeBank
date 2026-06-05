@@ -203,7 +203,7 @@ test.describe("nav role-gating (C7)", () => {
   const desktopNav = (page: Page) =>
     page.getByRole("navigation", { name: "Main navigation" });
 
-  test("student sees Collections and Prep Hub in nav", async ({ page }) => {
+  test("student sees Collections, Prep Hub and Upload in nav", async ({ page }) => {
     await login(page, STUDENT_EMAIL);
     await page.goto("/");
     await expect(
@@ -212,9 +212,12 @@ test.describe("nav role-gating (C7)", () => {
     await expect(
       desktopNav(page).getByRole("link", { name: "Prep Hub" }),
     ).toBeVisible();
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Upload", exact: true }),
+    ).toBeVisible();
   });
 
-  test("lecturer sees Collections and Prep Hub in nav", async ({ page }) => {
+  test("lecturer sees Collections, Prep Hub and Upload in nav", async ({ page }) => {
     await login(page, LECTURER_EMAIL);
     await page.goto("/");
     await expect(
@@ -223,16 +226,70 @@ test.describe("nav role-gating (C7)", () => {
     await expect(
       desktopNav(page).getByRole("link", { name: "Prep Hub" }),
     ).toBeVisible();
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Upload", exact: true }),
+    ).toBeVisible();
   });
 
-  test("admin sees neither Prep Hub nor Collections in nav", async ({ page }) => {
+  test("admin sees no Prep Hub, Collections, Upload, My Uploads or standalone Review — but keeps Admin Approvals", async ({
+    page,
+  }) => {
     await login(page, ADMIN_EMAIL);
     await page.goto("/");
+
+    // Inline primary nav: Collections / Prep Hub / Upload all hidden.
     await expect(
       desktopNav(page).getByRole("link", { name: "Prep Hub" }),
     ).toHaveCount(0);
     await expect(
       desktopNav(page).getByRole("link", { name: "Collections" }),
     ).toHaveCount(0);
+    await expect(
+      desktopNav(page).getByRole("link", { name: "Upload", exact: true }),
+    ).toHaveCount(0);
+
+    // "More" dropdown: no "My Uploads" and no standalone "Review" (it's
+    // folded into Admin Approvals); Admin Approvals stays.
+    await desktopNav(page).getByTestId("nav-more").click();
+    await expect(
+      page.getByRole("menuitem", { name: "My Uploads" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("menuitem", { name: "Review", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("menuitem", { name: "Admin Approvals" }),
+    ).toBeVisible();
+  });
+
+  test("lecturer keeps the standalone Review nav item", async ({ page }) => {
+    await login(page, LECTURER_EMAIL);
+    await page.goto("/");
+    await desktopNav(page).getByTestId("nav-more").click();
+    await expect(
+      page.getByRole("menuitem", { name: "Review", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("admin Approvals page shows both the approvals and the review queue", async ({
+    page,
+  }) => {
+    await login(page, ADMIN_EMAIL);
+    await page.goto("/admin/approvals");
+    await expect(
+      page.getByRole("heading", { name: "Admin approvals" }),
+    ).toBeVisible();
+    // The appended review-queue section renders within the page.
+    await expect(page.getByTestId("approvals-review-section")).toBeVisible();
+    await expect(page.getByTestId("review-queue")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Review Queue" }),
+    ).toBeVisible();
+  });
+
+  test("admin is blocked from the /upload route", async ({ page }) => {
+    await login(page, ADMIN_EMAIL);
+    await page.goto("/upload");
+    await expect(page.getByText("Access Denied")).toBeVisible();
   });
 });

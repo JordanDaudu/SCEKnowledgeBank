@@ -258,7 +258,7 @@ export default function Home() {
           description: "Search every document with facets and snippets.",
           iconClass: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
         },
-        ...(canUpload
+        ...(canUpload && !isAdmin
           ? [
               {
                 href: "/upload",
@@ -281,10 +281,13 @@ export default function Home() {
         ...(isLecturerOrAdmin
           ? [
               {
-                href: "/review-queue",
+                // Admins review inside the combined Admin Approvals page.
+                href: isAdmin ? "/admin/approvals" : "/review-queue",
                 icon: ShieldCheck,
-                label: "Review queue",
-                description: "Approve or reject pending submissions.",
+                label: isAdmin ? "Approvals & review" : "Review queue",
+                description: isAdmin
+                  ? "Sign off restricted files and review submissions."
+                  : "Approve or reject pending submissions.",
                 iconClass: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
               } as QuickAction,
             ]

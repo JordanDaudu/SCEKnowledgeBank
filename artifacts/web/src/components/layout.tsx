@@ -73,9 +73,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   // Primary items stay inline on desktop; the rest live behind a "More"
   // dropdown to keep the bar uncluttered. The mobile sheet shows everything.
-  // Collections and Prep Hub are for students/lecturers (admins manage, not
-  // study — they moderate via "Prep Hub Moderation"); Activity logs live
-  // inside the admin Analytics page rather than a top-level item.
+  // Admins moderate rather than contribute: Collections, Prep Hub, Upload
+  // and My Uploads are all hidden for them (they manage via "Prep Hub
+  // Moderation" / "Admin Approvals"). Activity logs live inside the admin
+  // Analytics page rather than a top-level item.
   const primaryNav: NavItem[] = user
     ? [
         { href: "/", icon: BookOpen, label: "Home" },
@@ -87,15 +88,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ]
           : []),
         { href: "/requests", icon: MessageSquare, label: "Requests" },
-        { href: "/upload", icon: Upload, label: "Upload" },
+        ...(!isAdmin
+          ? [{ href: "/upload", icon: Upload, label: "Upload" }]
+          : []),
       ]
     : [];
 
   const moreNav: NavItem[] = user
     ? [
         { href: "/profile", icon: UserCircle, label: "Profile" },
-        { href: "/uploads", icon: History, label: "My Uploads" },
-        ...(isLecturerOrAdmin
+        ...(!isAdmin
+          ? [{ href: "/uploads", icon: History, label: "My Uploads" }]
+          : []),
+        // Lecturers get a standalone Review item; for admins the review
+        // queue is folded into "Admin Approvals", so it's hidden here.
+        ...(isLecturerOrAdmin && !isAdmin
           ? [{ href: "/review-queue", icon: ShieldCheck, label: "Review" }]
           : []),
         ...(isAdmin

@@ -21,7 +21,14 @@ import { Check, X, FileText, ShieldCheck } from "lucide-react";
 // pattern and keeps the queue scannable.
 const PAGE_SIZE = 20;
 
-export default function ReviewQueue() {
+export default function ReviewQueue({
+  embedded = false,
+}: {
+  // When `embedded`, the queue renders as a section inside another page
+  // (e.g. the admin Approvals page) — a demoted h2 heading instead of the
+  // standalone page's h1. Defaults to the standalone full-page rendering.
+  embedded?: boolean;
+} = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [page, setPage] = useState(1);
@@ -105,6 +112,8 @@ export default function ReviewQueue() {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const Heading = embedded ? "h2" : "h1";
+
   return (
     <div className="space-y-6" data-testid="review-queue">
       <div>
@@ -113,7 +122,13 @@ export default function ReviewQueue() {
             <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-950/30 shrink-0">
               <ShieldCheck className="h-5 w-5 text-amber-700 dark:text-amber-400" />
             </div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Review Queue</h1>
+            <Heading
+              className={`font-serif font-bold text-foreground ${
+                embedded ? "text-2xl" : "text-3xl"
+              }`}
+            >
+              Review Queue
+            </Heading>
           </div>
           {total > 0 && (
             <span className="text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-2.5 py-1 rounded-full tabular-nums">

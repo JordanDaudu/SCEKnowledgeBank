@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { ShieldCheck, Loader2 } from "lucide-react";
+import ReviewQueue from "./review-queue";
 
 export default function AdminApprovals() {
   const queryClient = useQueryClient();
@@ -107,6 +108,12 @@ export default function AdminApprovals() {
           <p className="text-muted-foreground">Nothing awaiting admin approval.</p>
         </div>
       )}
+
+      {/* Student-submission review queue, appended so admins handle both
+          their restricted-type sign-offs and standard review in one place. */}
+      <div className="border-t pt-6" data-testid="approvals-review-section">
+        <ReviewQueue embedded />
+      </div>
     </div>
   );
 }
