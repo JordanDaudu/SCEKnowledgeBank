@@ -21,16 +21,17 @@ A standalone academic-materials platform for universities. Students, lecturers, 
 - State machine: `draft|rejected → pending_review → approved|rejected`. Lecturers/admins approve or reject (reject requires a 1–500 char reason). The uploader is notified via the in-app bus.
 - Review-hidden statuses (`draft`, `pending_review`, `rejected`) are hidden from non-uploader/non-owner/non-reviewer users in **every** read path — Prisma list/filter, raw-SQL v2 search, facets, and autocomplete — via the shared `REVIEW_HIDDEN_STATUSES` constant.
 
-### Lecturer / admin approval queue
+### Review & admin approvals
 - `GET /api/documents/pending-review` paginated queue. Admins see everything pending; lecturers see only docs in courses they teach; others get 403.
-- The web client's `/review-queue` page shows the queue with one-click Approve / Reject (with reason prompt) and links back to the document for full context.
+- **Lecturers** review from the `/review-queue` page — one-click Approve / Reject (reject requires a reason), with links back to the document for full context.
+- **Admins** moderate from a single `/admin/approvals` page that pairs the restricted-type **admin sign-off** queue (files needing admin approval before they publish) with the student-submission **review queue** appended directly below it. Admins are treated as moderators, not contributors, so the nav drops their Upload / My Uploads / standalone Review entries (review lives inside Admin Approvals).
 
 ### Search v2 — partial/prefix/fuzzy, facets, autocomplete, snippets, ranking
 - Single source of truth: `search.service` behind a typed filter DSL.
 - **Intelligent matching (refinement Phase 1):** queries are prefix-aware — a partial word like `lect` matches `lecture` (a `to_tsquery('english', 'tok:*')` built from the input). When the full-text pass returns nothing, the service falls back to a **trigram (`word_similarity`) fuzzy match** so typos still find results (`plankron` → `plankton`). The search haystack covers title, description, course code/title/lecturer, tags, **filename, category, uploader name, and extracted file text + smart-metadata keywords**.
 - `GET /api/v2/documents/search` — ranked page with optional per-row `headline` snippets via Postgres `ts_headline` (sentinel-tagged so the client html-escapes safely before swapping in `<mark>`).
 - `GET /api/v2/documents/search/facets` — counts grouped across course / materialType / semester / status / uploader, scoped to the current filter set, with id-bearing dims hydrated with display labels.
-- `GET /api/v2/documents/autocomplete?q=…` — grouped suggestions over tags / courses / uploaders, scoped to docs the caller can already see (a tag or uploader name that exists only on a hidden doc never surfaces to outsiders).
+- `GET /api/v2/documents/autocomplete?q=…` — grouped suggestions over **documents / tags / courses / uploaders**, scoped to docs the caller can already see (a tag or uploader name that exists only on a hidden doc never surfaces to outsiders). The home-page search box consumes this as a **live, debounced, keyboard-navigable suggestions dropdown** — picking a hit navigates smartly (document → detail; course / tag / person → Browse filtered), while Enter still runs a full text search.
 
 ### Upload intelligence — smart metadata suggestions
 - `POST /api/v2/documents/suggest-metadata` (multipart) runs the real extractor chain (PDF/text/image), deduplicates against the user's quota, then matches keywords against existing `Tag` / `Category` rows (exact **and** substring). Suggestions appear as clickable, apply-on-click chips in the upload card, with a confidence indicator (`from file metadata` vs `from filename`).
@@ -83,9 +84,11 @@ A standalone academic-materials platform for universities. Students, lecturers, 
 | -------- | --------------------------------------- | ----------------------------- | ------------------------------------------------------ |
 | student  | only to courses they're enrolled in; forced `status="draft"` | not allowed | their own drafts/pending/rejected only |
 | lecturer | to any course they teach (no review gate for self-uploads) | only docs in their taught courses | their own + reviewable courses |
-| admin    | anywhere                                | everything pending            | everything                                             |
+| admin    | moderation-only in the web client (Upload / My Uploads hidden, `/upload` blocked); server still permits it | everything pending — in the combined `/admin/approvals` page | everything |
 
 Hidden statuses (`draft` / `pending_review` / `rejected`) are filtered out of lists, search, facets, and autocomplete for anyone who isn't the uploader/owner, a course lecturer, or an admin.
+
+Admins are treated as **moderators, not contributors**: the web client hides Upload / My Uploads / Collections / Prep Hub and blocks those routes, while keeping the moderation surfaces (Review — folded into Admin Approvals — plus Prep Hub Moderation, Analytics, Orphaned Files, user admin).
 
 ## Tech stack
 
