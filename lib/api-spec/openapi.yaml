@@ -2236,6 +2236,13 @@ components:
           type: array
           items: { $ref: "#/components/schemas/SearchFacetUploader" }
 
+    AutocompleteDocumentHit:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+
     AutocompleteTagHit:
       type: object
       required: [id, name, count]
@@ -2263,8 +2270,11 @@ components:
 
     SearchAutocomplete:
       type: object
-      required: [tags, courses, uploaders]
+      required: [documents, tags, courses, uploaders]
       properties:
+        documents:
+          type: array
+          items: { $ref: "#/components/schemas/AutocompleteDocumentHit" }
         tags:
           type: array
           items: { $ref: "#/components/schemas/AutocompleteTagHit" }

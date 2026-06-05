@@ -1186,6 +1186,12 @@ export const SearchAutocompleteQueryParams = zod.object({
 });
 
 export const SearchAutocompleteResponse = zod.object({
+  documents: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      title: zod.string(),
+    }),
+  ),
   tags: zod.array(
     zod.object({
       id: zod.string().uuid(),

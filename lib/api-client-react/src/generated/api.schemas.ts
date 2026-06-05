@@ -429,6 +429,11 @@ export interface SearchFacets {
   uploader: SearchFacetUploader[];
 }
 
+export interface AutocompleteDocumentHit {
+  id: string;
+  title: string;
+}
+
 export interface AutocompleteTagHit {
   id: string;
   name: string;
@@ -449,6 +454,7 @@ export interface AutocompleteUploaderHit {
 }
 
 export interface SearchAutocomplete {
+  documents: AutocompleteDocumentHit[];
   tags: AutocompleteTagHit[];
   courses: AutocompleteCourseHit[];
   uploaders: AutocompleteUploaderHit[];

@@ -297,6 +297,15 @@ describe("autocomplete — grouped suggestions over visible documents", () => {
     expect(out.tags.some((t) => t.id === ctx.tagPlanktonId)).toBe(true);
   });
 
+  it("returns document hits matching the prefix by title", async () => {
+    const out = await searchService.autocomplete(
+      "plankton",
+      10,
+      ctx.adminUser,
+    );
+    expect(out.documents.some((d) => d.id === ctx.docTitleId)).toBe(true);
+  });
+
   it("matches courses by code prefix", async () => {
     const out = await searchService.autocomplete(
       ctx.courseCode.slice(0, 6),
@@ -317,6 +326,6 @@ describe("autocomplete — grouped suggestions over visible documents", () => {
 
   it("returns empty groups for a whitespace prefix without hitting the database", async () => {
     const out = await searchService.autocomplete("   ", 10, ctx.adminUser);
-    expect(out).toEqual({ tags: [], courses: [], uploaders: [] });
+    expect(out).toEqual({ documents: [], tags: [], courses: [], uploaders: [] });
   });
 });

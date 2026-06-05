@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { AutocompleteCourseHit } from "./autocompleteCourseHit";
+import type { AutocompleteDocumentHit } from "./autocompleteDocumentHit";
 import type { AutocompleteTagHit } from "./autocompleteTagHit";
 import type { AutocompleteUploaderHit } from "./autocompleteUploaderHit";
 
 export interface SearchAutocomplete {
+  documents: AutocompleteDocumentHit[];
   tags: AutocompleteTagHit[];
   courses: AutocompleteCourseHit[];
   uploaders: AutocompleteUploaderHit[];
