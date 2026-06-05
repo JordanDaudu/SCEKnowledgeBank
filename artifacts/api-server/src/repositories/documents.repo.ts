@@ -792,6 +792,7 @@ export async function computeFacetCounts(
 }
 
 export interface AutocompleteHits {
+  documents: Array<{ id: string; title: string }>;
   tags: Array<{ id: string; name: string; count: number }>;
   courses: Array<{ id: string; code: string; title: string; count: number }>;
   uploaders: Array<{ id: string; displayName: string; count: number }>;
@@ -814,7 +815,16 @@ export async function findAutocomplete(
 ): Promise<AutocompleteHits> {
   const pat = `%${prefix}%`;
   const prefixPat = `${prefix}%`;
-  const [tags, courses, uploaders] = await Promise.all([
+  const [documents, tags, courses, uploaders] = await Promise.all([
+    db.$queryRaw<Array<{ id: string; title: string }>>`
+      SELECT d.id, d.title
+      FROM documents d
+      WHERE d.deleted_at IS NULL
+        AND (d.title ILIKE ${pat} OR d.description ILIKE ${pat})
+        AND ${visibilitySql}
+      ORDER BY (d.title ILIKE ${prefixPat}) DESC, d.created_at DESC
+      LIMIT ${limit}
+    `,
     db.$queryRaw<Array<{ id: string; name: string; count: bigint }>>`
       SELECT t.id, t.name, count(DISTINCT d.id)::bigint AS count
       FROM tags t
@@ -853,6 +863,7 @@ export async function findAutocomplete(
     `,
   ]);
   return {
+    documents: documents.map((d) => ({ id: d.id, title: d.title })),
     tags: tags.map((t) => ({ id: t.id, name: t.name, count: Number(t.count) })),
     courses: courses.map((c) => ({
       id: c.id,

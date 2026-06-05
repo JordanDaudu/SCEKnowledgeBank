@@ -219,6 +219,7 @@ export async function searchFacets(
 }
 
 export interface AutocompleteResult {
+  documents: Array<{ id: string; title: string }>;
   tags: Array<{ id: string; name: string; count: number }>;
   courses: Array<{ id: string; code: string; title: string; count: number }>;
   uploaders: Array<{ id: string; displayName: string; count: number }>;
@@ -231,7 +232,7 @@ export async function autocomplete(
 ): Promise<AutocompleteResult> {
   const trimmed = prefix.trim();
   if (trimmed.length === 0) {
-    return { tags: [], courses: [], uploaders: [] };
+    return { documents: [], tags: [], courses: [], uploaders: [] };
   }
   const visibilitySql = permissions.visibleDocumentFilterSql(user);
   return docsRepo.findAutocomplete(trimmed, limit, visibilitySql);
