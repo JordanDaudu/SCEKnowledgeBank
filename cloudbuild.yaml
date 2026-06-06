@@ -1,0 +1,68 @@
+# Cloud Build pipeline for the Knowledge Bank.
+#
+# Builds the three images (API runtime, migrate/seed job, web SPA) and pushes
+# them to Artifact Registry. BuildKit is enabled per-step because the
+# Dockerfiles use `RUN --mount` and the `# syntax=` directive.
+#
+# Run manually:
+#   gcloud builds submit . --config=cloudbuild.yaml
+# or override a value:
+#   gcloud builds submit . --config=cloudbuild.yaml \
+#     --substitutions=_VITE_API_BASE=https://your-api-url
+#
+# After a successful build you still deploy with:
+#   gcloud run jobs execute kb-migrate --region=$_REGION --wait
+#   gcloud run deploy kb-api  --image=.../api:latest      ...
+#   gcloud run deploy kb-web  --image=.../web:latest      ...
+# (a CI trigger would append those as extra steps).
+
+substitutions:
+  _REGION: europe-west1
+  _REPO: knowledge-bank
+  # VITE_API_BASE is compiled into the web bundle at build time; point it at
+  # the deployed API service URL.
+  _VITE_API_BASE: https://kb-api-zaubgdpnyq-ew.a.run.app
+
+timeout: 1800s
+options:
+  machineType: E2_HIGHCPU_8
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - -f
+      - artifacts/api-server/Dockerfile
+      - --target=runtime
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - -f
+      - artifacts/api-server/Dockerfile
+      - --target=migrate
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api-migrate:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - -f
+      - artifacts/web/Dockerfile
+      - --build-arg
+      - VITE_API_BASE=${_VITE_API_BASE}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:latest
+      - .
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api:latest
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/api-migrate:latest
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/web:latest

@@ -30,7 +30,7 @@ COPY scripts/package.json ./scripts/
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store \
-    && pnpm install --frozen-lockfile
+    && pnpm install --no-frozen-lockfile
 
 # ---------- builder ----------
 FROM deps AS builder
