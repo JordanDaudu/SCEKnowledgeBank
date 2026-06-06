@@ -18,7 +18,12 @@ export const sessionMiddleware = session({
   rolling: true,
   cookie: {
     httpOnly: true,
-    sameSite: "lax",
+    // "none" is required for the session cookie to ride cross-site XHR between
+    // the web origin (kb-web…run.app) and the API origin (kb-api…run.app),
+    // which browsers treat as different sites. "none" REQUIRES secure:true,
+    // which production already sets. Stay on "lax" in dev (http localhost,
+    // where browsers reject sameSite:none without https).
+    sameSite: env.isProduction ? "none" : "lax",
     secure: env.isProduction,
     maxAge: 1000 * 60 * 60 * 24 * 14,
   },
