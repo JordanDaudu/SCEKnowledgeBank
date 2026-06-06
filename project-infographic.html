@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Knowledge Bank — Project Infographic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f1ead9;
+    --paper-2: #e9e0cb;
+    --ink: #211d18;
+    --ink-soft: #4b4338;
+    --ink-faint: #8a7f6c;
+    --vermillion: #d7401f;
+    --vermillion-deep: #ad2c12;
+    --teal: #156a66;
+    --teal-bright: #1d8f88;
+    --gold: #c98a1e;
+    --line: rgba(33, 29, 24, 0.14);
+    --line-strong: rgba(33, 29, 24, 0.32);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Newsreader', Georgia, serif;
+    background-color: var(--paper);
+    color: var(--ink);
+    line-height: 1.5;
+    overflow-x: hidden;
+    /* blueprint grid + paper grain */
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px),
+      radial-gradient(circle at 50% 0%, rgba(215,64,31,0.05), transparent 60%);
+    background-size: 38px 38px, 38px 38px, 100% 100%;
+  }
+
+  body::before {
+    /* grain overlay */
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+
+  /* ---------- typographic primitives ---------- */
+  .mono { font-family: 'Space Mono', monospace; }
+  .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--vermillion-deep);
+  }
+  .section-no {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    color: var(--ink-faint);
+  }
+  h2.section-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(1.9rem, 4vw, 3rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 8px 0 4px;
+  }
+
+  /* ---------- reveal animation ---------- */
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  /* =========================================================
+     HERO
+  ========================================================= */
+  header.hero {
+    position: relative;
+    padding: 84px 0 56px;
+    border-bottom: 2px solid var(--ink);
+    overflow: hidden;
+  }
+  .hero-mark {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 40px;
+  }
+  .hero-mark .stamp {
+    border: 1.5px solid var(--vermillion);
+    color: var(--vermillion-deep);
+    padding: 4px 10px;
+    border-radius: 2px;
+    transform: rotate(-2deg);
+  }
+  h1.title {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(3.4rem, 12vw, 8.5rem);
+    line-height: 0.86;
+    letter-spacing: -0.04em;
+  }
+  h1.title em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--vermillion);
+  }
+  .title-rule {
+    height: 0;
+    border-top: 1.5px solid var(--line-strong);
+    margin: 30px 0 26px;
+  }
+  .lede {
+    font-size: clamp(1.1rem, 2.1vw, 1.55rem);
+    max-width: 760px;
+    color: var(--ink-soft);
+    font-weight: 300;
+    line-height: 1.45;
+  }
+  .lede b { color: var(--ink); font-weight: 500; }
+
+  .hero-glyph {
+    position: absolute;
+    top: -40px;
+    right: -30px;
+    font-family: 'Fraunces', serif;
+    font-size: 30rem;
+    line-height: 1;
+    color: var(--vermillion);
+    opacity: 0.06;
+    font-weight: 900;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* metric ribbon */
+  .ribbon {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1.5px solid var(--ink);
+    margin-top: 48px;
+    background: var(--paper-2);
+  }
+  .ribbon .cell {
+    padding: 22px 20px;
+    border-right: 1px solid var(--line-strong);
+  }
+  .ribbon .cell:last-child { border-right: none; }
+  .ribbon .num {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .ribbon .num span { color: var(--vermillion); }
+  .ribbon .lbl {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 8px;
+  }
+
+  /* =========================================================
+     GENERIC SECTION
+  ========================================================= */
+  section { padding: 72px 0; border-bottom: 1px solid var(--line-strong); }
+  .sec-head { margin-bottom: 44px; max-width: 720px; }
+  .sec-head p.intro { font-size: 1.12rem; color: var(--ink-soft); margin-top: 14px; font-weight: 300; }
+
+  /* =========================================================
+     ROLES
+  ========================================================= */
+  .roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1.5px solid var(--ink); }
+  .role {
+    padding: 30px 26px;
+    border-right: 1px solid var(--line-strong);
+    position: relative;
+    background: var(--paper-2);
+    transition: background .4s;
+  }
+  .role:last-child { border-right: none; }
+  .role:hover { background: var(--paper); }
+  .role .ico {
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    width: 42px; height: 42px;
+    display: grid; place-items: center;
+    border: 1.5px solid var(--ink);
+    border-radius: 50%;
+    font-size: 1.1rem;
+    margin-bottom: 18px;
+  }
+  .role:nth-child(1) .ico { color: var(--teal); border-color: var(--teal); }
+  .role:nth-child(2) .ico { color: var(--gold); border-color: var(--gold); }
+  .role:nth-child(3) .ico { color: var(--vermillion); border-color: var(--vermillion); }
+  .role h3 { font-family: 'Fraunces', serif; font-size: 1.5rem; font-weight: 600; }
+  .role .sub { font-family: 'Space Mono', monospace; font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin: 4px 0 16px; }
+  .role ul { list-style: none; }
+  .role li { font-size: 0.95rem; padding: 7px 0 7px 18px; position: relative; color: var(--ink-soft); border-top: 1px dotted var(--line); }
+  .role li:first-child { border-top: none; }
+  .role li::before { content: "→"; position: absolute; left: 0; color: var(--vermillion); }
+
+  /* =========================================================
+     FEATURE GRID
+  ========================================================= */
+  .features { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+  .card {
+    border: 1.5px solid var(--ink);
+    padding: 26px 24px;
+    background: var(--paper-2);
+    position: relative;
+    transition: transform .35s cubic-bezier(.16,1,.3,1), box-shadow .35s;
+    overflow: hidden;
+  }
+  .card:hover { transform: translate(-4px, -4px); box-shadow: 8px 8px 0 var(--ink); }
+  .card .kicker { font-family: 'Space Mono', monospace; font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--vermillion-deep); }
+  .card h3 { font-family: 'Fraunces', serif; font-size: 1.5rem; font-weight: 600; margin: 6px 0 10px; line-height: 1.05; }
+  .card p { font-size: 0.96rem; color: var(--ink-soft); font-weight: 300; }
+  .card .badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    border: 1px solid var(--line-strong);
+    padding: 2px 7px;
+    margin: 12px 6px 0 0;
+    color: var(--teal);
+    border-radius: 2px;
+  }
+  .card .num-corner {
+    position: absolute;
+    top: 14px; right: 18px;
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 2.4rem;
+    color: var(--line);
+    line-height: 1;
+  }
+  .span-6 { grid-column: span 6; }
+  .span-4 { grid-column: span 4; }
+  .span-8 { grid-column: span 8; }
+  .card.feature-hero { background: var(--ink); color: var(--paper); }
+  .card.feature-hero h3 { color: var(--paper); }
+  .card.feature-hero p { color: rgba(241,234,217,0.78); }
+  .card.feature-hero .kicker { color: var(--vermillion); }
+  .card.feature-hero .badge { color: var(--paper); border-color: rgba(241,234,217,0.3); }
+  .card.feature-hero .num-corner { color: rgba(241,234,217,0.12); }
+  .card.feature-hero:hover { box-shadow: 8px 8px 0 var(--vermillion); }
+
+  /* =========================================================
+     PIPELINE (review state machine)
+  ========================================================= */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 0;
+    border: 1.5px solid var(--ink);
+    background: var(--paper-2);
+  }
+  .stage {
+    flex: 1 1 0;
+    min-width: 140px;
+    padding: 26px 20px;
+    border-right: 1px solid var(--line-strong);
+    position: relative;
+  }
+  .stage:last-child { border-right: none; }
+  .stage .st-no { font-family: 'Space Mono', monospace; font-size: 0.66rem; color: var(--vermillion); letter-spacing: 0.1em; }
+  .stage h4 { font-family: 'Fraunces', serif; font-size: 1.25rem; font-weight: 600; margin: 6px 0; }
+  .stage p { font-size: 0.85rem; color: var(--ink-soft); font-weight: 300; }
+  .stage .pill { font-family: 'Space Mono', monospace; font-size: 0.6rem; padding: 2px 8px; border-radius: 99px; display: inline-block; margin-top: 10px; }
+  .pill.draft { background: var(--paper); border: 1px solid var(--line-strong); color: var(--ink-faint); }
+  .pill.pending { background: rgba(201,138,30,0.16); color: var(--gold); }
+  .pill.ok { background: rgba(21,106,102,0.14); color: var(--teal); }
+  .pill.no { background: rgba(215,64,31,0.14); color: var(--vermillion-deep); }
+
+  /* =========================================================
+     TECH STACK
+  ========================================================= */
+  .stack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .stack-block { border: 1.5px solid var(--ink); padding: 24px; background: var(--paper-2); }
+  .stack-block .layer { font-family: 'Space Mono', monospace; font-size: 0.66rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--vermillion-deep); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line-strong); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.74rem;
+    padding: 6px 12px;
+    border: 1.5px solid var(--ink);
+    border-radius: 99px;
+    background: var(--paper);
+    transition: all .25s;
+  }
+  .chip:hover { background: var(--ink); color: var(--paper); transform: translateY(-2px); }
+  .stack-block.dark { background: var(--ink); }
+  .stack-block.dark .layer { color: var(--vermillion); }
+  .stack-block.dark .chip { background: transparent; color: var(--paper); border-color: rgba(241,234,217,0.3); }
+  .stack-block.dark .chip:hover { background: var(--vermillion); border-color: var(--vermillion); }
+
+  /* repo tree */
+  .tree {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.95;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 28px 30px;
+    border: 1.5px solid var(--ink);
+    margin-top: 16px;
+    overflow-x: auto;
+  }
+  .tree .dir { color: var(--vermillion); }
+  .tree .cmt { color: var(--ink-faint); }
+
+  /* =========================================================
+     LIMITS / FOOTER
+  ========================================================= */
+  .limits { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 40px; }
+  .limit { display: flex; gap: 14px; align-items: baseline; padding: 12px 0; border-top: 1px solid var(--line); font-size: 0.96rem; color: var(--ink-soft); }
+  .limit .x { font-family: 'Space Mono', monospace; color: var(--vermillion); font-weight: 700; }
+
+  footer {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 60px 0 50px;
+    background-image: linear-gradient(rgba(241,234,217,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(241,234,217,0.05) 1px, transparent 1px);
+    background-size: 38px 38px;
+  }
+  footer .f-title { font-family: 'Fraunces', serif; font-size: clamp(2rem,6vw,4rem); font-weight: 300; font-style: italic; line-height: 1; }
+  footer .f-title b { font-style: normal; font-weight: 600; color: var(--vermillion); }
+  footer .f-meta { font-family: 'Space Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; color: rgba(241,234,217,0.55); margin-top: 26px; display: flex; flex-wrap: wrap; gap: 24px; }
+
+  /* =========================================================
+     ARCHITECTURE DIAGRAMS
+  ========================================================= */
+  .diagram { border: 1.5px solid var(--ink); background: var(--paper-2); padding: 28px 26px; margin-bottom: 16px; }
+  .diagram-cap {
+    font-family: 'Space Mono', monospace; font-size: 0.66rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-faint); margin-bottom: 20px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--line-strong);
+  }
+  .diagram-cap b { color: var(--vermillion-deep); }
+
+  /* horizontal flow */
+  .flow { display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px; }
+  .node {
+    flex: 1 1 0; min-width: 118px; padding: 16px 14px; border: 1.5px solid var(--ink);
+    background: var(--paper); display: flex; flex-direction: column; justify-content: center;
+    transition: transform .3s, box-shadow .3s;
+  }
+  .node:hover { transform: translateY(-3px); box-shadow: 4px 4px 0 var(--ink); }
+  .node .n-ttl { font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.02rem; line-height: 1.1; }
+  .node .n-sub { font-family: 'Space Mono', monospace; font-size: 0.58rem; color: var(--ink-faint); letter-spacing: 0.06em; margin-top: 5px; text-transform: uppercase; }
+  .node.ink { background: var(--ink); }
+  .node.ink .n-ttl { color: var(--paper); }
+  .node.vrm { border-color: var(--vermillion); }
+  .node.vrm .n-ttl { color: var(--vermillion-deep); }
+  .node.teal { border-color: var(--teal); }
+  .node.teal .n-ttl { color: var(--teal); }
+  .flow .arr { flex: 0 0 30px; display: grid; place-items: center; color: var(--vermillion); font-family: 'Space Mono', monospace; font-weight: 700; font-size: 1.3rem; }
+  .flow .arr.dn { transform: rotate(90deg); }
+
+  /* codegen fan-out */
+  .fan { display: grid; grid-template-columns: 1fr 30px 1fr; align-items: center; gap: 0; }
+  .fan .branch { display: flex; flex-direction: column; gap: 8px; }
+
+  /* layered stack */
+  .layers { display: flex; flex-direction: column; gap: 6px; }
+  .lyr { border: 1.5px solid var(--ink); padding: 14px 18px; background: var(--paper); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .lyr .lyr-tag { font-family: 'Space Mono', monospace; font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--vermillion-deep); min-width: 92px; }
+  .lyr .lyr-body { font-size: 0.92rem; color: var(--ink-soft); flex: 1; }
+  .lyr .lyr-body code { font-family: 'Space Mono', monospace; font-size: 0.82em; color: var(--ink); }
+
+  /* =========================================================
+     CLOUD TOPOLOGY
+  ========================================================= */
+  .cloud {
+    border: 2px dashed var(--teal); border-radius: 14px; padding: 26px 24px 24px;
+    position: relative; background: rgba(21,106,102,0.04); margin-bottom: 16px;
+  }
+  .cloud .cloud-lbl {
+    position: absolute; top: -12px; left: 24px; background: var(--paper);
+    font-family: 'Space Mono', monospace; font-size: 0.64rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--teal); padding: 0 10px;
+  }
+  .topo { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .svc {
+    border: 1.5px solid var(--ink); background: var(--paper-2); padding: 18px 18px;
+    position: relative; transition: transform .3s, box-shadow .3s;
+  }
+  .svc:hover { transform: translate(-3px,-3px); box-shadow: 6px 6px 0 var(--teal); }
+  .svc .svc-kind { font-family: 'Space Mono', monospace; font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--vermillion-deep); }
+  .svc h4 { font-family: 'Fraunces', serif; font-size: 1.3rem; font-weight: 600; margin: 4px 0 6px; }
+  .svc p { font-size: 0.86rem; color: var(--ink-soft); font-weight: 300; }
+  .svc .port { position: absolute; top: 16px; right: 16px; font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--teal); border: 1px solid var(--teal); border-radius: 99px; padding: 2px 8px; }
+  .svc.full { grid-column: span 2; }
+  .ext-row { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .browser-box {
+    flex: 1; border: 1.5px solid var(--ink); background: var(--ink); color: var(--paper);
+    padding: 14px 18px; font-family: 'Space Mono', monospace; font-size: 0.78rem; letter-spacing: 0.06em;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .browser-box .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--vermillion); box-shadow: 16px 0 0 var(--gold), 32px 0 0 var(--teal-bright); }
+  .ext-row .conn { font-family: 'Space Mono', monospace; font-size: 0.62rem; color: var(--ink-faint); white-space: nowrap; }
+
+  /* sequence */
+  .seq { counter-reset: step; display: flex; flex-direction: column; gap: 0; }
+  .seq .step { display: flex; gap: 18px; padding: 14px 0; border-top: 1px dotted var(--line); position: relative; }
+  .seq .step:first-child { border-top: none; }
+  .seq .step::before {
+    counter-increment: step; content: counter(step, decimal-leading-zero);
+    font-family: 'Space Mono', monospace; font-size: 0.72rem; font-weight: 700; color: var(--paper);
+    background: var(--vermillion); width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; flex: 0 0 30px;
+  }
+  .seq .step .s-body { font-size: 0.96rem; color: var(--ink-soft); padding-top: 4px; }
+  .seq .step .s-body b { color: var(--ink); font-weight: 600; }
+  .seq .step .s-body code { font-family: 'Space Mono', monospace; font-size: 0.82em; background: var(--paper); padding: 1px 6px; border: 1px solid var(--line); border-radius: 3px; }
+
+  /* storage options */
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .opt { border: 1.5px solid var(--ink); background: var(--paper-2); padding: 22px; position: relative; }
+  .opt .opt-tag { font-family: 'Space Mono', monospace; font-size: 0.62rem; letter-spacing: 0.12em; color: var(--vermillion-deep); }
+  .opt h4 { font-family: 'Fraunces', serif; font-size: 1.35rem; font-weight: 600; margin: 6px 0 8px; }
+  .opt p { font-size: 0.92rem; color: var(--ink-soft); font-weight: 300; }
+  .opt .verdict { font-family: 'Space Mono', monospace; font-size: 0.62rem; margin-top: 14px; padding: 5px 10px; display: inline-block; border-radius: 3px; }
+  .opt .verdict.start { background: rgba(201,138,30,0.16); color: var(--gold); }
+  .opt .verdict.proper { background: rgba(21,106,102,0.14); color: var(--teal); }
+
+  /* gotchas */
+  .gotchas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .gotcha { border: 1.5px solid var(--vermillion); background: rgba(215,64,31,0.05); padding: 20px 22px; }
+  .gotcha .g-no { font-family: 'Space Mono', monospace; font-size: 0.66rem; letter-spacing: 0.14em; color: var(--vermillion-deep); }
+  .gotcha h4 { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 600; margin: 6px 0 8px; }
+  .gotcha p { font-size: 0.9rem; color: var(--ink-soft); font-weight: 300; }
+  .gotcha code { font-family: 'Space Mono', monospace; font-size: 0.82em; color: var(--vermillion-deep); }
+
+  /* ranking weight bar */
+  .weightbar { display: flex; height: 46px; border: 1.5px solid var(--ink); overflow: hidden; margin-bottom: 12px; }
+  .weightbar .seg { display: grid; place-items: center; font-family: 'Space Mono', monospace; font-size: 0.66rem; color: var(--paper); letter-spacing: 0.04em; }
+  .weightbar .seg.eng { background: var(--vermillion); flex: 5; }
+  .weightbar .seg.rec { background: var(--teal); flex: 3; }
+  .weightbar .seg.qual { background: var(--gold); flex: 2; }
+  .weight-legend { display: flex; gap: 22px; flex-wrap: wrap; font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--ink-soft); }
+  .weight-legend span::before { content: "■ "; }
+  .weight-legend .l-eng::before { color: var(--vermillion); }
+  .weight-legend .l-rec::before { color: var(--teal); }
+  .weight-legend .l-qual::before { color: var(--gold); }
+
+  /* responsive */
+  @media (max-width: 880px) {
+    .ribbon { grid-template-columns: repeat(2, 1fr); }
+    .ribbon .cell:nth-child(2) { border-right: none; }
+    .ribbon .cell:nth-child(1), .ribbon .cell:nth-child(2) { border-bottom: 1px solid var(--line-strong); }
+    .roles { grid-template-columns: 1fr; }
+    .role { border-right: none; border-bottom: 1px solid var(--line-strong); }
+    .span-6, .span-4, .span-8 { grid-column: span 12; }
+    .stack-grid, .limits { grid-template-columns: 1fr; }
+    .topo, .opts, .gotchas { grid-template-columns: 1fr; }
+    .svc.full { grid-column: span 1; }
+    .fan { grid-template-columns: 1fr; gap: 10px; }
+    .fan .arr { transform: rotate(90deg); }
+    .flow .arr { transform: rotate(90deg); }
+    .flow .arr.dn { transform: none; }
+    .ext-row { flex-direction: column; align-items: stretch; }
+  }
+  @media (max-width: 520px) {
+    .ribbon { grid-template-columns: 1fr; }
+    .ribbon .cell { border-right: none; border-bottom: 1px solid var(--line-strong); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero">
+  <div class="hero-glyph">¶</div>
+  <div class="wrap">
+    <div class="hero-mark reveal">
+      <span>SCE · Academic Materials Platform</span>
+      <span>Monorepo · React + Express + Postgres</span>
+      <span class="stamp">Field Guide № 01</span>
+    </div>
+    <h1 class="title reveal">Knowledge<br><em>Bank</em></h1>
+    <div class="title-rule reveal"></div>
+    <p class="lede reveal">
+      A standalone platform where <b>students, lecturers, and admins</b> upload, search,
+      review, discuss, request, and track course documents — with intelligent search,
+      a moderation workflow, study collections, and engagement-aware ranking baked in.
+    </p>
+
+    <div class="ribbon reveal">
+      <div class="cell"><div class="num"><span>3</span></div><div class="lbl">Primary roles</div></div>
+      <div class="cell"><div class="num">10<span>+</span></div><div class="lbl">Refinement phases</div></div>
+      <div class="cell"><div class="num">302<span>/</span>302</div><div class="lbl">Tests passing</div></div>
+      <div class="cell"><div class="num">2</div><div class="lbl">Storage drivers</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== WHAT IT IS ===================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="section-no">§ 01</span>
+      <span class="tag"> / The Premise</span>
+      <h2 class="section-title">A shared archive for course knowledge</h2>
+      <p class="intro">
+        Browse and search documents, comment in nested threads (with PDF page-pinned notes,
+        @mentions and reactions), vote on a request board, and manage per-user storage quotas —
+        all gated by a role &amp; review model so only vetted material surfaces publicly.
+      </p>
+    </div>
+
+    <!-- ROLES -->
+    <div class="roles reveal">
+      <div class="role">
+        <div class="ico">S</div>
+        <h3>Student</h3>
+        <div class="sub">Contributor · enrolled</div>
+        <ul>
+          <li>Uploads only to enrolled courses</li>
+          <li>Submissions forced to <span class="mono">draft</span>, routed for review</li>
+          <li>Favorites, requests, study collections</li>
+          <li>Sees only own hidden drafts</li>
+        </ul>
+      </div>
+      <div class="role">
+        <div class="ico">L</div>
+        <h3>Lecturer</h3>
+        <div class="sub">Reviewer · per-course</div>
+        <ul>
+          <li>Uploads to courses they teach</li>
+          <li>Approve / reject from the review queue</li>
+          <li>Per-course analytics dashboard</li>
+          <li>Has a pending-approval state</li>
+        </ul>
+      </div>
+      <div class="role">
+        <div class="ico">A</div>
+        <h3>Admin</h3>
+        <div class="sub">Moderator · global</div>
+        <ul>
+          <li>Combined Admin Approvals queue</li>
+          <li>Full-corpus visibility &amp; insights</li>
+          <li>User management &amp; orphaned files</li>
+          <li>Moderation-only: no Upload surface</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FEATURES ===================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="section-no">§ 02</span>
+      <span class="tag"> / The Engine Room</span>
+      <h2 class="section-title">Nine systems doing the heavy lifting</h2>
+    </div>
+
+    <div class="features">
+      <div class="card feature-hero span-8 reveal">
+        <div class="num-corner">01</div>
+        <div class="kicker">Search v2 · single source of truth</div>
+        <h3>Prefix, fuzzy &amp; faceted full-text search</h3>
+        <p>
+          Partial words match (<span class="mono">lect → lecture</span>) via <span class="mono">to_tsquery</span> prefixing,
+          with a trigram <span class="mono">word_similarity</span> fallback so typos still land
+          (<span class="mono">plankron → plankton</span>). The haystack spans titles, descriptions, course meta,
+          tags, filenames, uploader names and extracted file text.
+        </p>
+        <span class="badge">facets</span><span class="badge">ts_headline snippets</span><span class="badge">autocomplete</span><span class="badge">pg_trgm</span>
+      </div>
+
+      <div class="card span-4 reveal">
+        <div class="num-corner">02</div>
+        <div class="kicker">Discovery</div>
+        <h3>Engagement-aware ranking</h3>
+        <p>A deterministic weighted score: ln-dampened engagement + recency half-life + metadata-completeness, read from denormalised counters — no per-request <span class="mono">GROUP BY</span>.</p>
+        <span class="badge">trending</span><span class="badge">relevance</span>
+      </div>
+
+      <div class="card span-4 reveal">
+        <div class="num-corner">03</div>
+        <div class="kicker">Upload intelligence</div>
+        <h3>Smart metadata suggestions</h3>
+        <p>The extractor chain reads PDFs / text / images, then a filename parser derives material type, semester &amp; year — surfaced as apply-on-click chips with a confidence indicator.</p>
+        <span class="badge">sharp</span><span class="badge">pdf-parse</span>
+      </div>
+
+      <div class="card span-4 reveal">
+        <div class="num-corner">04</div>
+        <div class="kicker">Storage</div>
+        <h3>Versioning + signed URLs</h3>
+        <p>Every write makes a new versioned <span class="mono">DocumentFile</span>; old versions stay downloadable and restorable. Previews use short-lived signed URLs bound to user + doc.</p>
+        <span class="badge">sha256 dedup</span><span class="badge">quotas</span>
+      </div>
+
+      <div class="card span-4 reveal">
+        <div class="num-corner">05</div>
+        <div class="kicker">Collaboration</div>
+        <h3>Comments, mentions &amp; reactions</h3>
+        <p>Nested threads on every document, PDF page-pinned notes, server-resolved @mentions, replies and emoji reactions — each fanning the right notification.</p>
+        <span class="badge">threads</span><span class="badge">favorites</span>
+      </div>
+
+      <div class="card span-4 reveal">
+        <div class="num-corner">06</div>
+        <div class="kicker">Signals</div>
+        <h3>In-app notification bus</h3>
+        <p>A polling bus deduped on <span class="mono">recipient + type + subject</span>. The header bell polls unread counts every 30s; producers fire-and-forget, no-op on self-notify.</p>
+        <span class="badge">7 producers</span>
+      </div>
+
+      <div class="card feature-hero span-6 reveal">
+        <div class="num-corner">07</div>
+        <div class="kicker">Refinement Phase 6</div>
+        <h3>Prep Hub — study collections</h3>
+        <p>
+          User-owned ordered groupings (collection / exam-prep / revision / semester) referencing docs by FK.
+          Mark items Reviewing or Completed, feed a <span class="mono">Continue studying</span> lane, and get
+          ranked recommendations from your interest courses.
+        </p>
+        <span class="badge">quick access</span><span class="badge">progress</span><span class="badge">recommendations</span>
+      </div>
+
+      <div class="card span-6 reveal">
+        <div class="num-corner">08</div>
+        <div class="kicker">Community</div>
+        <h3>Request board &amp; analytics</h3>
+        <p>
+          Students post material requests; everyone upvotes; authors fulfil by linking a doc.
+          Admin / lecturer analytics (30s cached) power dashboards: corpus stats, top docs,
+          active uploaders, duplicate groups, and a home-page Platform Insights panel.
+        </p>
+        <span class="badge">upvotes</span><span class="badge">audit logs</span><span class="badge">platform insights</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== REVIEW PIPELINE ===================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="section-no">§ 03</span>
+      <span class="tag"> / The Gatekeeper</span>
+      <h2 class="section-title">The student-upload review state machine</h2>
+      <p class="intro">Review-hidden statuses are filtered out of <em>every</em> read path — lists, search, facets and autocomplete — for anyone who isn't the uploader, course lecturer, or an admin.</p>
+    </div>
+
+    <div class="pipeline reveal">
+      <div class="stage">
+        <div class="st-no">STATE 0</div>
+        <h4>Draft</h4>
+        <p>Every student upload is forced here, regardless of client input.</p>
+        <span class="pill draft">draft</span>
+      </div>
+      <div class="stage">
+        <div class="st-no">STATE 1</div>
+        <h4>Pending review</h4>
+        <p>Auto-submitted; the audit + notification pipelines fire exactly once.</p>
+        <span class="pill pending">pending_review</span>
+      </div>
+      <div class="stage">
+        <div class="st-no">STATE 2A</div>
+        <h4>Approved</h4>
+        <p>Becomes publicly visible; the uploader is notified via the bus.</p>
+        <span class="pill ok">approved</span>
+      </div>
+      <div class="stage">
+        <div class="st-no">STATE 2B</div>
+        <h4>Rejected</h4>
+        <p>Requires a 1–500 char reason. Can be re-drafted and resubmitted.</p>
+        <span class="pill no">rejected</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ARCHITECTURE ===================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="section-no">§ 04</span>
+      <span class="tag"> / The Blueprint</span>
+      <h2 class="section-title">Architecture — contract-first &amp; layered</h2>
+      <p class="intro">Two deployable artifacts over shared libraries. The OpenAPI spec is the contract; the client's typed hooks and Zod schemas are <em>generated</em> from it, so the wire never drifts from the types.</p>
+    </div>
+
+    <!-- request lifecycle -->
+    <div class="diagram reveal">
+      <div class="diagram-cap"><b>Diagram A</b> — Request lifecycle (a download)</div>
+      <div class="flow">
+        <div class="node ink"><div class="n-ttl">Browser</div><div class="n-sub">React SPA</div></div>
+        <div class="arr">→</div>
+        <div class="node teal"><div class="n-ttl">Web · nginx</div><div class="n-sub">static bundle</div></div>
+        <div class="arr">→</div>
+        <div class="node vrm"><div class="n-ttl">API · Express 5</div><div class="n-sub">auth · routes · services</div></div>
+        <div class="arr">→</div>
+        <div class="node"><div class="n-ttl">Postgres</div><div class="n-sub">Prisma · FTS</div></div>
+        <div class="arr">→</div>
+        <div class="node teal"><div class="n-ttl">Object store</div><div class="n-sub">signed URL out</div></div>
+      </div>
+    </div>
+
+    <!-- contract-first codegen -->
+    <div class="diagram reveal">
+      <div class="diagram-cap"><b>Diagram B</b> — Contract-first codegen pipeline</div>
+      <div class="fan">
+        <div class="branch">
+          <div class="node vrm"><div class="n-ttl">OpenAPI 3 spec</div><div class="n-sub">lib/api-spec · source of truth</div></div>
+          <div class="node ink"><div class="n-ttl">Orval</div><div class="n-sub">code generator</div></div>
+        </div>
+        <div class="arr">→</div>
+        <div class="branch">
+          <div class="node teal"><div class="n-ttl">@api-client-react</div><div class="n-sub">TanStack Query hooks</div></div>
+          <div class="node teal"><div class="n-ttl">@api-zod</div><div class="n-sub">runtime schemas</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- layered -->
+    <div class="diagram reveal">
+      <div class="diagram-cap"><b>Diagram C</b> — Layered system</div>
+      <div class="layers">
+        <div class="lyr"><div class="lyr-tag">Presentation</div><div class="lyr-body">React 18 · Vite · Wouter · TanStack Query · Tailwind · shadcn/ui &nbsp;<code>artifacts/web</code></div></div>
+        <div class="lyr"><div class="lyr-tag">API</div><div class="lyr-body">Express 5 routes → services → repositories · Argon2 auth · pg-backed sessions &nbsp;<code>artifacts/api-server</code></div></div>
+        <div class="lyr"><div class="lyr-tag">Domain libs</div><div class="lyr-body">ranking · search DSL · extraction chain · notifications bus &nbsp;<code>lib/*</code></div></div>
+        <div class="lyr"><div class="lyr-tag">Persistence</div><div class="lyr-body">Prisma 6 → PostgreSQL (<code>pg_trgm</code> + <code>tsvector</code>) · storage drivers (<code>local</code> / <code>gcs</code>)</div></div>
+      </div>
+    </div>
+
+    <!-- ranking weights chart -->
+    <div class="diagram reveal">
+      <div class="diagram-cap"><b>Diagram D</b> — How the relevance score is composed</div>
+      <div class="weightbar">
+        <div class="seg eng">ENGAGEMENT · ln-damped</div>
+        <div class="seg rec">RECENCY · half-life</div>
+        <div class="seg qual">QUALITY</div>
+      </div>
+      <div class="weight-legend">
+        <span class="l-eng">views · downloads · favorites</span>
+        <span class="l-rec">recency decay</span>
+        <span class="l-qual">metadata completeness</span>
+      </div>
+    </div>
+
+    <div class="stack-grid reveal" style="margin-top:16px;">
+      <div class="stack-block dark">
+        <div class="layer">Web client · artifacts/web</div>
+        <div class="chips">
+          <span class="chip">React 18</span>
+          <span class="chip">Vite</span>
+          <span class="chip">Wouter</span>
+          <span class="chip">TanStack Query</span>
+          <span class="chip">Tailwind</span>
+          <span class="chip">shadcn/ui · Radix</span>
+        </div>
+      </div>
+      <div class="stack-block">
+        <div class="layer">API server · artifacts/api-server</div>
+        <div class="chips">
+          <span class="chip">Node 20</span>
+          <span class="chip">Express 5</span>
+          <span class="chip">TypeScript</span>
+          <span class="chip">Argon2 auth</span>
+          <span class="chip">connect-pg-simple</span>
+        </div>
+      </div>
+      <div class="stack-block">
+        <div class="layer">Data · lib/db</div>
+        <div class="chips">
+          <span class="chip">PostgreSQL</span>
+          <span class="chip">Prisma 6</span>
+          <span class="chip">pg_trgm</span>
+          <span class="chip">tsvector FTS</span>
+        </div>
+      </div>
+      <div class="stack-block dark">
+        <div class="layer">Contract &amp; storage · lib/*</div>
+        <div class="chips">
+          <span class="chip">OpenAPI 3</span>
+          <span class="chip">Orval codegen</span>
+          <span class="chip">Zod</span>
+          <span class="chip">local / GCS drivers</span>
+          <span class="chip">Vitest · Playwright</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tree reveal">
+.<br>
+├── <span class="dir">artifacts/</span><br>
+│&nbsp;&nbsp; ├── <span class="dir">api-server/</span>&nbsp;&nbsp;&nbsp;<span class="cmt"># Express 5 — routes · services · repos · vitest</span><br>
+│&nbsp;&nbsp; ├── <span class="dir">web/</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># React + Vite client · Playwright e2e</span><br>
+│&nbsp;&nbsp; └── <span class="dir">api-spec/</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># OpenAPI 3 spec + Orval config</span><br>
+├── <span class="dir">lib/</span><br>
+│&nbsp;&nbsp; ├── <span class="dir">db/</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># Prisma schema + migrations</span><br>
+│&nbsp;&nbsp; ├── <span class="dir">api-client-react/</span>&nbsp;<span class="cmt"># codegen React Query hooks</span><br>
+│&nbsp;&nbsp; ├── <span class="dir">api-zod/</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># codegen Zod schemas</span><br>
+│&nbsp;&nbsp; └── <span class="dir">storage/</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># local + gcs drivers</span><br>
+└── <span class="dir">scripts/</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cmt"># regression matrix wrappers</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CLOUD / GCS ===================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="section-no">§ 05</span>
+      <span class="tag"> / Into the Cloud</span>
+      <h2 class="section-title">Google Cloud deployment &amp; GCS storage</h2>
+      <p class="intro">Both artifacts run on <b>Cloud Run</b> (scale-to-zero), backed by <b>Cloud SQL</b> Postgres, with uploaded files living in a <b>Cloud Storage</b> bucket and all secrets in <b>Secret Manager</b>.</p>
+    </div>
+
+    <!-- topology -->
+    <div class="cloud reveal">
+      <span class="cloud-lbl">Google Cloud Project · region europe-west1</span>
+
+      <div class="ext-row">
+        <div class="browser-box"><span class="dot"></span> browser — session-cookie login (Argon2)</div>
+        <div class="conn">↓ HTTPS · XHR /api/*</div>
+      </div>
+
+      <div class="topo">
+        <div class="svc">
+          <span class="port">:80</span>
+          <div class="svc-kind">Cloud Run · service</div>
+          <h4>web — nginx</h4>
+          <p>Static Vite/React SPA. <code class="mono">VITE_API_BASE</code> is baked in at build time.</p>
+        </div>
+        <div class="svc">
+          <span class="port">:8080</span>
+          <div class="svc-kind">Cloud Run · service</div>
+          <h4>api — Node + Express</h4>
+          <p>esbuild single bundle. <code class="mono">trust proxy</code> on for secure cookies. Health: <code class="mono">/api/healthz</code>.</p>
+        </div>
+        <div class="svc">
+          <div class="svc-kind">Cloud SQL · unix socket</div>
+          <h4>PostgreSQL 16</h4>
+          <p>Migrations auto-create <code class="mono">pg_trgm</code> + the <code class="mono">session</code> table. Sessions shared across instances.</p>
+        </div>
+        <div class="svc">
+          <div class="svc-kind">Cloud Storage · bucket</div>
+          <h4>kb-uploads (GCS)</h4>
+          <p>Durable upload storage — survives instance restarts (Cloud Run disk is ephemeral).</p>
+        </div>
+        <div class="svc full">
+          <div class="svc-kind">Secret Manager · + one-shot Cloud Run Job</div>
+          <h4>secrets &amp; migrate</h4>
+          <p><code class="mono">DATABASE_URL</code> · <code class="mono">SESSION_SECRET</code> · <code class="mono">SIGNED_URL_SECRET</code> injected at runtime. A <code class="mono">migrate</code> Job runs <code class="mono">prisma migrate deploy</code> + seed once before launch.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- upload + signed url sequence -->
+    <div class="diagram reveal">
+      <div class="diagram-cap"><b>Diagram E</b> — Upload &amp; signed-URL flow through GCS</div>
+      <div class="seq">
+        <div class="step"><div class="s-body">Client <code>POST /api/documents/upload</code> (multipart). Server <b>magic-byte sniffs</b> the MIME, enforces <code>MAX_UPLOAD_MB</code> &amp; the user's storage quota.</div></div>
+        <div class="step"><div class="s-body"><b>sha256 dedup</b> — a checksum-equivalent file the user already owns short-circuits to the existing doc instead of re-uploading.</div></div>
+        <div class="step"><div class="s-body">The <b>storage adapter</b> writes bytes — either to a GCS bucket mounted as a volume, or natively via <code>@google-cloud/storage</code>. A new versioned <code>DocumentFile</code> row is recorded.</div></div>
+        <div class="step"><div class="s-body">Extraction chain pulls text + thumbnails (sharp / pdf-parse); the FTS <code>tsvector</code> is refreshed.</div></div>
+        <div class="step"><div class="s-body">On preview/download the API mints a <b>short-lived signed URL</b> (<code>SIGNED_URL_TTL_SECONDS</code>, default 300s) bound to the doc id + requesting user — the browser fetches the bytes directly.</div></div>
+      </div>
+    </div>
+
+    <!-- storage driver options -->
+    <div class="reveal">
+      <div class="diagram-cap" style="border:none;padding:0;margin:4px 0 14px;"><b>Two ways</b> to put files in GCS</div>
+      <div class="opts">
+        <div class="opt">
+          <div class="opt-tag">OPTION A1 · no code change</div>
+          <h4>Mount the bucket as a volume</h4>
+          <p>Cloud Run mounts the GCS bucket as a filesystem volume; keep <code class="mono">STORAGE_DRIVER=local</code> pointed at the mount path. The existing filesystem driver reads/writes the bucket transparently.</p>
+          <span class="verdict start">▶ fastest to demo</span>
+        </div>
+        <div class="opt">
+          <div class="opt-tag">OPTION A2 · native adapter</div>
+          <h4>Implement <code class="mono">GcsStorageAdapter</code></h4>
+          <p>Add <code class="mono">@google-cloud/storage</code>, implement the adapter (ADC auth = the service account), set <code class="mono">STORAGE_DRIVER=gcs</code> + <code class="mono">GCS_BUCKET</code>. No volume needed; exercised by the repo's <code class="mono">regression:gcs</code> script.</p>
+          <span class="verdict proper">▶ proper long-term fix</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- gotchas -->
+    <div class="reveal" style="margin-top:16px;">
+      <div class="diagram-cap" style="border:none;padding:0;margin:4px 0 14px;"><b>Two code facts</b> that block a naive deploy</div>
+      <div class="gotchas">
+        <div class="gotcha">
+          <div class="g-no">GOTCHA 01 · storage</div>
+          <h4>The <code>gcs</code> &amp; <code>s3</code> drivers are throwing stubs</h4>
+          <p>Out of the box only <code>local</code> works — the cloud drivers raise <em>"…is not implemented yet"</em>. Use A1's volume mount or implement A2 before flipping <code>STORAGE_DRIVER</code>.</p>
+        </div>
+        <div class="gotcha">
+          <div class="g-no">GOTCHA 02 · auth</div>
+          <h4>Session cookie is <code>sameSite: "lax"</code></h4>
+          <p>Two distinct <code>*.run.app</code> origins break login. Fix: <code>sameSite: "none"</code> in production (two-origin), or front both with one HTTPS load balancer so <code>lax</code> stays valid.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LIMITS ===================== -->
+<section style="border-bottom:none;">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="section-no">§ 06</span>
+      <span class="tag"> / Honest Edges</span>
+      <h2 class="section-title">What it deliberately doesn't do — yet</h2>
+    </div>
+    <div class="limits reveal">
+      <div class="limit"><span class="x">✕</span><span>Notifications are polling-only — no websocket push or email digest.</span></div>
+      <div class="limit"><span class="x">✕</span><span>No OCR for scanned PDFs — digital text extraction only.</span></div>
+      <div class="limit"><span class="x">✕</span><span>Full-text search only — no semantic / vector search.</span></div>
+      <div class="limit"><span class="x">✕</span><span>No multi-reviewer approval quorum.</span></div>
+      <div class="limit"><span class="x">✕</span><span>Analytics CSV export is on-demand, not scheduled.</span></div>
+      <div class="limit"><span class="x">✕</span><span>Learning-path UI deferred — schema is in place.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap">
+    <div class="f-title reveal">Course knowledge,<br><b>organised &amp; vetted.</b></div>
+    <div class="f-meta reveal">
+      <span>KNOWLEDGE BANK</span>
+      <span>SCE · Academic Project</span>
+      <span>React · Express 5 · Prisma · Postgres · Cloud Run + GCS</span>
+      <span>Infographic generated 2026·06·06</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        e.target.style.transitionDelay = (e.target.dataset.delay || 0) + 'ms';
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  // stagger reveals within each section
+  document.querySelectorAll('section, header').forEach(scope => {
+    scope.querySelectorAll('.reveal').forEach((el, i) => {
+      el.dataset.delay = Math.min(i * 90, 480);
+    });
+  });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>

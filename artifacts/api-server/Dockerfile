@@ -38,7 +38,7 @@ COPY scripts/package.json ./scripts/
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store \
-    && pnpm install --frozen-lockfile
+    && pnpm install --no-frozen-lockfile
 
 # ---------- builder ----------
 FROM deps AS builder
@@ -49,6 +49,9 @@ COPY tsconfig.base.json tsconfig.json ./
 COPY lib ./lib
 COPY artifacts/api-server ./artifacts/api-server
 
+# Generate the Prisma client (its install script is skipped by pnpm's
+# onlyBuiltDependencies gate, so generate explicitly) before bundling.
+RUN pnpm --filter @workspace/db run generate
 RUN pnpm --filter @workspace/api-server run build
 
 # ---------- migrate (one-shot init image) ----------
@@ -65,8 +68,9 @@ COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.js
 COPY --from=builder /app/tsconfig.base.json /app/tsconfig.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/lib ./lib
-COPY --from=builder /app/artifacts/api-server/package.json ./artifacts/api-server/
-COPY --from=builder /app/artifacts/api-server/src ./artifacts/api-server/src
+# Copy the whole api-server package (incl. its node_modules) so the tsx seed
+# script can resolve workspace packages (@workspace/db, …) at runtime.
+COPY --from=builder /app/artifacts/api-server ./artifacts/api-server
 
 # Storage volume mount point (compose mounts kb_storage here so the seed
 # script can write seeded files alongside the API).
@@ -90,6 +94,9 @@ WORKDIR /app
 # needs (pino workers are bundled by esbuild-plugin-pino), so no node_modules
 # or workspace source tree is required here.
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
+# Ship node_modules so the bundle can resolve externalized deps
+# (@prisma/client + query engine, sharp) at runtime.
+COPY --from=builder /app/node_modules ./node_modules
 
 # Storage volume mount point (compose mounts kb_storage here).
 RUN mkdir -p /data/storage

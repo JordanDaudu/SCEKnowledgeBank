@@ -6,6 +6,11 @@ packages:
 
 autoInstallPeers: false
 
+# Use a flat (npm-style) node_modules so the esbuild bundle and the seed
+# script can resolve externalized deps (@prisma/client, sharp) and workspace
+# packages at runtime inside the Cloud Run images.
+nodeLinker: hoisted
+
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.1
   '@replit/vite-plugin-dev-banner': ^0.1.1
