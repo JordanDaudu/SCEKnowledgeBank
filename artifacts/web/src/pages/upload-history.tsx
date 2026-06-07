@@ -8,6 +8,7 @@ import {
   getListDocumentVersionsQueryKey,
   useUploadDocumentVersion,
   useDeleteDocumentVersion,
+  useDeleteDocument,
   getDocumentDownloadToken,
   type SearchDocumentsV2Params,
   type DocumentVersion,
@@ -15,6 +16,17 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/document-detail/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
@@ -227,6 +239,83 @@ function UploadVersionButton({
   );
 }
 
+/**
+ * Permanently delete one of the user's own documents. The server enforces
+ * canDelete (owner/admin/lecturer) and performs an irreversible hard delete,
+ * so this only ever appears on the user's own uploads here.
+ */
+function DeleteUploadButton({
+  documentId,
+  title,
+  onDeleted,
+}: {
+  documentId: string;
+  title: string;
+  onDeleted: () => void;
+}) {
+  const { toast } = useToast();
+  const deleteMut = useDeleteDocument();
+
+  const handleDelete = () => {
+    deleteMut.mutate(
+      { id: documentId },
+      {
+        onSuccess: () => {
+          toast({ title: "Document deleted" });
+          onDeleted();
+        },
+        onError: (err) =>
+          toast({
+            variant: "destructive",
+            title: "Could not delete document",
+            description: err instanceof Error ? err.message : undefined,
+          }),
+      },
+    );
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1 text-muted-foreground hover:text-destructive"
+          disabled={deleteMut.isPending}
+          data-testid="delete-document"
+          title="Permanently delete this document"
+        >
+          {deleteMut.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
+          Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete "{title}"?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently deletes the document and all of its versions for
+            everyone. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            data-testid="confirm-delete-document"
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function UploadHistory() {
   const { data: user } = useGetCurrentUser();
   const queryClient = useQueryClient();
@@ -251,6 +340,11 @@ export default function UploadHistory() {
     queryClient.invalidateQueries({
       queryKey: getListDocumentVersionsQueryKey(documentId),
     });
+  };
+
+  // After a permanent delete, drop the row from the list.
+  const onDocDeleted = () => {
+    queryClient.invalidateQueries({ queryKey: getSearchDocumentsV2QueryKey(params) });
   };
 
   const docs = page?.items ?? [];
@@ -380,6 +474,11 @@ export default function UploadHistory() {
                           )}
                           {versionCount > 1 ? `${versionCount} versions` : "History"}
                         </Button>
+                        <DeleteUploadButton
+                          documentId={doc.id}
+                          title={doc.title}
+                          onDeleted={onDocDeleted}
+                        />
                       </div>
                     </div>
 

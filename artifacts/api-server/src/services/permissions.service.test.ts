@@ -220,7 +220,7 @@ describe("permissions.canEdit / canDelete", () => {
     expect(permissions.canDelete(d, lecturerB)).toBe(false);
   });
 
-  it("uploader/owner CANNOT manage a course-scoped doc they no longer teach", () => {
+  it("uploader/owner cannot EDIT a course-scoped doc they no longer teach, but may delete their own", () => {
     // lecturerA uploaded the doc but is not enrolled as lecturer in c-B
     const d = doc({
       uploaderId: lecturerA.id,
@@ -228,7 +228,26 @@ describe("permissions.canEdit / canDelete", () => {
       courseId: "c-B",
     });
     expect(permissions.canEdit(d, lecturerA)).toBe(false);
-    expect(permissions.canDelete(d, lecturerA)).toBe(false);
+    // Owners may always delete their own upload, even when course-scoped.
+    expect(permissions.canDelete(d, lecturerA)).toBe(true);
+  });
+
+  it("a student can delete their own course-scoped upload, but not others'", () => {
+    const own = doc({
+      uploaderId: studentEnrolledA.id,
+      ownerId: studentEnrolledA.id,
+      courseId: "c-A",
+    });
+    expect(permissions.canDelete(own, studentEnrolledA)).toBe(true);
+    // …but still cannot edit a course doc's metadata,
+    expect(permissions.canEdit(own, studentEnrolledA)).toBe(false);
+    // …and cannot delete a course-mate's document.
+    const someoneElses = doc({
+      uploaderId: "someone-else",
+      ownerId: "someone-else",
+      courseId: "c-A",
+    });
+    expect(permissions.canDelete(someoneElses, studentEnrolledA)).toBe(false);
   });
 
   it("students cannot edit even when enrolled", () => {

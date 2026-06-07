@@ -486,12 +486,12 @@ export async function deleteDocument(
   if (!doc) throw notFound("Document not found");
   if (!permissions.canDelete(doc, user))
     throw forbidden("Cannot delete this document");
-  // US-10: free the bytes from the uploader's quota atomically with
-  // the soft-delete. Storage blobs are intentionally NOT purged here —
-  // an admin can hard-restore by un-setting `deleted_at` if needed.
-  // TODO(sprint-3): background reaper that hard-deletes blobs after a
-  // grace period and reconciles the quota counter.
-  await docsRepo.softDeleteDocumentAndReleaseQuota(id, user.id);
+  // Permanent (hard) delete: removes the row and cascades to all related
+  // records (files, tags, comments, views, favorites, collection items,
+  // study progress) while releasing the uploader's quota in the same
+  // transaction. Irreversible — there is no soft-delete tombstone. Storage
+  // blobs are left orphaned for the orphaned-files tooling to reclaim.
+  await docsRepo.hardDeleteDocumentAndReleaseQuota(id);
   await auditService.record(user.id, "document.delete", "document", id);
 }
 

@@ -1071,6 +1071,46 @@ export async function softDeleteDocumentAndReleaseQuota(
   });
 }
 
+/**
+ * Permanently (hard) delete a document and release the uploader's quota,
+ * atomically. Removing the row cascades — via the DB foreign keys — to its
+ * files, tags, comments (and their reactions/mentions), view history,
+ * favorites, study-collection items, and study progress; any
+ * `MaterialRequest.fulfilling_document_id` pointing at it is set NULL. This is
+ * irreversible: there is no `deleted_at` tombstone to restore from.
+ *
+ * Storage blobs are NOT purged here — the cascaded DocumentFile rows leave
+ * their blobs orphaned, which the orphaned-files admin tooling reclaims. Only
+ * bytes that were actually billed on insert (`countedTowardQuota`) are credited
+ * back, mirroring `softDeleteDocumentAndReleaseQuota`.
+ */
+export async function hardDeleteDocumentAndReleaseQuota(
+  id: string,
+): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const doc = await tx.document.findUnique({
+      where: { id },
+      select: { uploaderId: true, deletedAt: true },
+    });
+    if (!doc) return;
+    const files = await tx.documentFile.findMany({
+      where: { documentId: id, countedTowardQuota: true },
+      select: { sizeBytes: true },
+    });
+    const total = files.reduce((s, f) => s + f.sizeBytes, 0n);
+    await tx.document.delete({ where: { id } });
+    // If the doc had already been soft-deleted its quota was released then,
+    // so don't credit the bytes back a second time.
+    if (doc.deletedAt == null && total > 0n) {
+      await tx.$executeRaw`
+        UPDATE "users"
+        SET "used_bytes" = GREATEST(0, "used_bytes" - ${total}::bigint)
+        WHERE "id" = ${doc.uploaderId}::uuid
+      `;
+    }
+  });
+}
+
 // ─── Document versions (US-5) ────────────────────────────────────
 //
 // Each DocumentFile row is a version. The "current" version is the

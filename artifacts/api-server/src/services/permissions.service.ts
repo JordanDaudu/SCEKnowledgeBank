@@ -178,12 +178,25 @@ export function canEdit(
   return doc.uploaderId === user.id || doc.ownerId === user.id;
 }
 
-/** Can the user soft-delete the document? Same rules as edit. */
+/**
+ * Can the user delete the document?
+ *
+ * More permissive than `canEdit`: the uploader/owner may ALWAYS delete their
+ * own document — even one attached to a course — so a student can remove their
+ * own upload from "My Uploads". Course lecturers may still delete materials in
+ * courses they teach (moderation), and admins may delete anything. Editing a
+ * course doc's metadata stays restricted to course managers (see `canEdit`).
+ */
 export function canDelete(
   doc: DocumentForPermission,
   user: AuthenticatedUser,
 ): boolean {
-  return canEdit(doc, user);
+  if (isAdmin(user)) return true;
+  if (doc.uploaderId === user.id || doc.ownerId === user.id) return true;
+  if (doc.courseId) {
+    return hasRole(user, "lecturer") && isLecturerForCourse(user, doc.courseId);
+  }
+  return false;
 }
 
 /** Can the user post or read comments on this document? */
