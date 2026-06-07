@@ -70,6 +70,16 @@ export default function Requests() {
 
   const isLecturerOrAdmin = user?.roles?.includes("lecturer") || user?.roles?.includes("admin");
 
+  // A request can only be raised for a course you can see: admins → any
+  // course; everyone else → courses they're enrolled in (mirrors the
+  // server's canCreateRequestForCourse). Hide the rest so the user can't
+  // pick a course whose submit would silently 404.
+  const isAdmin = user?.roles?.includes("admin") ?? false;
+  const enrolledCourseIds = new Set((user?.enrollments ?? []).map((e) => e.courseId));
+  const requestableCourses = isAdmin
+    ? courses
+    : courses?.filter((c) => enrolledCourseIds.has(c.id));
+
   const createMutation = useCreateRequest();
   const voteMutation = useVoteRequest();
   const updateMutation = useUpdateRequest();
@@ -95,7 +105,17 @@ export default function Requests() {
         setNewDesc("");
         setNewCourse("");
         queryClient.invalidateQueries({ queryKey: getListRequestsQueryKey({ status: "open" }) });
-      }
+      },
+      onError: (err) => {
+        const data = (err as { data?: { error?: { message?: string } } })?.data;
+        toast({
+          variant: "destructive",
+          title: "Could not create request",
+          description:
+            data?.error?.message ||
+            "You can only request materials for a course you're enrolled in.",
+        });
+      },
     });
   };
 
@@ -168,7 +188,7 @@ export default function Requests() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
-                    {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}
+                    {requestableCourses?.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
