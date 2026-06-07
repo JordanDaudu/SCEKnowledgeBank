@@ -64,9 +64,13 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
         // Offline SPA routing: unknown navigations fall back to the cached
-        // app shell. /healthz is a server probe, never a client route.
+        // app shell. But /api/* are real server requests (now same-origin and
+        // reverse-proxied) — file preview (<iframe>) and download
+        // (window.open) are navigations, so they MUST bypass the app-shell
+        // fallback and hit the network, or the SW serves index.html instead
+        // of the file. /healthz is a server probe, never a client route.
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/healthz$/],
+        navigateFallbackDenylist: [/^\/api\//, /^\/healthz$/],
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
