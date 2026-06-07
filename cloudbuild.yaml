@@ -13,8 +13,10 @@
 substitutions:
   _REGION: europe-west1
   _REPO: knowledge-bank
-  # Compiled into the web bundle at build time -> must be the API service URL.
-  _VITE_API_BASE: https://kb-api-zaubgdpnyq-ew.a.run.app
+  # Empty so the web bundle uses relative /api paths — nginx reverse-proxies
+  # them to the API (same-origin), which iOS requires. Do not set this to the
+  # API origin or it reintroduces the cross-site cookie failure on iOS.
+  _VITE_API_BASE: ""
 
 timeout: 2400s
 options:
