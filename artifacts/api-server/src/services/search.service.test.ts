@@ -167,6 +167,33 @@ describe("searchDocuments — typed filter DSL", () => {
     expect(titleHit?.headline).toMatch(/\[\[KBMARK]].*\[\[\/KBMARK]]/i);
   });
 
+  // Regression: the browse semester filter sends lowercase (fall/spring/
+  // summer) while data may be stored capitalized (e.g. seed-demo writes
+  // "Fall"/"Spring"). Matching must be case-insensitive or the filter
+  // silently returns nothing. Here the fixtures are lowercase, so filtering
+  // with "Fall" must still match them.
+  it("filters by semester case-insensitively without a text query", async () => {
+    const page = await searchService.searchDocuments(
+      { semester: "Fall", sort: "newest", page: 1, pageSize: 50 },
+      ctx.adminUser,
+    );
+    const ids = page.items.map((i) => i.id);
+    // docTitle + docOther are semester "fall"; docTag is "spring".
+    expect(ids).toContain(ctx.docTitleId);
+    expect(ids).toContain(ctx.docOtherId);
+    expect(ids).not.toContain(ctx.docTagId);
+  });
+
+  it("applies the semester filter case-insensitively in full-text search", async () => {
+    const page = await searchService.searchDocuments(
+      { q: "plankton", semester: "Fall", sort: "newest", page: 1, pageSize: 20 },
+      ctx.adminUser,
+    );
+    const ids = page.items.map((i) => i.id);
+    expect(ids).toContain(ctx.docTitleId); // title match + semester "fall"
+    expect(ids).not.toContain(ctx.docTagId); // semester "spring"
+  });
+
   it("matches a partial prefix term (plank → Plankton)", async () => {
     const page = await searchService.searchDocuments(
       { q: "plank", sort: "newest", page: 1, pageSize: 20 },

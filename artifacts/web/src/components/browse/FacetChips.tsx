@@ -74,7 +74,9 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
       dim: "semester",
       chips: facets.semester.map((s) => ({
         value: s.value,
-        label: s.value,
+        // Facet values come back lowercased (case-insensitive grouping);
+        // Title-case for display, e.g. "fall" -> "Fall".
+        label: s.value.charAt(0).toUpperCase() + s.value.slice(1),
         count: s.count,
       })),
     },

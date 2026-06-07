@@ -170,7 +170,8 @@ function buildBaseWhere(
   if (filters.courseId) and.push({ courseId: filters.courseId });
   if (filters.categoryId) and.push({ categoryId: filters.categoryId });
   if (filters.materialType) and.push({ materialType: filters.materialType });
-  if (filters.semester) and.push({ semester: filters.semester });
+  if (filters.semester)
+    and.push({ semester: { equals: filters.semester, mode: "insensitive" } });
   if (filters.uploaderId) and.push({ uploaderId: filters.uploaderId });
   if (filters.status) and.push({ status: filters.status });
   if (filters.academicYear != null)
@@ -318,7 +319,7 @@ function buildFilterFragmentsSql(filters: DocumentListFilters): Prisma.Sql[] {
   if (filters.materialType)
     parts.push(Prisma.sql`d.material_type = ${filters.materialType}`);
   if (filters.semester)
-    parts.push(Prisma.sql`d.semester = ${filters.semester}`);
+    parts.push(Prisma.sql`LOWER(d.semester) = LOWER(${filters.semester})`);
   if (filters.uploaderId)
     parts.push(Prisma.sql`d.uploader_id = ${filters.uploaderId}::uuid`);
   if (filters.status)
@@ -783,7 +784,9 @@ export async function computeFacetCounts(
     await Promise.all([
       groupBy(Prisma.sql`d.course_id::text`),
       groupBy(Prisma.sql`d.material_type`),
-      groupBy(Prisma.sql`d.semester`),
+      // Normalize case so "Fall"/"fall" collapse into one facet bucket
+      // (matches the case-insensitive semester filter).
+      groupBy(Prisma.sql`LOWER(d.semester)`),
       groupBy(Prisma.sql`d.status`),
       groupBy(Prisma.sql`d.uploader_id::text`),
     ]);
