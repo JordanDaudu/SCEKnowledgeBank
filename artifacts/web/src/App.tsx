@@ -12,6 +12,7 @@ import Browse from "@/pages/browse";
 import DocumentDetail from "@/pages/document-detail";
 import Upload from "@/pages/upload";
 import UploadHistory from "@/pages/upload-history";
+import SavedOffline from "@/pages/saved-offline";
 import PrepHub from "@/pages/prep-hub";
 import PrepHubCollection from "@/pages/prep-hub-collection";
 import Collections from "@/pages/collections";
@@ -29,6 +30,7 @@ import ReviewQueue from "@/pages/review-queue";
 
 import { Layout } from "@/components/layout";
 import { AuthGuard } from "@/components/auth-guard";
+import { OfflineSyncManager } from "@/components/offline-sync-manager";
 
 // Sensible defaults so currently-fresh reference data (courses, tags,
 // categories, current user, storage quota) isn't refetched on every mount
@@ -99,6 +101,14 @@ function Router() {
         <AuthGuard blockAdmin>
           <Layout>
             <UploadHistory />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/saved">
+        <AuthGuard blockAdmin>
+          <Layout>
+            <SavedOffline />
           </Layout>
         </AuthGuard>
       </Route>
@@ -236,6 +246,7 @@ function App() {
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
           </WouterRouter>
+          <OfflineSyncManager />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>

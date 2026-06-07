@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   BarChart3,
   History,
+  DownloadCloud,
   GraduationCap,
   FolderOpen,
   Menu,
@@ -98,7 +99,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ? [
         { href: "/profile", icon: UserCircle, label: "Profile" },
         ...(!isAdmin
-          ? [{ href: "/uploads", icon: History, label: "My Uploads" }]
+          ? [
+              { href: "/uploads", icon: History, label: "My Uploads" },
+              { href: "/saved", icon: DownloadCloud, label: "Saved Offline" },
+            ]
           : []),
         // Lecturers get a standalone Review item; for admins the review
         // queue is folded into "Admin Approvals", so it's hidden here.
