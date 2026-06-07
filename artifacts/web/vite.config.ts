@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { VitePWA } from "vite-plugin-pwa";
 
 // PORT/BASE_PATH are required by the dev/preview server but not by `vite build`,
 // which only emits static assets. Allow builds to run without them so the
@@ -33,6 +34,43 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    // PWA foundation (Phase 1): precache the app shell so the SPA boots
+    // offline, and ship an installable manifest. Offline content (saved
+    // favorites) is handled separately via IndexedDB in Phase 2.
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: "auto",
+      includeAssets: ["favicon.svg", "robots.txt"],
+      manifest: {
+        name: "Knowledge Bank",
+        short_name: "KnowledgeBank",
+        description: "SCE Knowledge Bank — course materials and study resources.",
+        theme_color: "#0f172a",
+        background_color: "#ffffff",
+        display: "standalone",
+        start_url: "/",
+        scope: "/",
+        icons: [
+          { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png" },
+          {
+            src: "/pwa-maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        // Offline SPA routing: unknown navigations fall back to the cached
+        // app shell. /healthz is a server probe, never a client route.
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/healthz$/],
+        cleanupOutdatedCaches: true,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
