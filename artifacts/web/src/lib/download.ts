@@ -1,23 +1,20 @@
-// Trigger a browser file download for a (signed) API URL.
+// Trigger a browser file download for a (signed) same-origin API URL.
 //
-// We deliberately use a programmatic `<a download>` click rather than
-// `window.open(url, "_blank")`. On iOS Safari, `window.open` is only honored
-// inside a *synchronous* user gesture. Our download URLs require an async
-// token fetch first, so by the time `open()` runs it is outside the gesture
-// and Safari's popup blocker silently drops it — the Download button looks
-// dead on iPhones/iPads while working everywhere else.
+// We use a top-level navigation (`window.location.assign`). The download
+// endpoint responds with `Content-Disposition: attachment`, so the browser
+// saves the file instead of navigating away — the page stays put.
 //
-// An anchor-initiated download is not a popup, so iOS allows it even after
-// the await, and the server's `Content-Disposition: attachment` header forces
-// the save (and supplies the real filename) on every browser. Passing an
-// explicit `filename` is only a same-origin hint; the server header wins.
-export function triggerDownload(url: string, filename = ""): void {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+// Why not `window.open(url, "_blank")` or a programmatic `<a download>.click()`?
+// Both require *transient user activation* on iOS Safari/WebKit. Our download
+// URL needs an async token fetch first, so by the time we trigger the download
+// the activation from the user's tap has already expired and Safari silently
+// drops the popup / synthetic click — the Download button looks dead on
+// iPhone/iPad while working everywhere else. A top-level navigation is neither
+// a popup nor activation-gated, so it downloads reliably on iOS too.
+//
+// The PWA service worker already excludes `/api/*` from its app-shell
+// navigateFallback (see vite.config.ts), so this request reaches the network
+// (nginx proxy → file) rather than being served the cached index.html.
+export function triggerDownload(url: string): void {
+  window.location.assign(url);
 }
