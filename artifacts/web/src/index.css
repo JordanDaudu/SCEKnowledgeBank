@@ -88,6 +88,12 @@
   --radius: 0.3rem; /* Slightly sharp, classic */
 }
 
+/* Hebrew renders in the classic David typeface; lang="he" is set by applyDocumentDirection. */
+:root[lang="he"] {
+  --app-font-sans: 'David Libre', 'Inter', sans-serif;
+  --app-font-serif: 'David Libre', 'Playfair Display', Georgia, serif;
+}
+
 .dark {
   /* Dark mode: deep navy library */
   --background: 222 38% 9%;
