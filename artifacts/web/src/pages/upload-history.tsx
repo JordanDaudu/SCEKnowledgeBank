@@ -33,6 +33,7 @@ import { StatusBadge } from "@/components/document-detail/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { formatBytes, formatDateTime, formatVersion } from "@/lib/format";
 import { apiUrl } from "@/lib/api-url";
+import { triggerDownload } from "@/lib/download";
 import {
   History,
   ChevronDown,
@@ -93,9 +94,8 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
     try {
       const t = await getDocumentDownloadToken(documentId);
       const sep = t.url.includes("?") ? "&" : "?";
-      window.open(
+      triggerDownload(
         apiUrl(`${t.url}${sep}versionId=${encodeURIComponent(v.id)}`),
-        "_blank",
       );
     } catch {
       toast({ variant: "destructive", title: t("uploads.couldNotDownload") });

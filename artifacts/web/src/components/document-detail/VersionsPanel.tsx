@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api-url";
+import { triggerDownload } from "@/lib/download";
 import { useTranslation } from "react-i18next";
 import { formatVersion } from "@/lib/format";
 
@@ -115,9 +116,8 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
     try {
       const t = await getDocumentDownloadToken(documentId);
       const sep = t.url.includes("?") ? "&" : "?";
-      window.open(
+      triggerDownload(
         apiUrl(`${t.url}${sep}versionId=${encodeURIComponent(v.id)}`),
-        "_blank",
       );
     } catch {
       toast({

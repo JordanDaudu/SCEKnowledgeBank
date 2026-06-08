@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { apiUrl } from "@/lib/api-url";
+import { triggerDownload } from "@/lib/download";
 import PreviewPanel from "@/components/document-detail/PreviewPanel";
 import { previewKindForMime } from "@/lib/preview-kind";
 import MetadataPanel from "@/components/document-detail/MetadataPanel";
@@ -205,7 +206,7 @@ export default function DocumentDetail() {
   const handleDownload = async () => {
     try {
       const data = await getDocumentDownloadToken(id);
-      window.open(apiUrl(data.url), "_blank");
+      triggerDownload(apiUrl(data.url));
     } catch {
       toast({ variant: "destructive", title: t("documentDetail.downloadFailed"), description: t("documentDetail.downloadFailedDesc") });
     }
