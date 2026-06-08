@@ -1,5 +1,6 @@
 import type { MouseEvent } from "react";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import {
   type Document,
   useFavoriteDocument,
@@ -40,6 +41,7 @@ function CardFavoriteButton({
   favoriteCount: number;
   favorited: boolean;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const favoriteMutation = useFavoriteDocument();
   const unfavoriteMutation = useUnfavoriteDocument();
@@ -73,7 +75,7 @@ function CardFavoriteButton({
       onClick={toggle}
       disabled={pending}
       aria-pressed={favorited}
-      title={favorited ? "Remove from favorites" : "Add to favorites"}
+      title={favorited ? t("browse.card.removeFavorite") : t("browse.card.addFavorite")}
       data-testid="card-favorite-toggle"
       className="inline-flex items-center gap-1 rounded px-1 hover:text-primary transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
@@ -90,6 +92,7 @@ export default function DocumentCards({
   favoritedIds,
   columns = 4,
 }: Props) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -163,11 +166,11 @@ export default function DocumentCards({
                   className="flex items-center gap-3 mb-3 text-xs text-muted-foreground tabular-nums"
                   data-testid="doc-engagement"
                 >
-                  <span className="inline-flex items-center gap-1" title="Views">
+                  <span className="inline-flex items-center gap-1" title={t("browse.card.views")}>
                     <Eye className="h-3.5 w-3.5" />
                     {doc.viewCount ?? 0}
                   </span>
-                  <span className="inline-flex items-center gap-1" title="Downloads">
+                  <span className="inline-flex items-center gap-1" title={t("browse.card.downloads")}>
                     <Download className="h-3.5 w-3.5" />
                     {doc.downloadCount ?? 0}
                   </span>
@@ -192,7 +195,7 @@ export default function DocumentCards({
                     </span>
                     <span
                       className="inline-flex items-center rounded border px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground"
-                      title="Current version"
+                      title={t("browse.card.currentVersion")}
                       data-testid="doc-version"
                     >
                       {formatVersion(doc.currentVersion)}

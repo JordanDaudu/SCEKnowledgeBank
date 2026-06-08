@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import {
   Clock,
@@ -55,12 +56,14 @@ export function StatusBadge({
   status: string;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const cfg = STATUS[status] ?? {
     label: status,
     classes: "bg-muted text-muted-foreground border-border",
     icon: FileEdit,
   };
   const Icon = cfg.icon;
+  const label = t(`status.${status}`, { defaultValue: cfg.label });
   return (
     <span
       data-testid={`status-badge-${status}`}
@@ -71,7 +74,7 @@ export function StatusBadge({
       )}
     >
       <Icon className="h-3 w-3 shrink-0" />
-      {cfg.label}
+      {label}
     </span>
   );
 }

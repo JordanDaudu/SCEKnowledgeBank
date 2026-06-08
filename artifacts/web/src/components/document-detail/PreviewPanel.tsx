@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileText } from "lucide-react";
 import { formatBytes } from "@/lib/format";
 import { apiUrl } from "@/lib/api-url";
+import { useTranslation } from "react-i18next";
 import { previewKindForMime } from "@/lib/preview-kind";
 import PreviewFallback from "./previews/PreviewFallback";
 import TextPreview from "./previews/TextPreview";
@@ -22,6 +23,7 @@ export default function PreviewPanel({
   isPreviewLoading,
   onDownload,
 }: Props) {
+  const { t } = useTranslation();
   const mime = doc.file?.mimeType;
   const kind = previewKindForMime(mime);
 
@@ -61,7 +63,7 @@ export default function PreviewPanel({
         <PreviewFallback
           doc={doc}
           onDownload={onDownload}
-          message="Preview is not available right now. Download the file to view its contents."
+          message={t("preview.notAvailableNow")}
         />
       );
     }
@@ -71,7 +73,7 @@ export default function PreviewPanel({
         <iframe
           src={apiUrl(previewUrl)}
           className="w-full h-full border-0"
-          title="Document Preview"
+          title={t("preview.documentPreview")}
         />
       );
     }
@@ -103,7 +105,7 @@ export default function PreviewPanel({
       <div className="border-b p-3 bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium">
           <FileText className="h-4 w-4 text-primary" />
-          {doc.file?.originalFilename || "Document Preview"}
+          {doc.file?.originalFilename || t("preview.documentPreview")}
         </div>
         {doc.file && (
           <div className="text-xs text-muted-foreground flex gap-3">

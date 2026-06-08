@@ -1,4 +1,5 @@
 import type { Course, Category, Tag } from "@workspace/api-client-react";
+import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ interface Props {
 }
 
 export default function BrowseFilters(props: Props) {
+  const { t } = useTranslation();
   const {
     courseId,
     setCourseId,
@@ -94,30 +96,30 @@ export default function BrowseFilters(props: Props) {
         <PopoverTrigger asChild>
           <Button variant="outline" className="gap-2" data-testid="browse-filters-trigger">
             <SlidersHorizontal className="h-4 w-4" />
-            Filters
+            {t("browse.filters.filters")}
             {activeFilterCount > 0 && (
-              <Badge variant="secondary" className="ml-1 px-1.5">{activeFilterCount}</Badge>
+              <Badge variant="secondary" className="ms-1 px-1.5">{activeFilterCount}</Badge>
             )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[360px] max-h-[70vh] overflow-y-auto" align="end">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium text-sm">Refine results</h4>
+              <h4 className="font-medium text-sm">{t("browse.filters.refine")}</h4>
               {activeFilterCount > 0 && (
                 <Button variant="ghost" size="sm" onClick={clearAll} className="h-auto px-2 py-1 text-xs">
-                  Clear all
+                  {t("browse.filters.clearAll")}
                 </Button>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Course</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.course")}</label>
                 <Select value={courseId} onValueChange={setCourseId}>
                   <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All courses</SelectItem>
+                    <SelectItem value="all">{t("browse.filters.allCourses")}</SelectItem>
                     {courses?.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>
                     ))}
@@ -126,48 +128,48 @@ export default function BrowseFilters(props: Props) {
               </div>
 
               <div className="space-y-1.5 col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Lecturer</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.lecturer")}</label>
                 <Input
                   value={lecturerName}
                   onChange={(e) => setLecturerName(e.target.value)}
-                  placeholder="e.g. Dr. Smith"
+                  placeholder={t("browse.filters.lecturerPlaceholder")}
                   className="bg-background"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Semester</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.semester")}</label>
                 <Select
                   value={semester || "any"}
                   onValueChange={(val) => setSemester(val === "any" ? "" : (val as Semester))}
                 >
-                  <SelectTrigger className="bg-background"><SelectValue placeholder="Any" /></SelectTrigger>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder={t("browse.filters.any")} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Any semester</SelectItem>
-                    <SelectItem value="fall">Fall</SelectItem>
-                    <SelectItem value="spring">Spring</SelectItem>
-                    <SelectItem value="summer">Summer</SelectItem>
+                    <SelectItem value="any">{t("browse.filters.anySemester")}</SelectItem>
+                    <SelectItem value="fall">{t("browse.filters.fall")}</SelectItem>
+                    <SelectItem value="spring">{t("browse.filters.spring")}</SelectItem>
+                    <SelectItem value="summer">{t("browse.filters.summer")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Academic year</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.academicYear")}</label>
                 <Input
                   type="number"
                   value={academicYear}
                   onChange={(e) => setAcademicYear(e.target.value)}
-                  placeholder="e.g. 2024"
+                  placeholder={t("browse.filters.yearPlaceholder")}
                   className="bg-background"
                 />
               </div>
 
               <div className="space-y-1.5 col-span-2">
-                <label className="text-xs font-medium text-muted-foreground">Category</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.category")}</label>
                 <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="all">{t("browse.filters.allCategories")}</SelectItem>
                     {categories?.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
@@ -176,7 +178,7 @@ export default function BrowseFilters(props: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Uploaded from</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.uploadedFrom")}</label>
                 <Input
                   type="date"
                   value={dateFrom}
@@ -186,7 +188,7 @@ export default function BrowseFilters(props: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Uploaded to</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.uploadedTo")}</label>
                 <Input
                   type="date"
                   value={dateTo}
@@ -198,16 +200,16 @@ export default function BrowseFilters(props: Props) {
 
             {tags && tags.length > 0 && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Tags</label>
+                <label className="text-xs font-medium text-muted-foreground">{t("browse.filters.tags")}</label>
                 <div className="flex flex-wrap gap-1.5">
-                  {tags.map((t) => (
+                  {tags.map((tag) => (
                     <Badge
-                      key={t.id}
-                      variant={tagIds.includes(t.id) ? "default" : "outline"}
+                      key={tag.id}
+                      variant={tagIds.includes(tag.id) ? "default" : "outline"}
                       className="cursor-pointer"
-                      onClick={() => toggleTag(t.id)}
+                      onClick={() => toggleTag(tag.id)}
                     >
-                      {t.name}
+                      {tag.name}
                     </Badge>
                   ))}
                 </div>
@@ -219,29 +221,29 @@ export default function BrowseFilters(props: Props) {
 
       <Select value={materialType} onValueChange={setMaterialType}>
         <SelectTrigger className="w-[160px] bg-background">
-          <SelectValue placeholder="All Types" />
+          <SelectValue placeholder={t("browse.filters.allTypes")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
-          {MATERIAL_TYPES.map((t) => (
-            <SelectItem key={t.value} value={t.value} className="capitalize">{t.label}</SelectItem>
+          <SelectItem value="all">{t("browse.filters.allTypes")}</SelectItem>
+          {MATERIAL_TYPES.map((mt) => (
+            <SelectItem key={mt.value} value={mt.value} className="capitalize">{mt.label}</SelectItem>
           ))}
         </SelectContent>
       </Select>
 
       <Select value={sort} onValueChange={(val) => setSort(val as Sort)}>
         <SelectTrigger className="w-[150px] bg-background">
-          <SelectValue placeholder="Sort by" />
+          <SelectValue placeholder={t("browse.filters.sortBy")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="relevance">Most Relevant</SelectItem>
-          <SelectItem value="recent">Most Recent</SelectItem>
-          <SelectItem value="trending">Trending</SelectItem>
-          <SelectItem value="viewed">Most Viewed</SelectItem>
-          <SelectItem value="downloaded">Most Downloaded</SelectItem>
-          <SelectItem value="favorited">Most Favorited</SelectItem>
-          <SelectItem value="oldest">Oldest First</SelectItem>
-          <SelectItem value="title">A-Z</SelectItem>
+          <SelectItem value="relevance">{t("browse.sort.relevance")}</SelectItem>
+          <SelectItem value="recent">{t("browse.sort.recent")}</SelectItem>
+          <SelectItem value="trending">{t("browse.sort.trending")}</SelectItem>
+          <SelectItem value="viewed">{t("browse.sort.viewed")}</SelectItem>
+          <SelectItem value="downloaded">{t("browse.sort.downloaded")}</SelectItem>
+          <SelectItem value="favorited">{t("browse.sort.favorited")}</SelectItem>
+          <SelectItem value="oldest">{t("browse.sort.oldest")}</SelectItem>
+          <SelectItem value="title">{t("browse.sort.title")}</SelectItem>
         </SelectContent>
       </Select>
 
@@ -301,55 +303,61 @@ interface ChipsProps {
 }
 
 function ActiveChipsContainer(p: ChipsProps) {
+  const { t } = useTranslation();
   if (p.activeFilterCount === 0) return null;
   return (
     <div className="flex flex-wrap gap-2 items-center w-full">
-      <span className="text-xs text-muted-foreground">Active:</span>
+      <span className="text-xs text-muted-foreground">{t("browse.filters.active")}</span>
       {p.courseId !== "all" && (
         <FilterChip onClear={() => p.setCourseId("all")}>
-          Course: {p.courses?.find((c) => c.id === p.courseId)?.code ?? p.courseId}
+          {t("browse.filters.chipCourse", { value: p.courses?.find((c) => c.id === p.courseId)?.code ?? p.courseId })}
         </FilterChip>
       )}
       {p.debouncedLecturer && (
-        <FilterChip onClear={() => p.setLecturerName("")}>Lecturer: {p.debouncedLecturer}</FilterChip>
+        <FilterChip onClear={() => p.setLecturerName("")}>{t("browse.filters.chipLecturer", { value: p.debouncedLecturer })}</FilterChip>
       )}
-      {p.semester && <FilterChip onClear={() => p.setSemester("")}>Semester: {p.semester}</FilterChip>}
+      {p.semester && (
+        <FilterChip onClear={() => p.setSemester("")}>
+          {t("browse.filters.chipSemester", { value: t(`browse.filters.${p.semester}`) })}
+        </FilterChip>
+      )}
       {p.academicYear && (
-        <FilterChip onClear={() => p.setAcademicYear("")}>Year: {p.academicYear}</FilterChip>
+        <FilterChip onClear={() => p.setAcademicYear("")}>{t("browse.filters.chipYear", { value: p.academicYear })}</FilterChip>
       )}
       {p.categoryId !== "all" && (
         <FilterChip onClear={() => p.setCategoryId("all")}>
-          Category: {p.categories?.find((c) => c.id === p.categoryId)?.name ?? p.categoryId}
+          {t("browse.filters.chipCategory", { value: p.categories?.find((c) => c.id === p.categoryId)?.name ?? p.categoryId })}
         </FilterChip>
       )}
       {p.materialType !== "all" && (
         <FilterChip onClear={() => p.setMaterialType("all")}>
-          Type: {formatMaterialType(p.materialType)}
+          {t("browse.filters.chipType", { value: formatMaterialType(p.materialType) })}
         </FilterChip>
       )}
       {p.tagIds.map((id) => (
         <FilterChip key={id} onClear={() => p.toggleTag(id)}>
-          Tag: {p.tags?.find((t) => t.id === id)?.name ?? id}
+          {t("browse.filters.chipTag", { value: p.tags?.find((tg) => tg.id === id)?.name ?? id })}
         </FilterChip>
       ))}
-      {p.dateFrom && <FilterChip onClear={() => p.setDateFrom("")}>From: {p.dateFrom}</FilterChip>}
-      {p.dateTo && <FilterChip onClear={() => p.setDateTo("")}>To: {p.dateTo}</FilterChip>}
+      {p.dateFrom && <FilterChip onClear={() => p.setDateFrom("")}>{t("browse.filters.chipFrom", { value: p.dateFrom })}</FilterChip>}
+      {p.dateTo && <FilterChip onClear={() => p.setDateTo("")}>{t("browse.filters.chipTo", { value: p.dateTo })}</FilterChip>}
       <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={p.clearAll}>
-        Clear all
+        {t("browse.filters.clearAll")}
       </Button>
     </div>
   );
 }
 
 function FilterChip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
+  const { t } = useTranslation();
   return (
-    <span className="inline-flex items-center gap-1 pr-1 pl-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+    <span className="inline-flex items-center gap-1 pe-1 ps-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
       <span>{children}</span>
       <button
         type="button"
         onClick={onClear}
         className="rounded-full hover:bg-primary/20 p-0.5 transition-colors"
-        aria-label="Remove filter"
+        aria-label={t("browse.filters.removeFilter")}
       >
         <X className="h-3 w-3" />
       </button>

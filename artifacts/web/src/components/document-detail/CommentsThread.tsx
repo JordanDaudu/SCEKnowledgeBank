@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { MessageSquare, Trash2, Reply, Edit, Hash, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
+import { useTranslation } from "react-i18next";
 import MentionPicker from "./MentionPicker";
 import ReactionRow from "./ReactionRow";
 
@@ -77,6 +78,7 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
     setEditBody,
     setEditPageNumber,
   } = props;
+  const { t } = useTranslation();
 
   const isAdmin = user?.roles?.includes("admin");
   const canModify = isAdmin || user?.id === comment.author.id;
@@ -94,12 +96,12 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
             <span className="text-xs text-muted-foreground">
               {formatDateTime(comment.createdAt)}
               {comment.editedAt && (
-                <span className="italic ml-1" data-testid="comment-edited-marker">(edited)</span>
+                <span className="italic ms-1" data-testid="comment-edited-marker">{t("comments.edited")}</span>
               )}
             </span>
             {comment.pageNumber != null && !isEditing && (
               <Badge variant="outline" className="gap-1 text-xs">
-                <Hash className="h-3 w-3" /> p.{comment.pageNumber}
+                <Hash className="h-3 w-3" /> {t("comments.pageBadge", { page: comment.pageNumber })}
               </Badge>
             )}
             {comment.mentions && comment.mentions.length > 0 && !isEditing && (
@@ -122,7 +124,7 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
                 size="icon"
                 className="h-6 w-6"
                 onClick={() => setReplyingTo(comment.id)}
-                aria-label="Reply"
+                aria-label={t("comments.reply")}
                 data-testid={`reply-${comment.id}`}
               >
                 <Reply className="h-3 w-3" />
@@ -135,7 +137,7 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
                     className="h-6 w-6"
                     onClick={() => onStartEdit(comment)}
                     data-testid={`edit-comment-${comment.id}`}
-                    aria-label="Edit comment"
+                    aria-label={t("comments.editComment")}
                   >
                     <Edit className="h-3 w-3" />
                   </Button>
@@ -144,7 +146,7 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
                     size="icon"
                     className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => onDelete(comment.id)}
-                    aria-label="Delete comment"
+                    aria-label={t("comments.deleteComment")}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -165,14 +167,14 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
               {isPdf ? (
                 <div className="flex items-center gap-2">
                   <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Hash className="h-3 w-3" /> Pin to page
+                    <Hash className="h-3 w-3" /> {t("comments.pinToPage")}
                   </label>
                   <Input
                     type="number"
                     min={1}
                     value={editPageNumber}
                     onChange={(e) => setEditPageNumber(e.target.value)}
-                    placeholder="optional"
+                    placeholder={t("comments.optional")}
                     className="h-8 w-24"
                     data-testid={`edit-comment-page-input-${comment.id}`}
                   />
@@ -183,7 +185,7 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => setEditPageNumber("")}
-                      aria-label="Clear page"
+                      aria-label={t("comments.clearPage")}
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -193,14 +195,14 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
                 <span />
               )}
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={onCancelEdit}>Cancel</Button>
+                <Button variant="ghost" size="sm" onClick={onCancelEdit}>{t("comments.cancel")}</Button>
                 <Button
                   size="sm"
                   onClick={() => onSaveEdit(comment.id)}
                   disabled={isSavePending || !editBody.trim()}
                   data-testid={`save-comment-${comment.id}`}
                 >
-                  Save
+                  {t("comments.save")}
                 </Button>
               </div>
             </div>
@@ -220,8 +222,8 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
         <div
           className={
             depth < 4
-              ? "pl-4 border-l-2 ml-4 space-y-2"
-              : "pl-2 border-l-2 ml-2 space-y-2"
+              ? "ps-4 border-s-2 ms-4 space-y-2"
+              : "ps-2 border-s-2 ms-2 space-y-2"
           }
           data-testid={`replies-${comment.id}`}
         >
@@ -237,6 +239,7 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
 export default function CommentsThread({ documentId, commentCount, isPdf }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { data: user } = useGetCurrentUser();
 
   const { data: comments, isLoading: isCommentsLoading } = useListDocumentComments(documentId, {
@@ -260,7 +263,7 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
 
     const parsedPage = pageNumber ? Number(pageNumber) : undefined;
     if (parsedPage != null && (!Number.isFinite(parsedPage) || parsedPage < 1)) {
-      toast({ variant: "destructive", title: "Invalid page", description: "Page number must be 1 or greater." });
+      toast({ variant: "destructive", title: t("comments.invalidPage"), description: t("comments.invalidPageDesc") });
       return;
     }
 
@@ -277,7 +280,7 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
         setReplyingTo(null);
         setPageNumber("");
         queryClient.invalidateQueries({ queryKey: getListDocumentCommentsQueryKey(documentId) });
-        toast({ title: "Comment posted" });
+        toast({ title: t("comments.posted") });
       },
     });
   };
@@ -296,7 +299,7 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
 
   const handleSaveEdit = (commentId: string) => {
     if (!editBody.trim()) {
-      toast({ variant: "destructive", title: "Comment cannot be empty" });
+      toast({ variant: "destructive", title: t("comments.empty") });
       return;
     }
     const trimmed = editPageNumber.trim();
@@ -306,7 +309,7 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
     } else {
       const n = Number(trimmed);
       if (!Number.isFinite(n) || n < 1) {
-        toast({ variant: "destructive", title: "Invalid page", description: "Page number must be 1 or greater." });
+        toast({ variant: "destructive", title: t("comments.invalidPage"), description: t("comments.invalidPageDesc") });
         return;
       }
       pageValue = n;
@@ -321,13 +324,13 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListDocumentCommentsQueryKey(documentId) });
           handleCancelEdit();
-          toast({ title: "Comment updated" });
+          toast({ title: t("comments.updated") });
         },
         onError: (err) => {
           const data = (err as { data?: { error?: { message?: string } } })?.data;
           toast({
             variant: "destructive",
-            title: "Update failed",
+            title: t("comments.updateFailed"),
             description: data?.error?.message || (err as Error)?.message,
           });
         },
@@ -336,11 +339,11 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
   };
 
   const handleDeleteComment = (commentId: string) => {
-    if (!confirm("Delete this comment?")) return;
+    if (!confirm(t("comments.deleteConfirm"))) return;
     deleteCommentMutation.mutate({ commentId }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListDocumentCommentsQueryKey(documentId) });
-        toast({ title: "Comment deleted" });
+        toast({ title: t("comments.deleted") });
       },
     });
   };
@@ -349,20 +352,20 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
     <div>
       <h3 className="font-serif font-semibold text-lg flex items-center gap-2 mb-4">
         <MessageSquare className="h-5 w-5 text-primary" />
-        Discussion ({commentCount})
+        {t("comments.discussion", { count: commentCount })}
       </h3>
 
       <form onSubmit={handleCommentSubmit} className="mb-6 space-y-3">
         {replyingTo && (
           <div className="flex justify-between items-center text-xs bg-secondary px-3 py-1.5 rounded-md">
-            <span>Replying to comment</span>
-            <Button variant="ghost" size="sm" className="h-auto p-0" onClick={() => setReplyingTo(null)}>Cancel</Button>
+            <span>{t("comments.replyingTo")}</span>
+            <Button variant="ghost" size="sm" className="h-auto p-0" onClick={() => setReplyingTo(null)}>{t("comments.cancel")}</Button>
           </div>
         )}
         <MentionPicker
           value={commentBody}
           onChange={setCommentBody}
-          placeholder="Add your thoughts, or @mention someone..."
+          placeholder={t("comments.placeholder")}
           rows={3}
           textareaTestId="comment-body-input"
         />
@@ -399,7 +402,7 @@ export default function CommentsThread({ documentId, commentCount, isPdf }: Prop
             <span />
           )}
           <Button type="submit" disabled={commentMutation.isPending || !commentBody.trim()}>
-            Post Comment
+            {t("comments.post")}
           </Button>
         </div>
       </form>

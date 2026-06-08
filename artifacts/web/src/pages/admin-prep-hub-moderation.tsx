@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next";
 import {
   Eye,
   EyeOff,
@@ -28,6 +29,7 @@ export default function AdminPrepHubModeration() {
   const [showHiddenOnly, setShowHiddenOnly] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const { data, isLoading, error } = useListCollectionModeration();
   const hideMut = useHideCollection();
@@ -36,8 +38,8 @@ export default function AdminPrepHubModeration() {
   const handleError = (err: unknown) => {
     const data = (err as { data?: { error?: { message?: string } } })?.data;
     const message =
-      data?.error?.message ?? (err as Error)?.message ?? "Something went wrong";
-    toast({ variant: "destructive", title: "Action failed", description: message });
+      data?.error?.message ?? (err as Error)?.message ?? t("prepHubCollection.somethingWentWrong");
+    toast({ variant: "destructive", title: t("prepHubCollection.actionFailed"), description: message });
   };
 
   const invalidateModeration = () => {
@@ -47,7 +49,7 @@ export default function AdminPrepHubModeration() {
   };
 
   const handleHide = (col: StudyCollectionSummary) => {
-    const reason = prompt("Optional reason for hiding this collection:") ?? "";
+    const reason = prompt(t("prepHubCollection.hidePrompt")) ?? "";
     hideMut.mutate(
       { id: col.id, data: { reason: reason.trim() || undefined } },
       { onSuccess: invalidateModeration, onError: handleError },
@@ -72,7 +74,7 @@ export default function AdminPrepHubModeration() {
   if (error || !data) {
     return (
       <div className="container mx-auto p-6">
-        <p className="text-rose-600">Failed to load moderation list.</p>
+        <p className="text-rose-600">{t("admin.moderation.loadFailed")}</p>
       </div>
     );
   }
@@ -88,10 +90,10 @@ export default function AdminPrepHubModeration() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-serif font-bold flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-primary" /> Prep Hub Moderation
+            <ShieldCheck className="h-6 w-6 text-primary" /> {t("admin.moderation.title")}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {stats.totalPublic} public · {stats.totalHidden} hidden
+            {t("admin.moderation.stats", { public: stats.totalPublic, hidden: stats.totalHidden })}
           </p>
         </div>
 
@@ -103,7 +105,7 @@ export default function AdminPrepHubModeration() {
             onChange={(e) => setShowHiddenOnly(e.target.checked)}
             className="h-4 w-4 rounded border-border"
           />
-          Show only hidden
+          {t("admin.moderation.showHiddenOnly")}
         </label>
       </div>
 
@@ -111,7 +113,7 @@ export default function AdminPrepHubModeration() {
       {displayed.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-card py-16 text-center">
           <p className="text-muted-foreground">
-            {showHiddenOnly ? "No hidden collections." : "No collections found."}
+            {showHiddenOnly ? t("admin.moderation.noHidden") : t("admin.moderation.noCollections")}
           </p>
         </div>
       ) : (
@@ -145,6 +147,7 @@ function CollectionRow({
   hideLoading: boolean;
   unhideLoading: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <li>
       <Card className={col.hiddenAt ? "border-destructive/40 bg-destructive/5" : undefined}>
@@ -163,44 +166,44 @@ function CollectionRow({
                   variant="outline"
                   className="border-destructive/60 text-destructive bg-destructive/10 shrink-0"
                 >
-                  <EyeOff className="h-3 w-3 mr-1" />
-                  Hidden
+                  <EyeOff className="h-3 w-3 me-1" />
+                  {t("admin.moderation.hiddenBadge")}
                 </Badge>
               )}
             </div>
 
             {col.hiddenAt && col.hiddenReason && (
               <p className="mt-0.5 text-xs text-muted-foreground italic">
-                Reason: {col.hiddenReason}
+                {t("admin.moderation.reason", { reason: col.hiddenReason })}
               </p>
             )}
 
             {/* Engagement stats */}
             <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1" title="Documents">
+              <span className="inline-flex items-center gap-1" title={t("admin.moderation.documents")}>
                 <BookOpen className="h-3.5 w-3.5" />
-                {col.itemCount} {col.itemCount === 1 ? "doc" : "docs"}
+                {t("admin.moderation.docCount", { count: col.itemCount })}
               </span>
-              <span className="inline-flex items-center gap-1" title="Followers">
+              <span className="inline-flex items-center gap-1" title={t("collectionManage.followers")}>
                 <Users className="h-3.5 w-3.5" />
                 {col.followerCount}
               </span>
-              <span className="inline-flex items-center gap-1" title="Likes">
+              <span className="inline-flex items-center gap-1" title={t("admin.moderation.likes")}>
                 <Heart className="h-3.5 w-3.5" />
                 {col.likeCount}
               </span>
-              <span className="inline-flex items-center gap-1" title="Rating">
+              <span className="inline-flex items-center gap-1" title={t("admin.moderation.rating")}>
                 <Star className="h-3.5 w-3.5" />
                 {col.ratingAverage > 0 ? col.ratingAverage.toFixed(1) : "—"}{" "}
                 ({col.ratingCount})
               </span>
-              <span className="inline-flex items-center gap-1" title="Comments">
+              <span className="inline-flex items-center gap-1" title={t("admin.moderation.comments")}>
                 <MessageSquare className="h-3.5 w-3.5" />
                 {col.commentCount}
               </span>
-              <span className="inline-flex items-center gap-1" title="Views">
+              <span className="inline-flex items-center gap-1" title={t("browse.card.views")}>
                 <Eye className="h-3.5 w-3.5" />
-                {col.viewCount} views
+                {t("admin.moderation.viewsCount", { count: col.viewCount })}
               </span>
             </div>
           </div>
@@ -216,7 +219,7 @@ function CollectionRow({
                 onClick={() => onUnhide(col)}
               >
                 <Eye className="h-4 w-4" />
-                Unhide
+                {t("prepHubCollection.unhide")}
               </Button>
             ) : (
               <Button
@@ -227,7 +230,7 @@ function CollectionRow({
                 onClick={() => onHide(col)}
               >
                 <EyeOff className="h-4 w-4" />
-                Hide
+                {t("prepHubCollection.hide")}
               </Button>
             )}
           </div>

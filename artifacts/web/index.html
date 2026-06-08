@@ -31,6 +31,20 @@
         } catch (e) {}
       })();
     </script>
+    <script>
+      // Apply the saved language's direction before first paint so RTL
+      // (Hebrew) doesn't flash LTR. Mirrors the theme script; i18n
+      // (i18next-browser-languagedetector, key "kb-lang") takes over on mount.
+      (function () {
+        try {
+          var l = localStorage.getItem("kb-lang") || "";
+          var he = l.indexOf("he") === 0;
+          var el = document.documentElement;
+          el.setAttribute("lang", he ? "he" : "en");
+          el.setAttribute("dir", he ? "rtl" : "ltr");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

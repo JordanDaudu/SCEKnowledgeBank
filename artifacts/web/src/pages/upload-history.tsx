@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import {
   useGetCurrentUser,
   useSearchDocumentsV2,
@@ -54,6 +55,7 @@ import {
  * per-document versions API — no new endpoints.
  */
 function RevisionTimeline({ documentId }: { documentId: string }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const versionsKey = getListDocumentVersionsQueryKey(documentId);
@@ -65,7 +67,7 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
   const handleDelete = (v: DocumentVersion) => {
     if (
       !confirm(
-        `Delete ${formatVersion(v.versionNumber)}? This permanently removes this version. The current version is unaffected.`,
+        t("uploads.deleteVersionConfirm", { version: formatVersion(v.versionNumber) }),
       )
     ) {
       return;
@@ -74,13 +76,13 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
       { id: documentId, versionId: v.id },
       {
         onSuccess: () => {
-          toast({ title: `Deleted ${formatVersion(v.versionNumber)}` });
+          toast({ title: t("uploads.deletedVersion", { version: formatVersion(v.versionNumber) }) });
           queryClient.invalidateQueries({ queryKey: versionsKey });
         },
         onError: (err) =>
           toast({
             variant: "destructive",
-            title: "Could not delete version",
+            title: t("uploads.couldNotDeleteVersion"),
             description: err instanceof Error ? err.message : undefined,
           }),
       },
@@ -96,7 +98,7 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
         "_blank",
       );
     } catch {
-      toast({ variant: "destructive", title: "Could not generate download link." });
+      toast({ variant: "destructive", title: t("uploads.couldNotDownload") });
     }
   };
 
@@ -109,7 +111,7 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
     );
   }
   if (!versions || versions.length === 0) {
-    return <p className="pl-4 text-xs text-muted-foreground">No version history.</p>;
+    return <p className="pl-4 text-xs text-muted-foreground">{t("uploads.noVersionHistory")}</p>;
   }
 
   return (
@@ -127,7 +129,7 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
             <span className="font-medium">{formatVersion(v.versionNumber)}</span>
             {v.isCurrent && (
               <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
-                Current
+                {t("uploads.current")}
               </span>
             )}
             <span className="text-xs text-muted-foreground">
@@ -140,7 +142,7 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
               onClick={() => downloadVersion(v)}
             >
               <Download className="h-3 w-3" />
-              Download
+              {t("uploads.download")}
             </Button>
             {!v.isCurrent && (
               <Button
@@ -150,16 +152,16 @@ function RevisionTimeline({ documentId }: { documentId: string }) {
                 disabled={deleteMut.isPending}
                 onClick={() => handleDelete(v)}
                 data-testid="delete-version"
-                title="Delete this version"
+                title={t("uploads.deleteVersionTitle")}
               >
                 <Trash2 className="h-3 w-3" />
-                Delete
+                {t("uploads.delete")}
               </Button>
             )}
           </div>
           <p className="truncate text-xs text-muted-foreground">{v.originalFilename}</p>
           <p className="text-xs text-muted-foreground">
-            {v.uploader?.displayName ?? "Unknown"} · {formatDateTime(v.uploadedAt)}
+            {v.uploader?.displayName ?? t("uploads.unknown")} · {formatDateTime(v.uploadedAt)}
           </p>
           {v.changeNote && (
             <p className="text-xs italic text-muted-foreground">"{v.changeNote}"</p>
@@ -184,6 +186,7 @@ function UploadVersionButton({
   documentId: string;
   onUploaded: () => void;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadMut = useUploadDocumentVersion();
@@ -196,13 +199,13 @@ function UploadVersionButton({
       { id: documentId, data: { file } },
       {
         onSuccess: () => {
-          toast({ title: "New version uploaded" });
+          toast({ title: t("uploads.newVersionUploaded") });
           onUploaded();
         },
         onError: (err) =>
           toast({
             variant: "destructive",
-            title: "Could not upload new version",
+            title: t("uploads.couldNotUploadVersion"),
             description: err instanceof Error ? err.message : undefined,
           }),
       },
@@ -226,14 +229,14 @@ function UploadVersionButton({
         disabled={uploadMut.isPending}
         onClick={() => inputRef.current?.click()}
         data-testid="upload-version"
-        title="Upload a new version of this document"
+        title={t("uploads.newVersionTitle")}
       >
         {uploadMut.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <Upload className="h-4 w-4" />
         )}
-        New version
+        {t("uploads.newVersion")}
       </Button>
     </>
   );
@@ -253,6 +256,7 @@ function DeleteUploadButton({
   title: string;
   onDeleted: () => void;
 }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const deleteMut = useDeleteDocument();
 
@@ -261,13 +265,13 @@ function DeleteUploadButton({
       { id: documentId },
       {
         onSuccess: () => {
-          toast({ title: "Document deleted" });
+          toast({ title: t("uploads.documentDeleted") });
           onDeleted();
         },
         onError: (err) =>
           toast({
             variant: "destructive",
-            title: "Could not delete document",
+            title: t("uploads.couldNotDeleteDoc"),
             description: err instanceof Error ? err.message : undefined,
           }),
       },
@@ -283,32 +287,31 @@ function DeleteUploadButton({
           className="gap-1 text-muted-foreground hover:text-destructive"
           disabled={deleteMut.isPending}
           data-testid="delete-document"
-          title="Permanently delete this document"
+          title={t("uploads.deleteDocTitle")}
         >
           {deleteMut.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Trash2 className="h-4 w-4" />
           )}
-          Delete
+          {t("uploads.delete")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete "{title}"?</AlertDialogTitle>
+          <AlertDialogTitle>{t("uploads.deleteConfirmTitle", { title })}</AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes the document and all of its versions for
-            everyone. This action cannot be undone.
+            {t("uploads.deleteConfirmDesc")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("uploads.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             data-testid="confirm-delete-document"
           >
-            Delete
+            {t("uploads.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -317,6 +320,7 @@ function DeleteUploadButton({
 }
 
 export default function UploadHistory() {
+  const { t } = useTranslation();
   const { data: user } = useGetCurrentUser();
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -365,11 +369,10 @@ export default function UploadHistory() {
           <div className="shrink-0 rounded-lg bg-primary/10 p-1.5">
             <History className="h-5 w-5 text-primary" />
           </div>
-          <h1 className="font-serif text-3xl font-bold text-foreground">Upload History</h1>
+          <h1 className="font-serif text-3xl font-bold text-foreground">{t("uploads.title")}</h1>
         </div>
         <p className="text-muted-foreground">
-          Your uploaded materials and their revision history. Open a document to
-          edit it or upload a new version.
+          {t("uploads.subtitle")}
         </p>
       </div>
 
@@ -378,11 +381,11 @@ export default function UploadHistory() {
         <div className="flex flex-wrap gap-4">
           <div className="rounded-lg border bg-card px-4 py-3">
             <div className="text-2xl font-semibold tabular-nums">{page?.total ?? docs.length}</div>
-            <div className="text-xs text-muted-foreground">Documents uploaded</div>
+            <div className="text-xs text-muted-foreground">{t("uploads.documentsUploaded")}</div>
           </div>
           <div className="rounded-lg border bg-card px-4 py-3">
             <div className="text-2xl font-semibold tabular-nums">{totalVersions}</div>
-            <div className="text-xs text-muted-foreground">Total versions</div>
+            <div className="text-xs text-muted-foreground">{t("uploads.totalVersions")}</div>
           </div>
         </div>
       )}
@@ -399,12 +402,12 @@ export default function UploadHistory() {
           data-testid="upload-history-empty"
         >
           <FileStack className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-          <p className="text-muted-foreground">You haven't uploaded anything yet.</p>
+          <p className="text-muted-foreground">{t("uploads.empty")}</p>
           <Link
             href="/upload"
             className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
           >
-            Upload your first document →
+            {t("uploads.uploadFirst")}
           </Link>
         </div>
       ) : (
@@ -430,14 +433,13 @@ export default function UploadHistory() {
                           )}
                           <span
                             className="rounded bg-secondary px-1.5 py-0.5 text-xs font-medium tabular-nums"
-                            title="Current version"
+                            title={t("uploads.currentVersion")}
                           >
                             {formatVersion(versionCount)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Uploaded {formatDateTime(doc.createdAt)} · Updated{" "}
-                          {formatDateTime(doc.updatedAt)}
+                          {t("uploads.uploadedUpdated", { uploaded: formatDateTime(doc.createdAt), updated: formatDateTime(doc.updatedAt) })}
                         </p>
                         <div className="flex items-center gap-3 pt-0.5 text-xs text-muted-foreground tabular-nums">
                           <span className="inline-flex items-center gap-1">
@@ -472,7 +474,7 @@ export default function UploadHistory() {
                           ) : (
                             <ChevronRight className="h-4 w-4" />
                           )}
-                          {versionCount > 1 ? `${versionCount} versions` : "History"}
+                          {versionCount > 1 ? t("uploads.versionsCount", { count: versionCount }) : t("uploads.history")}
                         </Button>
                         <DeleteUploadButton
                           documentId={doc.id}

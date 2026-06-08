@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 /**
  * Sprint-3 M6 reaction row. The kind list is the fixed allow-list from
@@ -33,6 +34,7 @@ interface Props {
 export default function ReactionRow({ commentId, documentId, reactions }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
   const addMutation = useAddCommentReaction();
   const removeMutation = useRemoveCommentReaction();
@@ -59,7 +61,7 @@ export default function ReactionRow({ commentId, documentId, reactions }: Props)
           const data = (err as { data?: { error?: { message?: string } } })?.data;
           toast({
             variant: "destructive",
-            title: "Reaction failed",
+            title: t("reactions.failed"),
             description: data?.error?.message || (err as Error)?.message,
           });
         },
@@ -103,9 +105,9 @@ export default function ReactionRow({ commentId, documentId, reactions }: Props)
           onClick={() => setPickerOpen((o) => !o)}
           data-testid={`reaction-add-${commentId}`}
           className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent"
-          aria-label="Add reaction"
+          aria-label={t("reactions.add")}
         >
-          + React
+          {t("reactions.react")}
         </button>
         {pickerOpen && (
           <div
@@ -118,7 +120,7 @@ export default function ReactionRow({ commentId, documentId, reactions }: Props)
                 type="button"
                 onClick={() => toggle(kind as Kind)}
                 disabled={isPending}
-                title={kind}
+                title={t(`reactions.${kind}`)}
                 data-testid={`reaction-choice-${commentId}-${kind}`}
                 className="rounded p-1 text-base hover:bg-accent"
               >

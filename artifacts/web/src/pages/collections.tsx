@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { FolderOpen, Plus } from "lucide-react";
 import { CollectionGrid } from "@/components/collections/CollectionCard";
 import {
@@ -39,6 +40,7 @@ import {
 import { MaterialsPicker, type PickedDoc } from "@/components/collections/MaterialsPicker";
 
 function CreateCollectionDialog() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -66,12 +68,12 @@ function CreateCollectionDialog() {
   };
 
   const submit = () => {
-    const t = title.trim();
-    if (!t) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
     createMut.mutate(
       {
         data: {
-          title: t,
+          title: trimmed,
           ...(description.trim() ? { description: description.trim() } : {}),
           kind: kind as
             | "collection"
@@ -91,7 +93,7 @@ function CreateCollectionDialog() {
           navigate(`/collections/${col.id}`);
         },
         onError: () =>
-          toast({ variant: "destructive", title: "Could not create collection" }),
+          toast({ variant: "destructive", title: t("collections.createFailed") }),
       },
     );
   };
@@ -100,25 +102,25 @@ function CreateCollectionDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-1.5" data-testid="new-collection">
-          <Plus className="h-4 w-4" /> New collection
+          <Plus className="h-4 w-4" /> {t("collections.newCollection")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New study collection</DialogTitle>
+          <DialogTitle>{t("collections.newCollectionTitle")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Title</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("collections.titleLabel")}</label>
             <Input
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. CS101 Final Prep"
+              placeholder={t("collections.titlePlaceholder")}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Description</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("collections.description")}</label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -127,16 +129,16 @@ function CreateCollectionDialog() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Kind</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("collections.kind")}</label>
             <Select value={kind} onValueChange={setKind}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="collection">Collection</SelectItem>
-                <SelectItem value="exam_prep">Exam prep</SelectItem>
-                <SelectItem value="revision">Revision</SelectItem>
-                <SelectItem value="semester">Semester</SelectItem>
+                <SelectItem value="collection">{t("collections.kindCollection")}</SelectItem>
+                <SelectItem value="exam_prep">{t("collections.kindExamPrep")}</SelectItem>
+                <SelectItem value="revision">{t("collections.kindRevision")}</SelectItem>
+                <SelectItem value="semester">{t("collections.kindSemester")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -147,7 +149,7 @@ function CreateCollectionDialog() {
         </div>
         <DialogFooter>
           <Button onClick={submit} disabled={!title.trim() || createMut.isPending}>
-            Create
+            {t("collections.create")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -156,6 +158,7 @@ function CreateCollectionDialog() {
 }
 
 export default function Collections() {
+  const { t } = useTranslation();
   const { data: collections, isLoading } = useListMyCollections({
     query: { queryKey: getListMyCollectionsQueryKey(), staleTime: 15_000 },
   });
@@ -171,18 +174,18 @@ export default function Collections() {
             <div className="shrink-0 rounded-lg bg-primary/10 p-1.5">
               <FolderOpen className="h-5 w-5 text-primary" />
             </div>
-            <h1 className="font-serif text-3xl font-bold text-foreground">Collections</h1>
+            <h1 className="font-serif text-3xl font-bold text-foreground">{t("collections.title")}</h1>
           </div>
           <p className="text-muted-foreground">
-            Create and organize bundles of approved materials.
+            {t("collections.subtitle")}
           </p>
         </div>
         <CreateCollectionDialog />
       </div>
 
-      <section aria-label="My collections">
+      <section aria-label={t("collections.myCollections")}>
         <h2 className="mb-3 font-serif text-xl font-bold text-foreground">
-          My collections
+          {t("collections.myCollections")}
         </h2>
         {isLoading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -203,15 +206,15 @@ export default function Collections() {
           >
             <FolderOpen className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
             <p className="text-muted-foreground">
-              No collections yet. Create one to start organizing your study materials.
+              {t("collections.myCollectionsEmpty")}
             </p>
           </div>
         )}
       </section>
 
-      <section aria-label="Followed collections">
+      <section aria-label={t("collections.followed")}>
         <h2 className="mb-3 font-serif text-xl font-bold text-foreground">
-          Followed collections
+          {t("collections.followed")}
         </h2>
         {followedLoading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -231,7 +234,7 @@ export default function Collections() {
             data-testid="followed-collections-empty"
           >
             <p className="text-sm text-muted-foreground">
-              Collections you follow in Prep Hub appear here.
+              {t("collections.followedEmpty")}
             </p>
           </div>
         )}

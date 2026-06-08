@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, Download, User, Clock, Send, Check, X } from "lucide-react";
 import { formatDateTime, formatVersion } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
+import { useTranslation } from "react-i18next";
 import { StatusBadge } from "./StatusBadge";
 
 interface Props {
@@ -44,6 +45,7 @@ export default function MetadataPanel({
   onReject,
   isReviewMutating,
 }: Props) {
+  const { t } = useTranslation();
   const canSubmitForReview = doc.permissions.canSubmitForReview;
   const canReview = doc.permissions.canReview;
   // Sprint-3 M2: hide the legacy publish/archive toggle while the doc
@@ -62,30 +64,30 @@ export default function MetadataPanel({
           <h1 className="text-2xl font-serif font-bold">{doc.title}</h1>
           <span
             className="mt-1 inline-flex items-center rounded border px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground"
-            title="Current version"
+            title={t("uploads.currentVersion")}
             data-testid="doc-version"
           >
             {formatVersion(doc.currentVersion)}
           </span>
         </div>
         {canEdit && (
-          <div className="flex gap-1 ml-2 shrink-0">
+          <div className="flex gap-1 ms-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={onEdit}
               data-testid="edit-metadata-trigger"
-              aria-label="Edit metadata"
+              aria-label={t("documentDetail.editMetadata")}
             >
               <Edit className="h-4 w-4" />
             </Button>
             {showToggleStatus && (
               <Button variant="outline" size="sm" onClick={onToggleStatus} disabled={isStatusUpdating}>
-                {doc.status === "published" ? "Archive" : "Publish"}
+                {doc.status === "published" ? t("documentDetail.archive") : t("documentDetail.publish")}
               </Button>
             )}
             {canDelete && (
-              <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting} aria-label="Delete">
+              <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting} aria-label={t("documentDetail.deleteAria")}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}
@@ -130,7 +132,7 @@ export default function MetadataPanel({
           data-testid="reject-reason-display"
         >
           <div className="font-medium text-destructive mb-1">
-            Rejected{doc.reviewer ? ` by ${doc.reviewer.displayName}` : ""}
+            {doc.reviewer ? t("documentDetail.rejectedBy", { name: doc.reviewer.displayName }) : t("documentDetail.rejectedTitle")}
           </div>
           <div className="text-foreground/80 whitespace-pre-wrap">{doc.reviewReason}</div>
         </div>
@@ -147,7 +149,7 @@ export default function MetadataPanel({
               disabled={isReviewMutating}
               data-testid="submit-for-review"
             >
-              <Send className="mr-2 h-4 w-4" /> Submit for review
+              <Send className="me-2 h-4 w-4" /> {t("documentDetail.submitForReview")}
             </Button>
           )}
           {canReview && (
@@ -159,7 +161,7 @@ export default function MetadataPanel({
                 disabled={isReviewMutating}
                 data-testid="approve"
               >
-                <Check className="mr-2 h-4 w-4" /> Approve
+                <Check className="me-2 h-4 w-4" /> {t("reviewQueue.approve")}
               </Button>
               <Button
                 variant="destructive"
@@ -168,7 +170,7 @@ export default function MetadataPanel({
                 disabled={isReviewMutating}
                 data-testid="reject"
               >
-                <X className="mr-2 h-4 w-4" /> Reject
+                <X className="me-2 h-4 w-4" /> {t("reviewQueue.reject")}
               </Button>
             </>
           )}
@@ -183,7 +185,7 @@ export default function MetadataPanel({
       </div>
 
       <Button className="w-full mb-8" size="lg" onClick={onDownload}>
-        <Download className="mr-2 h-4 w-4" /> Download Material
+        <Download className="me-2 h-4 w-4" /> {t("documentDetail.downloadMaterial")}
       </Button>
     </div>
   );

@@ -2,6 +2,7 @@ import type { DocumentDetail as DocumentDetailDto } from "@workspace/api-client-
 import { Skeleton } from "@/components/ui/skeleton";
 import PreviewFallback from "./PreviewFallback";
 import { usePreviewContent } from "./usePreviewContent";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   doc: DocumentDetailDto;
@@ -14,6 +15,7 @@ interface Props {
  * Markdown is shown as source (no formatting) — safe and dependency-free.
  */
 export default function TextPreview({ doc, previewUrl, onDownload }: Props) {
+  const { t } = useTranslation();
   const { data, loading, error } = usePreviewContent(previewUrl, "text");
 
   if (loading) {
@@ -29,7 +31,7 @@ export default function TextPreview({ doc, previewUrl, onDownload }: Props) {
       <PreviewFallback
         doc={doc}
         onDownload={onDownload}
-        message="Could not load this file for preview. Download it to view its contents."
+        message={t("preview.couldNotLoad")}
       />
     );
   }

@@ -33,6 +33,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import { formatBytes } from "@/lib/format";
 
 interface QuickAction {
@@ -44,9 +45,10 @@ interface QuickAction {
 }
 
 function QuickActions({ actions }: { actions: QuickAction[] }) {
+  const { t } = useTranslation();
   if (actions.length === 0) return null;
   return (
-    <section aria-label="Quick actions">
+    <section aria-label={t("home.quickActions")}>
       <div
         className={`grid gap-3 ${
           actions.length <= 3
@@ -79,6 +81,7 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
 }
 
 function ReviewQueueSummary() {
+  const { t } = useTranslation();
   const { data, isLoading } = useListPendingReviewDocuments({ pageSize: 1 });
   const total = data?.total ?? 0;
   if (isLoading) return null;
@@ -104,13 +107,13 @@ function ReviewQueueSummary() {
               <div>
                 <div className="font-semibold text-sm">
                   {total === 0
-                    ? "Review queue is clear"
-                    : `${total} submission${total === 1 ? "" : "s"} awaiting review`}
+                    ? t("home.reviewClear")
+                    : t("home.reviewAwaiting", { count: total })}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {total === 0
-                    ? "No documents waiting for your approval."
-                    : "Open the queue to approve or reject."}
+                    ? t("home.reviewClearDesc")
+                    : t("home.reviewOpenDesc")}
                 </div>
               </div>
             </div>
@@ -123,6 +126,7 @@ function ReviewQueueSummary() {
 }
 
 function StorageCard() {
+  const { t } = useTranslation();
   const { data: quota } = useGetMyStorageQuota();
   if (!quota) return null;
   const pct =
@@ -145,17 +149,17 @@ function StorageCard() {
                 <HardDrive className="h-5 w-5" />
               </div>
               <div>
-                <div className="font-semibold text-sm">Your storage</div>
+                <div className="font-semibold text-sm">{t("home.yourStorage")}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   <span data-testid="home-quota-used">{formatBytes(quota.usedBytes)}</span>
-                  {" of "}
+                  {" "}{t("home.storageOf")}{" "}
                   <span data-testid="home-quota-total">{formatBytes(quota.quotaBytes)}</span>
-                  {" used"}
+                  {" "}{t("home.storageUsedSuffix")}
                 </div>
               </div>
             </div>
             <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-              {formatBytes(quota.remainingBytes)} left
+              {t("home.storageLeft", { left: formatBytes(quota.remainingBytes) })}
             </span>
           </div>
           <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
@@ -175,6 +179,7 @@ function StorageCard() {
 }
 
 function MySubmissions({ userId }: { userId: string }) {
+  const { t } = useTranslation();
   const pendingParams = { uploaderId: userId, status: "pending_review", pageSize: 3 } as const;
   const rejectedParams = { uploaderId: userId, status: "rejected", pageSize: 3 } as const;
   const { data: pending } = useSearchDocumentsV2(pendingParams, {
@@ -193,13 +198,13 @@ function MySubmissions({ userId }: { userId: string }) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-serif font-bold flex items-center gap-2">
           <AlertCircle className="h-5 w-5 text-amber-500" />
-          My submissions
+          {t("home.mySubmissions")}
         </h2>
         <Link
           href={`/browse?uploaderId=${userId}`}
           className="text-primary font-medium hover:underline flex items-center text-sm"
         >
-          View all <ChevronRight className="h-4 w-4" />
+          {t("home.viewAll")} <ChevronRight className="h-4 w-4" />
         </Link>
       </div>
       <div className="flex flex-wrap gap-3">
@@ -208,7 +213,7 @@ function MySubmissions({ userId }: { userId: string }) {
             <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-lg px-4 py-3 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors cursor-pointer">
               <Clock className="h-4 w-4" />
               <span className="text-sm font-medium">
-                {pendingCount} pending review
+                {t("home.pendingReview", { count: pendingCount })}
               </span>
             </div>
           </Link>
@@ -218,14 +223,14 @@ function MySubmissions({ userId }: { userId: string }) {
             <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg px-4 py-3 hover:bg-destructive/15 transition-colors cursor-pointer">
               <XCircle className="h-4 w-4" />
               <span className="text-sm font-medium">
-                {rejectedCount} rejected — action needed
+                {t("home.rejectedAction", { count: rejectedCount })}
               </span>
             </div>
           </Link>
         )}
       </div>
       <p className="text-xs text-muted-foreground mt-2">
-        Pending documents are only visible to you and your course lecturers until approved.
+        {t("home.pendingNote")}
       </p>
     </section>
   );
@@ -236,6 +241,7 @@ function CardSkeleton() {
 }
 
 export default function Home() {
+  const { t } = useTranslation();
   const { data: user } = useGetCurrentUser();
   const { data: recentDocs, isLoading: isLoadingRecent } = useListRecentDocuments({ limit: 4 });
   const { data: latestDocsPage, isLoading: isLoadingLatest } = useListDocuments({
@@ -254,8 +260,8 @@ export default function Home() {
         {
           href: "/browse",
           icon: Search,
-          label: "Browse",
-          description: "Search every document with facets and snippets.",
+          label: t("home.browse"),
+          description: t("home.browseDesc"),
           iconClass: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
         },
         ...(canUpload && !isAdmin
@@ -263,10 +269,10 @@ export default function Home() {
               {
                 href: "/upload",
                 icon: Upload,
-                label: "Upload",
+                label: t("home.upload"),
                 description: isLecturerOrAdmin
-                  ? "Publish or draft new course materials."
-                  : "Submit materials for lecturer review.",
+                  ? t("home.uploadDescLecturer")
+                  : t("home.uploadDescStudent"),
                 iconClass: "bg-primary/10 text-primary",
               } as QuickAction,
             ]
@@ -274,8 +280,8 @@ export default function Home() {
         {
           href: "/requests",
           icon: MessageSquare,
-          label: "Requests",
-          description: "Ask for missing materials or fulfil others.",
+          label: t("home.requests"),
+          description: t("home.requestsDesc"),
           iconClass: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
         },
         ...(isLecturerOrAdmin
@@ -284,10 +290,10 @@ export default function Home() {
                 // Admins review inside the combined Admin Approvals page.
                 href: isAdmin ? "/admin/approvals" : "/review-queue",
                 icon: ShieldCheck,
-                label: isAdmin ? "Approvals & review" : "Review queue",
+                label: isAdmin ? t("home.approvalsReview") : t("home.reviewQueue"),
                 description: isAdmin
-                  ? "Sign off restricted files and review submissions."
-                  : "Approve or reject pending submissions.",
+                  ? t("home.approvalsDescAdmin")
+                  : t("home.approvalsDescLecturer"),
                 iconClass: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
               } as QuickAction,
             ]
@@ -297,8 +303,8 @@ export default function Home() {
               {
                 href: "/admin/analytics",
                 icon: BarChart3,
-                label: "Analytics",
-                description: "Corpus, contributor, and engagement stats.",
+                label: t("home.analytics"),
+                description: t("home.analyticsDesc"),
                 iconClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400",
               } as QuickAction,
             ]
@@ -312,10 +318,10 @@ export default function Home() {
       <section className="bg-gradient-to-b from-primary/8 via-primary/4 to-transparent -mx-4 px-4 py-8 sm:py-12 rounded-b-[2.5rem] border-b border-primary/10">
         <div className="max-w-3xl mx-auto text-center space-y-5">
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-foreground tracking-tight">
-            The Knowledge Bank
+            {t("home.heroTitle")}
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Discover, discuss, and request academic materials curated for your university coursework.
+            {t("home.heroSubtitle")}
           </p>
           <div className="pt-2 max-w-2xl mx-auto">
             <SearchBar autoFocus />
@@ -354,8 +360,8 @@ export default function Home() {
           <section>
             <SectionHeader
               icon={Clock}
-              title="Continue reading"
-              subtitle="Pick up where you left off."
+              title={t("home.continueReading")}
+              subtitle={t("home.continueReadingSubtitle")}
               size="lg"
             />
             {isLoadingRecent ? (
@@ -372,10 +378,10 @@ export default function Home() {
               <div className="text-center py-12 bg-card rounded-xl border border-dashed">
                 <BookOpen className="h-8 w-8 mx-auto text-muted-foreground mb-3 opacity-50" />
                 <p className="text-muted-foreground">
-                  Nothing here yet — open a document and it'll show up next time.
+                  {t("home.continueReadingEmpty")}
                 </p>
                 <Button variant="outline" size="sm" className="mt-4" asChild>
-                  <Link href="/browse">Browse documents</Link>
+                  <Link href="/browse">{t("home.browseDocuments")}</Link>
                 </Button>
               </div>
             )}
@@ -385,7 +391,7 @@ export default function Home() {
           <section>
             <SectionHeader
               icon={Library}
-              title="Latest additions"
+              title={t("home.latestAdditions")}
               actionHref="/browse"
             />
             {isLoadingLatest ? (
@@ -401,7 +407,7 @@ export default function Home() {
             ) : (
               <div className="text-center py-12 bg-card rounded-xl border border-dashed">
                 <BookOpen className="h-8 w-8 mx-auto text-muted-foreground mb-3 opacity-50" />
-                <p className="text-muted-foreground">No documents have been added yet.</p>
+                <p className="text-muted-foreground">{t("home.noDocuments")}</p>
               </div>
             )}
           </section>

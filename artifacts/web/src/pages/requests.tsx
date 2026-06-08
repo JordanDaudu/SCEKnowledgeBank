@@ -19,6 +19,7 @@ import { ArrowUp, Plus, Clock, CheckCircle2, Link as LinkIcon, Loader2, XCircle 
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 /* ── Status visual config ────────────────────────────────────────────── */
@@ -35,6 +36,7 @@ const STATUS_CFG: Record<string, {
 };
 
 function StatusPill({ status }: { status: string }) {
+  const { t } = useTranslation();
   const cfg = STATUS_CFG[status];
   if (!cfg) return null;
   const Icon = cfg.icon;
@@ -47,12 +49,13 @@ function StatusPill({ status }: { status: string }) {
       data-testid={`status-pill-${status}`}
     >
       {Icon && <Icon className="h-3 w-3 shrink-0" />}
-      {cfg.label}
+      {t(`requests.status.${status}`)}
     </span>
   );
 }
 
 export default function Requests() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [statusTab, setStatusTab] = useState<
@@ -99,7 +102,7 @@ export default function Requests() {
       },
     }, {
       onSuccess: () => {
-        toast({ title: "Request created" });
+        toast({ title: t("requests.created") });
         setIsCreating(false);
         setNewTitle("");
         setNewDesc("");
@@ -110,10 +113,10 @@ export default function Requests() {
         const data = (err as { data?: { error?: { message?: string } } })?.data;
         toast({
           variant: "destructive",
-          title: "Could not create request",
+          title: t("requests.createFailed"),
           description:
             data?.error?.message ||
-            "You can only request materials for a course you're enrolled in.",
+            t("requests.createFailedDesc"),
         });
       },
     });
@@ -126,7 +129,7 @@ export default function Requests() {
       },
       onError: (err) => {
         const data = (err as { data?: { error?: { message?: string } } })?.data;
-        toast({ variant: "destructive", title: "Could not vote", description: data?.error?.message || "Already voted or not allowed." });
+        toast({ variant: "destructive", title: t("requests.voteFailed"), description: data?.error?.message || t("requests.voteFailedDesc") });
       }
     });
   };
@@ -141,7 +144,7 @@ export default function Requests() {
       data: { status: "fulfilled", fulfillingDocumentId }
     }, {
       onSuccess: () => {
-        toast({ title: "Request marked as fulfilled" });
+        toast({ title: t("requests.markedFulfilled") });
         setFulfillingId(null);
         setDocUrl("");
         queryClient.invalidateQueries({ queryKey: getListRequestsQueryKey({ status: statusTab }) });
@@ -154,11 +157,11 @@ export default function Requests() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Material Requests</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Ask for missing notes or upvote existing requests.</p>
+          <h1 className="text-3xl font-serif font-bold text-foreground">{t("requests.title")}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t("requests.subtitle")}</p>
         </div>
         <Button onClick={() => setIsCreating(!isCreating)} className="shrink-0">
-          <Plus className="mr-2 h-4 w-4" /> New Request
+          <Plus className="me-2 h-4 w-4" /> {t("requests.newRequest")}
         </Button>
       </div>
 
@@ -166,46 +169,46 @@ export default function Requests() {
       {isCreating && (
         <Card className="border-primary/30 bg-primary/3">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">New request</CardTitle>
+            <CardTitle className="text-base">{t("requests.newRequestForm")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Title *</label>
+                <label className="text-sm font-medium">{t("requests.titleLabel")}</label>
                 <Input
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
-                  placeholder="e.g. Midterm 2022 Solutions"
+                  placeholder={t("requests.titlePlaceholder")}
                   required
                   className="mt-1"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Course</label>
+                <label className="text-sm font-medium">{t("requests.course")}</label>
                 <Select value={newCourse} onValueChange={setNewCourse}>
                   <SelectTrigger className="bg-background mt-1">
-                    <SelectValue placeholder="Optional course" />
+                    <SelectValue placeholder={t("requests.optionalCourse")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="none">{t("requests.none")}</SelectItem>
                     {requestableCourses?.map(c => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium">Details</label>
+                <label className="text-sm font-medium">{t("requests.details")}</label>
                 <Textarea
                   value={newDesc}
                   onChange={e => setNewDesc(e.target.value)}
-                  placeholder="Any specific semester or context?"
+                  placeholder={t("requests.detailsPlaceholder")}
                   className="mt-1"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="ghost" onClick={() => setIsCreating(false)}>Cancel</Button>
+                <Button type="button" variant="ghost" onClick={() => setIsCreating(false)}>{t("requests.cancel")}</Button>
                 <Button type="submit" disabled={!newTitle || createMutation.isPending}>
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Submit
+                  {createMutation.isPending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                  {t("requests.submit")}
                 </Button>
               </div>
             </form>
@@ -217,17 +220,17 @@ export default function Requests() {
       <Tabs value={statusTab} onValueChange={(val) => setStatusTab(val as typeof statusTab)} className="w-full">
         <TabsList className="grid w-full grid-cols-4 mb-5 h-auto">
           <TabsTrigger value="open" data-testid="requests-tab-open" className="text-xs sm:text-sm py-2">
-            Open
+            {t("requests.status.open")}
           </TabsTrigger>
           <TabsTrigger value="in_progress" data-testid="requests-tab-in-progress" className="text-xs sm:text-sm py-2">
-            <span className="hidden sm:inline">In Progress</span>
-            <span className="sm:hidden">In&nbsp;Prog</span>
+            <span className="hidden sm:inline">{t("requests.status.in_progress")}</span>
+            <span className="sm:hidden">{t("requests.inProgShort")}</span>
           </TabsTrigger>
           <TabsTrigger value="fulfilled" data-testid="requests-tab-fulfilled" className="text-xs sm:text-sm py-2">
-            Fulfilled
+            {t("requests.status.fulfilled")}
           </TabsTrigger>
           <TabsTrigger value="closed" data-testid="requests-tab-closed" className="text-xs sm:text-sm py-2">
-            Closed
+            {t("requests.status.closed")}
           </TabsTrigger>
         </TabsList>
 
@@ -238,7 +241,7 @@ export default function Requests() {
             </div>
           ) : requests?.length === 0 ? (
             <div className="text-center py-16 bg-card rounded-xl border border-dashed">
-              <p className="text-muted-foreground text-sm">No {statusTab.replace("_", " ")} requests.</p>
+              <p className="text-muted-foreground text-sm">{t("requests.empty", { status: t(`requests.status.${statusTab}`) })}</p>
             </div>
           ) : (
             requests?.map(req => {
@@ -265,8 +268,8 @@ export default function Requests() {
                         )}
                         onClick={() => handleVote(req.id)}
                         disabled={req.status !== "open" || req.hasVoted || voteMutation.isPending}
-                        aria-label={req.hasVoted ? "You have already voted" : "Upvote this request"}
-                        title={req.hasVoted ? "You have already voted" : "Upvote this request"}
+                        aria-label={req.hasVoted ? t("requests.alreadyVoted") : t("requests.upvote")}
+                        title={req.hasVoted ? t("requests.alreadyVoted") : t("requests.upvote")}
                       >
                         <ArrowUp className="h-4 w-4" />
                       </button>
@@ -294,7 +297,7 @@ export default function Requests() {
                                     { id: req.id, data: { status: next as "open" | "in_progress" | "closed" } },
                                     {
                                       onSuccess: () => {
-                                        toast({ title: `Marked as ${next.replace("_", " ")}` });
+                                        toast({ title: t("requests.markedAs", { status: t(`requests.status.${next}`) }) });
                                         queryClient.invalidateQueries({
                                           queryKey: getListRequestsQueryKey({ status: statusTab }),
                                         });
@@ -303,7 +306,7 @@ export default function Requests() {
                                         const data = (err as { data?: { error?: { message?: string } } })?.data;
                                         toast({
                                           variant: "destructive",
-                                          title: "Could not update status",
+                                          title: t("requests.updateFailed"),
                                           description: data?.error?.message || (err as Error)?.message,
                                         });
                                       },
@@ -318,10 +321,10 @@ export default function Requests() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="open">Open</SelectItem>
-                                  <SelectItem value="in_progress">In Progress</SelectItem>
-                                  <SelectItem value="fulfilled">Fulfilled…</SelectItem>
-                                  <SelectItem value="closed">Closed</SelectItem>
+                                  <SelectItem value="open">{t("requests.status.open")}</SelectItem>
+                                  <SelectItem value="in_progress">{t("requests.status.in_progress")}</SelectItem>
+                                  <SelectItem value="fulfilled">{t("requests.fulfilledEllipsis")}</SelectItem>
+                                  <SelectItem value="closed">{t("requests.status.closed")}</SelectItem>
                                 </SelectContent>
                               </Select>
                             ) : (
@@ -338,22 +341,22 @@ export default function Requests() {
                       {fulfillingId === req.id && (
                         <div className="bg-secondary/50 p-3 rounded-md flex gap-2 items-center mb-3 border border-border/60">
                           <Input
-                            placeholder="Paste document ID or URL…"
+                            placeholder={t("requests.fulfillPlaceholder")}
                             value={docUrl}
                             onChange={e => setDocUrl(e.target.value)}
                             className="bg-background text-sm h-8"
                           />
                           <Button size="sm" onClick={() => handleFulfill(req.id)} disabled={!docUrl || updateMutation.isPending}>
-                            Confirm
+                            {t("requests.confirm")}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setFulfillingId(null)}>Cancel</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setFulfillingId(null)}>{t("requests.cancel")}</Button>
                         </div>
                       )}
 
                       {req.fulfillingDocumentId && (
                         <Link href={`/documents/${req.fulfillingDocumentId}`}>
                           <div className="mb-3 inline-flex items-center gap-1.5 text-sm text-primary bg-primary/6 px-3 py-1.5 rounded-md hover:bg-primary/10 transition-colors border border-primary/15">
-                            <LinkIcon className="h-3.5 w-3.5" /> View fulfilled document
+                            <LinkIcon className="h-3.5 w-3.5" /> {t("requests.viewFulfilled")}
                           </div>
                         </Link>
                       )}
@@ -365,7 +368,7 @@ export default function Requests() {
                             {req.course.code}
                           </span>
                         )}
-                        <span>by {req.requestedBy.displayName}</span>
+                        <span>{t("requests.by", { name: req.requestedBy.displayName })}</span>
                         <span className="tabular-nums">{formatDateTime(req.createdAt)}</span>
                       </div>
                     </CardContent>

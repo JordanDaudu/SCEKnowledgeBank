@@ -1,6 +1,7 @@
 import type { DocumentDetail as DocumentDetailDto } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Download, FileQuestion } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { apiUrl } from "@/lib/api-url";
 import {
   iconForFallbackType,
@@ -20,6 +21,7 @@ interface Props {
  * failed. Offers a thumbnail/icon and a Download button.
  */
 export default function PreviewFallback({ doc, onDownload, message }: Props) {
+  const { t } = useTranslation();
   const mime = doc.file?.mimeType;
   return (
     <div
@@ -46,17 +48,17 @@ export default function PreviewFallback({ doc, onDownload, message }: Props) {
         })()
       )}
       <h3 className="font-serif font-semibold text-lg mb-1">
-        Preview unavailable
+        {t("preview.unavailable")}
       </h3>
       <p className="text-sm text-muted-foreground max-w-sm mb-6">
         {message ??
           ((mime
-            ? `In-browser preview is not supported for ${mime}.`
-            : "This file type cannot be previewed in the browser.") +
-            " Download the file to view its contents.")}
+            ? t("preview.notSupportedMime", { mime })
+            : t("preview.cannotPreview")) +
+            t("preview.downloadToView"))}
       </p>
       <Button onClick={onDownload}>
-        <Download className="mr-2 h-4 w-4" /> Download file
+        <Download className="me-2 h-4 w-4" /> {t("preview.downloadFile")}
       </Button>
     </div>
   );

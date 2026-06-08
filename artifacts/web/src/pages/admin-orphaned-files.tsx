@@ -14,10 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useTranslation } from "react-i18next";
 import { FileWarning } from "lucide-react";
 
 function Reassign({ documentId, onDone }: { documentId: string; onDone: () => void }) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const debounced = useDebounce(q, 300);
   const params = { q: debounced.trim(), limit: 6 };
@@ -30,7 +32,7 @@ function Reassign({ documentId, onDone }: { documentId: string; onDone: () => vo
       <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Reassign to… (search active users)"
+        placeholder={t("admin.orphaned.reassignPlaceholder")}
         className="h-8"
         data-testid="reassign-search"
       />
@@ -46,8 +48,8 @@ function Reassign({ documentId, onDone }: { documentId: string; onDone: () => vo
                   reassignMut.mutate(
                     { documentId, data: { newOwnerId: u.id } },
                     {
-                      onSuccess: () => { onDone(); toast({ title: `Reassigned to ${u.displayName}` }); },
-                      onError: () => toast({ variant: "destructive", title: "Could not reassign" }),
+                      onSuccess: () => { onDone(); toast({ title: t("admin.orphaned.reassignedTo", { name: u.displayName }) }); },
+                      onError: () => toast({ variant: "destructive", title: t("admin.orphaned.reassignFailed") }),
                     },
                   )
                 }
@@ -65,6 +67,7 @@ function Reassign({ documentId, onDone }: { documentId: string; onDone: () => vo
 export default function AdminOrphanedFiles() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { data: files, isLoading } = useListOrphanedFiles({
     query: { queryKey: getListOrphanedFilesQueryKey() },
   });
@@ -75,11 +78,10 @@ export default function AdminOrphanedFiles() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-2.5">
         <div className="rounded-lg bg-primary/10 p-1.5"><FileWarning className="h-5 w-5 text-primary" /></div>
-        <h1 className="font-serif text-3xl font-bold text-foreground">Orphaned files</h1>
+        <h1 className="font-serif text-3xl font-bold text-foreground">{t("admin.orphaned.title")}</h1>
       </div>
       <p className="text-muted-foreground">
-        Documents whose uploader's account was deleted. Keep them as-is, reassign to an active
-        user, or delete.
+        {t("admin.orphaned.subtitle")}
       </p>
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
@@ -101,12 +103,12 @@ export default function AdminOrphanedFiles() {
                       onClick={() =>
                         deleteMut.mutate(
                           { documentId: f.id },
-                          { onSuccess: () => { refresh(); toast({ title: "File deleted" }); } },
+                          { onSuccess: () => { refresh(); toast({ title: t("admin.orphaned.fileDeleted") }); } },
                         )
                       }
                       data-testid="orphan-delete"
                     >
-                      Delete
+                      {t("admin.orphaned.delete")}
                     </Button>
                   </div>
                   <Reassign documentId={f.id} onDone={refresh} />
@@ -117,7 +119,7 @@ export default function AdminOrphanedFiles() {
         </ul>
       ) : (
         <div className="rounded-xl border border-dashed bg-card py-16 text-center">
-          <p className="text-muted-foreground">No orphaned files.</p>
+          <p className="text-muted-foreground">{t("admin.orphaned.empty")}</p>
         </div>
       )}
     </div>

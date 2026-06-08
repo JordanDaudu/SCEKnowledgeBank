@@ -1,5 +1,6 @@
 import type { SearchFacets } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next";
 import { formatMaterialType } from "@/lib/material-types";
 import { cn } from "@/lib/utils";
 
@@ -37,10 +38,11 @@ const STATUS_ACTIVE_CLASS: Record<string, string> = {
  * filter (clicking the already-active value clears it).
  */
 export default function FacetChips({ facets, loading, active, onPick }: Props) {
+  const { t } = useTranslation();
   if (loading && !facets) {
     return (
       <div className="text-xs text-muted-foreground" data-testid="facets-loading">
-        Loading facets…
+        {t("browse.facets.loading")}
       </div>
     );
   }
@@ -52,7 +54,7 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
     chips: { value: string; label: string; count: number }[];
   }> = [
     {
-      title: "Course",
+      title: t("browse.facets.course"),
       dim: "courseId",
       chips: facets.course.map((c) => ({
         value: c.id,
@@ -61,7 +63,7 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
       })),
     },
     {
-      title: "Type",
+      title: t("browse.facets.type"),
       dim: "materialType",
       chips: facets.materialType.map((m) => ({
         value: m.value,
@@ -70,7 +72,7 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
       })),
     },
     {
-      title: "Semester",
+      title: t("browse.facets.semester"),
       dim: "semester",
       chips: facets.semester.map((s) => ({
         value: s.value,
@@ -81,7 +83,7 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
       })),
     },
     {
-      title: "Status",
+      title: t("browse.facets.status"),
       dim: "status",
       chips: facets.status.map((s) => ({
         value: s.value,
@@ -90,7 +92,7 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
       })),
     },
     {
-      title: "Uploader",
+      title: t("browse.facets.uploader"),
       dim: "uploaderId",
       chips: facets.uploader.map((u) => ({
         value: u.id,
@@ -136,7 +138,7 @@ export default function FacetChips({ facets, loading, active, onPick }: Props) {
                     )}
                   >
                     {c.label}
-                    <span className="ml-1.5 text-[10px] opacity-60 tabular-nums">
+                    <span className="ms-1.5 text-[10px] opacity-60 tabular-nums">
                       {c.count}
                     </span>
                   </Badge>

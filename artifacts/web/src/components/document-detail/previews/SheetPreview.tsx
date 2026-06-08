@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import PreviewFallback from "./PreviewFallback";
 import { usePreviewContent } from "./usePreviewContent";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   doc: DocumentDetailDto;
@@ -25,6 +26,7 @@ const MAX_ROWS = 500;
  * library is code-split out of the initial bundle). One tab per worksheet.
  */
 export default function SheetPreview({ doc, previewUrl, onDownload }: Props) {
+  const { t } = useTranslation();
   const { data, loading, error } = usePreviewContent(previewUrl, "arrayBuffer");
   const [sheets, setSheets] = useState<ParsedSheet[] | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -84,7 +86,7 @@ export default function SheetPreview({ doc, previewUrl, onDownload }: Props) {
       <PreviewFallback
         doc={doc}
         onDownload={onDownload}
-        message="Could not render this spreadsheet for preview. Download it to view its contents."
+        message={t("preview.couldNotRenderSheet")}
       />
     );
   }
@@ -132,7 +134,7 @@ export default function SheetPreview({ doc, previewUrl, onDownload }: Props) {
       </div>
       {sheet.truncated && (
         <div className="border-t p-2 text-xs text-muted-foreground bg-muted/30">
-          Showing the first {MAX_ROWS} rows. Download the file to view all rows.
+          {t("preview.showingFirstRows", { count: MAX_ROWS })}
         </div>
       )}
     </div>

@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { formatMaterialType } from "@/lib/material-types";
 import { KIND_LABEL } from "@/components/collections/CollectionCard";
 import {
@@ -85,6 +86,7 @@ function EditCollectionDialog({
   const [kind, setKind] = useState(initialKind);
   const [meta, setMeta] = useState<CollectionMetadataState>(initial);
   const updateMut = useUpdateCollection();
+  const { t } = useTranslation();
 
   // Re-seed local state each time the dialog opens so edits reflect the
   // latest server data.
@@ -99,13 +101,13 @@ function EditCollectionDialog({
   };
 
   const submit = () => {
-    const t = title.trim();
-    if (!t) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
     updateMut.mutate(
       {
         id,
         data: {
-          title: t,
+          title: trimmed,
           description: description.trim(),
           kind: kind as
             | "collection"
@@ -121,9 +123,9 @@ function EditCollectionDialog({
           queryClient.invalidateQueries({ queryKey: getGetCollectionQueryKey(id) });
           queryClient.invalidateQueries({ queryKey: getListMyCollectionsQueryKey() });
           setOpen(false);
-          toast({ title: "Collection updated" });
+          toast({ title: t("collectionManage.updated") });
         },
-        onError: () => toast({ variant: "destructive", title: "Could not save changes" }),
+        onError: () => toast({ variant: "destructive", title: t("collectionManage.saveFailed") }),
       },
     );
   };
@@ -132,20 +134,20 @@ function EditCollectionDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5" data-testid="collection-edit">
-          <Pencil className="h-4 w-4" /> Edit
+          <Pencil className="h-4 w-4" /> {t("collectionManage.edit")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit collection</DialogTitle>
+          <DialogTitle>{t("collectionManage.editCollection")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Title</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("collections.titleLabel")}</label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Description</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("collections.description")}</label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -154,16 +156,16 @@ function EditCollectionDialog({
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Kind</label>
+            <label className="text-xs font-medium text-muted-foreground">{t("collections.kind")}</label>
             <Select value={kind} onValueChange={setKind}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="collection">Collection</SelectItem>
-                <SelectItem value="exam_prep">Exam prep</SelectItem>
-                <SelectItem value="revision">Revision</SelectItem>
-                <SelectItem value="semester">Semester</SelectItem>
+                <SelectItem value="collection">{t("collections.kindCollection")}</SelectItem>
+                <SelectItem value="exam_prep">{t("collections.kindExamPrep")}</SelectItem>
+                <SelectItem value="revision">{t("collections.kindRevision")}</SelectItem>
+                <SelectItem value="semester">{t("collections.kindSemester")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -171,7 +173,7 @@ function EditCollectionDialog({
         </div>
         <DialogFooter>
           <Button onClick={submit} disabled={!title.trim() || updateMut.isPending}>
-            {updateMut.isPending ? "Saving…" : "Save changes"}
+            {updateMut.isPending ? t("collectionManage.saving") : t("collectionManage.saveChanges")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -186,6 +188,7 @@ function AddMaterialsDialog({ id }: { id: string }) {
   const [picked, setPicked] = useState<PickedDoc[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const addMut = useAddCollectionItem();
+  const { t } = useTranslation();
 
   const togglePick = (d: PickedDoc) =>
     setPicked((prev) =>
@@ -202,11 +205,11 @@ function AddMaterialsDialog({ id }: { id: string }) {
         await addMut.mutateAsync({ id, data: { documentId: p.id } });
       }
       queryClient.invalidateQueries({ queryKey: getGetCollectionQueryKey(id) });
-      toast({ title: `Added ${picked.length} material${picked.length === 1 ? "" : "s"}` });
+      toast({ title: t("collectionManage.added", { count: picked.length }) });
       setPicked([]);
       setOpen(false);
     } catch {
-      toast({ variant: "destructive", title: "Could not add some materials" });
+      toast({ variant: "destructive", title: t("collectionManage.addFailed") });
     } finally {
       setIsSubmitting(false);
     }
@@ -216,22 +219,22 @@ function AddMaterialsDialog({ id }: { id: string }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5" data-testid="collection-add-materials">
-          <Plus className="h-4 w-4" /> Add materials
+          <Plus className="h-4 w-4" /> {t("collectionManage.addMaterials")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add materials</DialogTitle>
+          <DialogTitle>{t("collectionManage.addMaterials")}</DialogTitle>
         </DialogHeader>
         <MaterialsPicker
           picked={picked}
           onToggle={togglePick}
           enabled={open}
-          label="Search the library"
+          label={t("collectionManage.searchLibrary")}
         />
         <DialogFooter>
           <Button onClick={submit} disabled={isSubmitting || picked.length === 0}>
-            Add {picked.length > 0 ? `(${picked.length})` : ""}
+            {t("collectionManage.add")} {picked.length > 0 ? `(${picked.length})` : ""}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -244,6 +247,7 @@ export default function CollectionManage() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const key = getGetCollectionQueryKey(id);
   const { data: col, isLoading } = useGetCollection(id, {
@@ -281,12 +285,12 @@ export default function CollectionManage() {
     );
 
   const deleteCollection = () => {
-    if (!confirm("Delete this collection? The documents themselves are not deleted.")) return;
+    if (!confirm(t("collectionManage.deleteConfirm"))) return;
     deleteMut.mutate(
       { id },
       {
         onSuccess: () => {
-          toast({ title: "Collection deleted" });
+          toast({ title: t("collectionManage.deleted") });
           queryClient.invalidateQueries({ queryKey: getListMyCollectionsQueryKey() });
           navigate("/collections");
         },
@@ -300,10 +304,10 @@ export default function CollectionManage() {
       {
         onSuccess: (created) => {
           queryClient.invalidateQueries({ queryKey: getListMyCollectionsQueryKey() });
-          toast({ title: "Collection duplicated" });
+          toast({ title: t("collectionManage.duplicated") });
           navigate(`/collections/${created.id}`);
         },
-        onError: () => toast({ variant: "destructive", title: "Could not duplicate" }),
+        onError: () => toast({ variant: "destructive", title: t("collectionManage.duplicateFailed") }),
       },
     );
 
@@ -313,14 +317,14 @@ export default function CollectionManage() {
     try {
       await navigator.clipboard.writeText(link);
     } catch {
-      toast({ variant: "destructive", title: "Could not copy link" });
+      toast({ variant: "destructive", title: t("collectionManage.copyLinkFailed") });
       return;
     }
     toast({
       title:
         col?.visibility === "public"
-          ? "Link copied"
-          : "Link copied — make the collection Public so others can open it",
+          ? t("collectionManage.linkCopied")
+          : t("collectionManage.linkCopiedPublicHint"),
     });
   };
 
@@ -336,9 +340,9 @@ export default function CollectionManage() {
   if (!col) {
     return (
       <div className="py-20 text-center text-muted-foreground">
-        Collection not found.{" "}
+        {t("collectionManage.notFound")}{" "}
         <Link href="/collections" className="text-primary hover:underline">
-          Back to Collections
+          {t("collectionManage.backToCollections")}
         </Link>
       </div>
     );
@@ -376,18 +380,17 @@ export default function CollectionManage() {
         href="/collections"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ChevronLeft className="h-4 w-4" /> Collections
+        <ChevronLeft className="h-4 w-4" /> {t("collectionManage.collectionsBack")}
       </Link>
 
       {col.hiddenAt && (
         <Alert variant="destructive" data-testid="collection-hidden-banner">
           <EyeOff className="h-4 w-4" />
-          <AlertTitle>Hidden from Prep Hub</AlertTitle>
+          <AlertTitle>{t("collectionManage.hiddenTitle")}</AlertTitle>
           <AlertDescription>
-            This collection was hidden from Prep Hub by a moderator
-            {col.hiddenReason ? `: ${col.hiddenReason}` : ""}. It&apos;s still
-            in your workspace; contact an administrator if you think this is a
-            mistake.
+            {t("collectionManage.hiddenDescPrefix")}
+            {col.hiddenReason ? `: ${col.hiddenReason}` : ""}
+            {t("collectionManage.hiddenDescSuffix")}
           </AlertDescription>
         </Alert>
       )}
@@ -404,12 +407,12 @@ export default function CollectionManage() {
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               {categoryName && (
                 <span>
-                  Subject: <span className="text-foreground">{categoryName}</span>
+                  {t("collectionManage.subject")} <span className="text-foreground">{categoryName}</span>
                 </span>
               )}
               {col.examName && (
                 <span>
-                  Exam: <span className="text-foreground">{col.examName}</span>
+                  {t("collectionManage.exam")} <span className="text-foreground">{col.examName}</span>
                 </span>
               )}
               {(semesterLabel || col.academicYear) && (
@@ -432,15 +435,15 @@ export default function CollectionManage() {
           )}
           <p className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <span>
-              {col.itemCount} {col.itemCount === 1 ? "document" : "documents"}
+              {t("collectionManage.documentCount", { count: col.itemCount })}
             </span>
-            <span className="inline-flex items-center gap-1" title="Followers">
+            <span className="inline-flex items-center gap-1" title={t("collectionManage.followers")}>
               <Users className="h-3.5 w-3.5" />
               {col.followerCount}
             </span>
             <span
               className="inline-flex items-center gap-1 text-primary/80"
-              title="Popularity score (followers × 3 + materials)"
+              title={t("collectionManage.popularityTitle")}
             >
               <TrendingUp className="h-3.5 w-3.5" />
               {col.popularityScore}
@@ -464,7 +467,7 @@ export default function CollectionManage() {
             disabled={duplicateMut.isPending}
             data-testid="collection-duplicate"
           >
-            <Copy className="h-4 w-4" /> Duplicate
+            <Copy className="h-4 w-4" /> {t("collectionManage.duplicate")}
           </Button>
           <Button
             variant="outline"
@@ -473,7 +476,7 @@ export default function CollectionManage() {
             onClick={share}
             data-testid="collection-share"
           >
-            <Share2 className="h-4 w-4" /> Share
+            <Share2 className="h-4 w-4" /> {t("collectionManage.share")}
           </Button>
           <Button
             variant="outline"
@@ -482,7 +485,7 @@ export default function CollectionManage() {
             onClick={deleteCollection}
             data-testid="collection-delete"
           >
-            <Trash2 className="h-4 w-4" /> Delete
+            <Trash2 className="h-4 w-4" /> {t("collectionManage.delete")}
           </Button>
         </div>
       </div>
@@ -490,9 +493,9 @@ export default function CollectionManage() {
       {col.itemCount > 0 && (
         <div className="rounded-lg border bg-card p-4">
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="font-medium">Study progress</span>
+            <span className="font-medium">{t("collectionManage.studyProgress")}</span>
             <span className="text-muted-foreground tabular-nums">
-              {col.completedCount} of {col.itemCount} completed · {col.progressPercent}%
+              {t("collectionManage.progressDetail", { completed: col.completedCount, total: col.itemCount, pct: col.progressPercent })}
             </span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
@@ -511,10 +514,11 @@ export default function CollectionManage() {
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-card py-16 text-center" data-testid="collection-empty">
           <p className="text-muted-foreground">
-            This collection is empty. Use{" "}
-            <span className="font-medium">"Add materials"</span> above, or{" "}
+            {t("collectionManage.emptyUse")}{" "}
+            <span className="font-medium">{t("collectionManage.emptyAddMaterials")}</span>{" "}
+            {t("collectionManage.emptyAboveOr")}{" "}
             <Link href="/browse" className="text-primary hover:underline">
-              browse the library
+              {t("collectionManage.browseLibrary")}
             </Link>
             .
           </p>
@@ -532,7 +536,7 @@ export default function CollectionManage() {
                       className="h-6 w-6"
                       disabled={index === 0 || reorderMut.isPending}
                       onClick={() => move(index, -1)}
-                      aria-label="Move up"
+                      aria-label={t("collectionManage.moveUp")}
                     >
                       <ChevronUp className="h-4 w-4" />
                     </Button>
@@ -542,7 +546,7 @@ export default function CollectionManage() {
                       className="h-6 w-6"
                       disabled={index === items.length - 1 || reorderMut.isPending}
                       onClick={() => move(index, 1)}
-                      aria-label="Move down"
+                      aria-label={t("collectionManage.moveDown")}
                     >
                       <ChevronDown className="h-4 w-4" />
                     </Button>
@@ -575,9 +579,9 @@ export default function CollectionManage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Not started</SelectItem>
-                      <SelectItem value="reviewing">Reviewing</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="none">{t("collectionManage.notStarted")}</SelectItem>
+                      <SelectItem value="reviewing">{t("collectionManage.reviewing")}</SelectItem>
+                      <SelectItem value="completed">{t("collectionManage.completed")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button
@@ -586,7 +590,7 @@ export default function CollectionManage() {
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     disabled={removeMut.isPending}
                     onClick={() => remove(item.document.id)}
-                    aria-label="Remove from collection"
+                    aria-label={t("collectionManage.removeFromCollection")}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

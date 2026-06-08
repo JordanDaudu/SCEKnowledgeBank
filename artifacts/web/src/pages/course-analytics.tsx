@@ -25,11 +25,13 @@ import {
   MessageSquare,
   ShieldCheck,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 function WoW({ now, prev }: { now: number; prev: number }) {
+  const { t } = useTranslation();
   if (prev === 0 && now === 0) return <span className="text-muted-foreground">—</span>;
-  if (prev === 0) return <span className="text-emerald-600 font-medium">new</span>;
+  if (prev === 0) return <span className="text-emerald-600 font-medium">{t("admin.analytics.new")}</span>;
   const pct = Math.round(((now - prev) / prev) * 100);
   const tone =
     pct > 0
@@ -39,8 +41,7 @@ function WoW({ now, prev }: { now: number; prev: number }) {
       : "text-muted-foreground";
   return (
     <span className={tone}>
-      {pct > 0 ? "+" : ""}
-      {pct}% vs last week
+      {t("admin.analytics.vsLastWeek", { pct: (pct > 0 ? "+" : "") + pct })}
     </span>
   );
 }
@@ -79,6 +80,7 @@ function StatTile({
 }
 
 export default function CourseAnalytics() {
+  const { t } = useTranslation();
   const { courseId } = useParams<{ courseId: string }>();
   const { data, isLoading, error } = useGetCourseAnalytics(courseId ?? "");
 
@@ -93,13 +95,13 @@ export default function CourseAnalytics() {
     return (
       <div className="container mx-auto p-6">
         <p className="text-rose-600">
-          Failed to load course analytics. You may not have permission to view this course.
+          {t("courseAnalytics.loadFailed")}
         </p>
       </div>
     );
   }
 
-  const t = data.totals;
+  const totals = data.totals;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -109,67 +111,67 @@ export default function CourseAnalytics() {
           <span className="course-tag inline-flex items-center rounded border px-2 py-0.5 text-base">
             {data.course.code}
           </span>
-          analytics
+          {t("courseAnalytics.analyticsWord")}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {data.course.title} · updated {new Date(data.generatedAt).toLocaleTimeString()}
+          {t("courseAnalytics.subtitle", { title: data.course.title, time: new Date(data.generatedAt).toLocaleTimeString() })}
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatTile
           icon={FileText}
-          label="Documents"
-          value={t.totalDocuments}
+          label={t("admin.analytics.documents")}
+          value={totals.totalDocuments}
           tileClass="bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
         />
         <StatTile
           icon={MessageSquare}
-          label="Comments"
-          value={t.totalComments}
+          label={t("admin.analytics.comments")}
+          value={totals.totalComments}
           tileClass="bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400"
         />
         <StatTile
           icon={FileText}
-          label="Uploads this week"
-          value={t.uploadsThisWeek}
+          label={t("admin.analytics.uploadsThisWeek")}
+          value={totals.uploadsThisWeek}
           tileClass="bg-primary/10 text-primary"
         />
         <StatTile
           icon={ShieldCheck}
-          label="Pending review"
-          value={t.pendingReviewCount}
+          label={t("admin.analytics.pendingReviewLabel")}
+          value={totals.pendingReviewCount}
           tileClass={
-            t.pendingReviewCount > 0
+            totals.pendingReviewCount > 0
               ? "bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
               : "bg-secondary text-muted-foreground"
           }
-          cardClass={t.pendingReviewCount > 0 ? "border-amber-200 dark:border-amber-800" : undefined}
+          cardClass={totals.pendingReviewCount > 0 ? "border-amber-200 dark:border-amber-800" : undefined}
         />
         <StatTile
           icon={Eye}
-          label="Views this week"
-          value={t.viewsThisWeek}
-          hint={<WoW now={t.viewsThisWeek} prev={t.viewsPriorWeek} />}
+          label={t("admin.analytics.viewsThisWeek")}
+          value={totals.viewsThisWeek}
+          hint={<WoW now={totals.viewsThisWeek} prev={totals.viewsPriorWeek} />}
           tileClass="bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400"
         />
         <StatTile
           icon={Download}
-          label="Downloads this week"
-          value={t.downloadsThisWeek}
-          hint={<WoW now={t.downloadsThisWeek} prev={t.downloadsPriorWeek} />}
+          label={t("admin.analytics.downloadsThisWeek")}
+          value={totals.downloadsThisWeek}
+          hint={<WoW now={totals.downloadsThisWeek} prev={totals.downloadsPriorWeek} />}
           tileClass="bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Uploads — last 14 days</CardTitle>
-          <CardDescription>Documents created per day in this course.</CardDescription>
+          <CardTitle className="text-base">{t("admin.analytics.uploads14")}</CardTitle>
+          <CardDescription>{t("courseAnalytics.uploads14Desc")}</CardDescription>
         </CardHeader>
         <CardContent className="h-56 sm:h-64">
           {data.uploadsLast14Days.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No uploads in the last 14 days.</p>
+            <p className="text-muted-foreground text-sm">{t("admin.analytics.noUploads14")}</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.uploadsLast14Days}>
@@ -188,12 +190,12 @@ export default function CourseAnalytics() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Eye className="h-4 w-4" /> Most viewed (30 days)
+              <Eye className="h-4 w-4" /> {t("admin.analytics.mostViewed30")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {data.topDocumentsByViews.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No data yet.</p>
+              <p className="text-muted-foreground text-sm">{t("admin.analytics.noData")}</p>
             ) : (
               <ol className="divide-y divide-border/60">
                 {data.topDocumentsByViews.map((r, idx) => (
@@ -217,12 +219,12 @@ export default function CourseAnalytics() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Download className="h-4 w-4" /> Most downloaded (30 days)
+              <Download className="h-4 w-4" /> {t("admin.analytics.mostDownloaded30")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {data.topDocumentsByDownloads.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No data yet.</p>
+              <p className="text-muted-foreground text-sm">{t("admin.analytics.noData")}</p>
             ) : (
               <ol className="divide-y divide-border/60">
                 {data.topDocumentsByDownloads.map((r, idx) => (
@@ -246,11 +248,11 @@ export default function CourseAnalytics() {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Active uploaders this week</CardTitle>
+          <CardTitle className="text-base">{t("admin.analytics.activeUploaders")}</CardTitle>
         </CardHeader>
         <CardContent>
           {data.activeUploaders.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No uploads this week.</p>
+            <p className="text-muted-foreground text-sm">{t("admin.analytics.noUploadsWeek")}</p>
           ) : (
             <ul className="divide-y divide-border/60">
               {data.activeUploaders.map((u) => (
@@ -259,8 +261,8 @@ export default function CourseAnalytics() {
                   className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
                 >
                   <span className="font-medium text-sm truncate">{u.displayName}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums ml-3 shrink-0">
-                    {u.uploadCount} upload{u.uploadCount !== 1 ? "s" : ""}
+                  <span className="text-xs text-muted-foreground tabular-nums ms-3 shrink-0">
+                    {t("admin.analytics.uploadCount", { count: u.uploadCount })}
                   </span>
                 </li>
               ))}

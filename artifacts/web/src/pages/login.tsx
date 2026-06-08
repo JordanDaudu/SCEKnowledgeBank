@@ -2,6 +2,8 @@ import { useLogin, useGetCurrentUser, getGetCurrentUserQueryKey } from "@workspa
 import { useLocation, Link, Redirect } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import * as z from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { User, BookA, ShieldAlert, Loader2 } from "lucide-react";
@@ -20,20 +22,31 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-const loginSchema = z.object({
-  email: z.string().min(1, { message: "Email is required." }),
-  password: z.string().min(1, { message: "Password is required." }),
-});
+interface LoginValues {
+  email: string;
+  password: string;
+}
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const loginMutation = useLogin();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
 
-  const form = useForm<z.infer<typeof loginSchema>>({
+  // Built with `t` so validation messages localize with the active language.
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        email: z.string().min(1, { message: t("login.emailRequired") }),
+        password: z.string().min(1, { message: t("login.passwordRequired") }),
+      }),
+    [t],
+  );
+
+  const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
@@ -41,21 +54,21 @@ export default function Login() {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+  const onSubmit = (values: LoginValues) => {
     loginMutation.mutate({ data: values }, {
       onSuccess: (data) => {
         queryClient.setQueryData(getGetCurrentUserQueryKey(), data);
         toast({
-          title: "Welcome back",
-          description: `Logged in as ${data.displayName}`,
+          title: t("login.welcomeBack"),
+          description: t("login.loggedInAs", { name: data.displayName }),
         });
         setLocation("/");
       },
       onError: (error) => {
         toast({
           variant: "destructive",
-          title: "Login failed",
-          description: error?.data?.error?.message || "Invalid credentials",
+          title: t("login.loginFailed"),
+          description: error?.data?.error?.message || t("login.invalidCredentials"),
         });
       }
     });
@@ -84,9 +97,9 @@ export default function Login() {
           <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-5 shadow-lg rotate-3">
             <Logo className="h-9 w-9 text-primary-foreground -rotate-3" />
           </div>
-          <CardTitle className="font-serif text-3xl mb-1.5">Knowledge Bank</CardTitle>
+          <CardTitle className="font-serif text-3xl mb-1.5">{t("common.appName")}</CardTitle>
           <CardDescription className="text-base leading-relaxed">
-            Academic materials, requests, and course knowledge in one place.
+            {t("login.tagline")}
           </CardDescription>
         </CardHeader>
 
@@ -94,21 +107,21 @@ export default function Login() {
           {/* Quick login */}
           <div className="space-y-3">
             <p className="text-xs font-semibold text-center text-muted-foreground uppercase tracking-wider">
-              Quick demo login
+              {t("login.quickDemo")}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {/* Student */}
               <button
                 type="button"
                 onClick={() => loginAsDemo("noa.student@knowledgebank.demo")}
-                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-950/20 dark:hover:border-sky-700/40 transition-all group text-left sm:text-center"
+                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-950/20 dark:hover:border-sky-700/40 transition-all group text-start sm:text-center"
               >
                 <div className="h-9 w-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center group-hover:bg-sky-200 dark:group-hover:bg-sky-800/40 transition-colors">
                   <User className="h-4 w-4 text-sky-700 dark:text-sky-400" />
                 </div>
                 <div className="sm:text-center">
-                  <p className="text-sm font-semibold text-foreground leading-none">Student</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Noa · demo</p>
+                  <p className="text-sm font-semibold text-foreground leading-none">{t("login.student")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("login.studentDemo")}</p>
                 </div>
               </button>
 
@@ -116,14 +129,14 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => loginAsDemo("maya.cohen@knowledgebank.demo")}
-                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-primary/5 hover:border-primary/40 dark:hover:border-primary/30 transition-all group text-left sm:text-center"
+                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-primary/5 hover:border-primary/40 dark:hover:border-primary/30 transition-all group text-start sm:text-center"
               >
                 <div className="h-9 w-9 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
                   <BookA className="h-4 w-4 text-primary" />
                 </div>
                 <div className="sm:text-center">
-                  <p className="text-sm font-semibold text-foreground leading-none">Lecturer</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Dr. Cohen · demo</p>
+                  <p className="text-sm font-semibold text-foreground leading-none">{t("login.lecturer")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("login.lecturerDemo")}</p>
                 </div>
               </button>
 
@@ -131,14 +144,14 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => loginAsDemo("admin@knowledgebank.demo")}
-                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950/20 dark:hover:border-amber-700/40 transition-all group text-left sm:text-center"
+                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950/20 dark:hover:border-amber-700/40 transition-all group text-start sm:text-center"
               >
                 <div className="h-9 w-9 shrink-0 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center group-hover:bg-amber-200 dark:group-hover:bg-amber-800/40 transition-colors">
                   <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                 </div>
                 <div className="sm:text-center">
-                  <p className="text-sm font-semibold text-foreground leading-none">Admin</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">System admin · demo</p>
+                  <p className="text-sm font-semibold text-foreground leading-none">{t("login.admin")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("login.adminDemo")}</p>
                 </div>
               </button>
             </div>
@@ -149,7 +162,7 @@ export default function Login() {
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground tracking-wider">Or sign in</span>
+              <span className="bg-card px-2 text-muted-foreground tracking-wider">{t("login.orSignIn")}</span>
             </div>
           </div>
 
@@ -160,9 +173,9 @@ export default function Login() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("login.email")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="name@university.edu" {...field} />
+                      <Input placeholder={t("login.emailPlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -173,7 +186,7 @@ export default function Login() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>{t("login.password")}</FormLabel>
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
@@ -182,8 +195,8 @@ export default function Login() {
                 )}
               />
               <Button type="submit" className="w-full h-11 text-base mt-2" disabled={loginMutation.isPending}>
-                {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
+                {loginMutation.isPending && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                {t("login.signIn")}
               </Button>
             </form>
           </Form>
@@ -191,13 +204,13 @@ export default function Login() {
 
         <CardFooter className="flex flex-col gap-2 justify-center pb-8 pt-2">
           <p className="text-sm text-muted-foreground">
-            New here?{" "}
+            {t("login.newHere")}{" "}
             <Link
               href="/register"
               className="text-primary font-medium hover:underline"
               data-testid="link-register"
             >
-              Create an account
+              {t("login.createAccount")}
             </Link>
           </p>
         </CardFooter>

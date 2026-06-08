@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { CollectionGrid } from "@/components/collections/CollectionCard";
 import { DiscoverySection } from "@/components/collections/DiscoverySection";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useTranslation } from "react-i18next";
 import {
   GraduationCap,
   Sparkles,
@@ -26,6 +27,7 @@ import {
 
 /** Search results section — rendered instead of the normal page when a query is active. */
 function SearchResults({ q }: { q: string }) {
+  const { t } = useTranslation();
   const params = { q };
   const { data, isLoading } = useListDiscoverableCollections(params, {
     query: {
@@ -35,10 +37,10 @@ function SearchResults({ q }: { q: string }) {
   });
 
   return (
-    <section aria-label="Search results">
+    <section aria-label={t("prepHub.searchResults")}>
       <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-foreground">
         <Search className="h-5 w-5 text-primary" />
-        Search results
+        {t("prepHub.searchResults")}
       </h2>
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -55,7 +57,7 @@ function SearchResults({ q }: { q: string }) {
         >
           <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground">
-            No collections match &ldquo;{q}&rdquo;.
+            {t("prepHub.noMatch", { q })}
           </p>
         </div>
       )}
@@ -64,6 +66,7 @@ function SearchResults({ q }: { q: string }) {
 }
 
 export default function PrepHub() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQ = useDebounce(searchQuery, 300);
   const isSearching = debouncedQ.trim().length > 0;
@@ -145,22 +148,22 @@ export default function PrepHub() {
             <div className="shrink-0 rounded-lg bg-primary/10 p-1.5">
               <GraduationCap className="h-5 w-5 text-primary" />
             </div>
-            <h1 className="font-serif text-3xl font-bold text-foreground">Prep Hub</h1>
+            <h1 className="font-serif text-3xl font-bold text-foreground">{t("prepHub.title")}</h1>
           </div>
           <p className="text-muted-foreground">
-            Discover and follow study collections shared by the community.
+            {t("prepHub.subtitle")}
           </p>
         </div>
       </div>
 
       {/* Search bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+        <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search collections..."
-          className="pl-9 bg-background"
+          placeholder={t("prepHub.searchPlaceholder")}
+          className="ps-9 bg-background"
           data-testid="prep-hub-search"
         />
       </div>
@@ -171,7 +174,7 @@ export default function PrepHub() {
         <>
           {/* 7 discovery sections — each hides itself when empty */}
           <DiscoverySection
-            title="Trending"
+            title={t("prepHub.trending")}
             icon={<TrendingUp className="h-5 w-5 text-primary" />}
             collections={trendingBundles}
             isLoading={trendingLoading}
@@ -179,7 +182,7 @@ export default function PrepHub() {
           />
 
           <DiscoverySection
-            title="Popular"
+            title={t("prepHub.popular")}
             icon={<Compass className="h-5 w-5 text-primary" />}
             collections={popularBundles}
             isLoading={popularLoading}
@@ -187,7 +190,7 @@ export default function PrepHub() {
           />
 
           <DiscoverySection
-            title="Highest Rated"
+            title={t("prepHub.highestRated")}
             icon={<Star className="h-5 w-5 text-primary" />}
             collections={ratingBundles}
             isLoading={ratingLoading}
@@ -195,7 +198,7 @@ export default function PrepHub() {
           />
 
           <DiscoverySection
-            title="Most Viewed"
+            title={t("prepHub.mostViewed")}
             icon={<Eye className="h-5 w-5 text-primary" />}
             collections={viewsBundles}
             isLoading={viewsLoading}
@@ -203,7 +206,7 @@ export default function PrepHub() {
           />
 
           <DiscoverySection
-            title="New"
+            title={t("prepHub.new")}
             icon={<PlusCircle className="h-5 w-5 text-primary" />}
             collections={newBundles}
             isLoading={newLoading}
@@ -211,7 +214,7 @@ export default function PrepHub() {
           />
 
           <DiscoverySection
-            title="Upcoming Exams"
+            title={t("prepHub.upcomingExams")}
             icon={<CalendarClock className="h-5 w-5 text-primary" />}
             collections={examBundles}
             isLoading={examLoading}
@@ -219,7 +222,7 @@ export default function PrepHub() {
           />
 
           <DiscoverySection
-            title="For You / Your Courses"
+            title={t("prepHub.forYou")}
             icon={<Sparkles className="h-5 w-5 text-primary" />}
             collections={recommendedBundles}
             isLoading={recommendedBundlesLoading}

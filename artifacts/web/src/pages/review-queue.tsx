@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 import { RejectDialog } from "@/components/document-detail/RejectDialog";
+import { useTranslation } from "react-i18next";
 import { Check, X, FileText, ShieldCheck } from "lucide-react";
 
 // Server clamps pageSize ≤100; 20 matches the notifications/list page
@@ -31,6 +32,7 @@ export default function ReviewQueue({
 } = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
@@ -59,10 +61,10 @@ export default function ReviewQueue({
       {
         onSuccess: () => {
           invalidate();
-          toast({ title: "Approved" });
+          toast({ title: t("reviewQueue.approved") });
         },
         onError: () =>
-          toast({ variant: "destructive", title: "Could not approve" }),
+          toast({ variant: "destructive", title: t("reviewQueue.approveFailed") }),
       },
     );
   };
@@ -76,10 +78,10 @@ export default function ReviewQueue({
         onSuccess: () => {
           invalidate();
           setRejectingId(null);
-          toast({ title: "Rejected" });
+          toast({ title: t("reviewQueue.rejected") });
         },
         onError: () =>
-          toast({ variant: "destructive", title: "Could not reject" }),
+          toast({ variant: "destructive", title: t("reviewQueue.rejectFailed") }),
       },
     );
   };
@@ -100,9 +102,9 @@ export default function ReviewQueue({
     // showing an empty queue, which would be misleading.
     return (
       <div className="py-16 text-center">
-        <h2 className="text-xl font-semibold mb-2">Review queue unavailable</h2>
+        <h2 className="text-xl font-semibold mb-2">{t("reviewQueue.unavailable")}</h2>
         <p className="text-muted-foreground">
-          You don&rsquo;t have access to the review queue.
+          {t("reviewQueue.noAccess")}
         </p>
       </div>
     );
@@ -127,17 +129,17 @@ export default function ReviewQueue({
                 embedded ? "text-2xl" : "text-3xl"
               }`}
             >
-              Review Queue
+              {t("reviewQueue.title")}
             </Heading>
           </div>
           {total > 0 && (
             <span className="text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-2.5 py-1 rounded-full tabular-nums">
-              {total} pending
+              {t("reviewQueue.pending", { count: total })}
             </span>
           )}
         </div>
-        <p className="text-muted-foreground mt-1 ml-[2.75rem]">
-          Approve or reject student submissions before they appear publicly.
+        <p className="text-muted-foreground mt-1 ms-[2.75rem]">
+          {t("reviewQueue.subtitle")}
         </p>
       </div>
 
@@ -147,9 +149,9 @@ export default function ReviewQueue({
             <div className="mx-auto h-14 w-14 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
               <Check className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <h3 className="font-semibold text-foreground">Queue is clear</h3>
+            <h3 className="font-semibold text-foreground">{t("reviewQueue.clearTitle")}</h3>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-              All submissions have been reviewed. Check back later for new uploads.
+              {t("reviewQueue.clearDesc")}
             </p>
           </CardContent>
         </Card>
@@ -176,7 +178,7 @@ export default function ReviewQueue({
                         {doc.course.code}
                       </span>
                     )}
-                    <span>by {doc.uploader.displayName}</span>
+                    <span>{t("requests.by", { name: doc.uploader.displayName })}</span>
                     <span>· {formatDateTime(submittedAt)}</span>
                   </div>
                 </div>
@@ -188,7 +190,7 @@ export default function ReviewQueue({
                     data-testid={`approve-${doc.id}`}
                     className="flex-1 sm:flex-none"
                   >
-                    <Check className="mr-1 h-4 w-4" /> Approve
+                    <Check className="me-1 h-4 w-4" /> {t("reviewQueue.approve")}
                   </Button>
                   <Button
                     variant="destructive"
@@ -198,7 +200,7 @@ export default function ReviewQueue({
                     data-testid={`reject-${doc.id}`}
                     className="flex-1 sm:flex-none"
                   >
-                    <X className="mr-1 h-4 w-4" /> Reject
+                    <X className="me-1 h-4 w-4" /> {t("reviewQueue.reject")}
                   </Button>
                 </div>
               </CardContent>
@@ -215,10 +217,10 @@ export default function ReviewQueue({
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            Previous
+            {t("browse.states.previous")}
           </Button>
           <span className="text-sm self-center text-muted-foreground">
-            Page {page} of {totalPages}
+            {t("reviewQueue.pageOf", { page, total: totalPages })}
           </span>
           <Button
             variant="outline"
@@ -226,7 +228,7 @@ export default function ReviewQueue({
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next
+            {t("browse.states.next")}
           </Button>
         </div>
       )}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import PreviewFallback from "./PreviewFallback";
 import { usePreviewContent } from "./usePreviewContent";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   doc: DocumentDetailDto;
@@ -16,6 +17,7 @@ interface Props {
  * rendered document, including its own styles, into the container element.
  */
 export default function DocxPreview({ doc, previewUrl, onDownload }: Props) {
+  const { t } = useTranslation();
   const { data, loading, error } = usePreviewContent(previewUrl, "arrayBuffer");
   const containerRef = useRef<HTMLDivElement>(null);
   const [rendered, setRendered] = useState(false);
@@ -52,7 +54,7 @@ export default function DocxPreview({ doc, previewUrl, onDownload }: Props) {
       <PreviewFallback
         doc={doc}
         onDownload={onDownload}
-        message="Could not render this document for preview. Download it to view its contents."
+        message={t("preview.couldNotRenderDoc")}
       />
     );
   }

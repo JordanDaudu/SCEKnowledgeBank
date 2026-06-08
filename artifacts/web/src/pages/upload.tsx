@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { UploadCloud, Loader2, AlertTriangle, HardDrive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { apiEndpoints } from "@/lib/api-url";
 import { isUnlimitedQuota } from "@/lib/format";
 import {
@@ -60,15 +61,17 @@ function formatBytes(n: number): string {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function validateFile(file: File): string | null {
+type Translate = (key: string, opts?: Record<string, unknown>) => string;
+
+function validateFile(file: File, t: Translate): string | null {
   if (file.size > MAX_FILE_BYTES) {
-    return `File exceeds ${MAX_UPLOAD_MB}MB limit (${(file.size / 1024 / 1024).toFixed(1)} MB).`;
+    return t("upload.fileExceeds", { max: MAX_UPLOAD_MB, size: (file.size / 1024 / 1024).toFixed(1) });
   }
-  if (file.size === 0) return "File is empty.";
+  if (file.size === 0) return t("upload.fileEmpty");
   const dot = file.name.lastIndexOf(".");
   const ext = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : "";
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    return `Unsupported file type ".${ext || "unknown"}". Allowed: ${ALLOWED_EXTENSIONS.join(", ")}.`;
+    return t("upload.unsupportedType", { ext: ext || "unknown", allowed: ALLOWED_EXTENSIONS.join(", ") });
   }
   return null;
 }
@@ -83,6 +86,7 @@ function uploadOne(
   fields: Record<string, string | undefined>,
   tagIds: string[],
   onProgress: (pct: number) => void,
+  t: Translate,
 ): UploadHandle {
   const xhr = new XMLHttpRequest();
   const promise = new Promise<UploadResult>((resolve, reject) => {
@@ -98,7 +102,7 @@ function uploadOne(
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
-    xhr.onerror = () => reject(new Error("Upload failed due to network error"));
+    xhr.onerror = () => reject(new Error(t("upload.networkError")));
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(xhr.response as UploadResult);
@@ -113,6 +117,7 @@ function uploadOne(
 }
 
 export default function Upload() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -142,7 +147,7 @@ export default function Upload() {
         }));
         setItems(restored);
         toast({
-          title: `Restored ${restored.length} file${restored.length === 1 ? "" : "s"} from your previous session.`,
+          title: t("upload.restored", { count: restored.length }),
         });
       })
       .catch(() => {})
@@ -227,7 +232,7 @@ export default function Upload() {
 
   const addFiles = (files: File[]) => {
     const next: QueueItem[] = files.map((file) => {
-      const err = validateFile(file);
+      const err = validateFile(file, t);
       const meta: ItemMeta = defaultItemMeta(currentYear);
       return {
         ...meta,
@@ -271,11 +276,11 @@ export default function Upload() {
     analysisAbortsRef.current.get(id)?.abort();
     analysisAbortsRef.current.delete(id);
     const target = items.find((it) => it.id === id);
-    const err = target ? validateFile(target.file) : null;
+    const err = target ? validateFile(target.file, t) : null;
     setItems((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        const e = validateFile(it.file);
+        const e = validateFile(it.file, t);
         return {
           ...it,
           status: e ? "failed" : "queued",
@@ -309,8 +314,8 @@ export default function Upload() {
     if (toUpload.length === 0) {
       toast({
         variant: "destructive",
-        title: "Nothing ready to upload",
-        description: "Fill in Course and Material Type on at least one file.",
+        title: t("upload.nothingReady"),
+        description: t("upload.nothingReadyDesc"),
       });
       return;
     }
@@ -332,6 +337,7 @@ export default function Upload() {
       updateItem(item.id, { status: "uploading", progress: 0, error: undefined });
       const handle = uploadOne(item.file, fields, item.tagIds, (pct) =>
         updateItem(item.id, { progress: pct }),
+        t,
       );
       try {
         const result = await handle.promise;
@@ -348,7 +354,7 @@ export default function Upload() {
           failCount++;
           updateItem(item.id, {
             status: "failed",
-            error: fileResult?.error || "Upload rejected by server",
+            error: fileResult?.error || t("upload.rejectedByServer"),
             errorCode: fileResult?.errorCode,
             duplicateOfDocumentId: fileResult?.duplicateOfDocumentId,
             duplicateOfTitle: fileResult?.duplicateOfTitle,
@@ -358,7 +364,7 @@ export default function Upload() {
         failCount++;
         updateItem(item.id, {
           status: "failed",
-          error: err instanceof Error ? err.message : "Upload failed",
+          error: err instanceof Error ? err.message : t("upload.uploadFailedGeneric"),
           errorCode: "network",
         });
       }
@@ -371,15 +377,15 @@ export default function Upload() {
 
     if (okCount > 0) {
       toast({
-        title: `Uploaded ${okCount} file${okCount === 1 ? "" : "s"}`,
-        description: failCount > 0 ? `${failCount} failed — see per-file errors.` : "",
+        title: t("upload.uploadedFiles", { count: okCount }),
+        description: failCount > 0 ? t("upload.someFailed", { count: failCount }) : "",
       });
     }
     if (failCount > 0 && okCount === 0) {
       toast({
         variant: "destructive",
-        title: "Upload failed",
-        description: "See per-file errors below.",
+        title: t("upload.uploadFailed"),
+        description: t("upload.seePerFileErrors"),
       });
     }
     // Navigate away only when everything that was attempted succeeded AND
@@ -392,9 +398,9 @@ export default function Upload() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-foreground">Upload Materials</h1>
+        <h1 className="text-3xl font-serif font-bold text-foreground">{t("upload.title")}</h1>
         <p className="text-muted-foreground mt-1">
-          Each file gets its own details. Files with Course and Material Type filled in upload right away.
+          {t("upload.subtitle")}
         </p>
       </div>
 
@@ -407,12 +413,12 @@ export default function Upload() {
               </div>
               <div className="flex-1 space-y-2 min-w-0">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">Storage quota</span>
+                  <span className="font-medium">{t("upload.storageQuota")}</span>
                   {isUnlimitedQuota(quota.quotaBytes) ? (
                     <span className="text-muted-foreground text-xs tabular-nums">
                       <span data-testid="quota-used">{formatBytes(quota.usedBytes)}</span>
-                      {" used · "}
-                      <span data-testid="quota-total" className="text-primary/80 font-medium">Unlimited</span>
+                      {" "}{t("upload.used")}{" · "}
+                      <span data-testid="quota-total" className="text-primary/80 font-medium">{t("upload.unlimited")}</span>
                     </span>
                   ) : (
                     <span className="text-muted-foreground text-xs tabular-nums">
@@ -421,7 +427,7 @@ export default function Upload() {
                       <span data-testid="quota-total">{formatBytes(quota.quotaBytes)}</span>
                       {" · "}
                       <span data-testid="quota-remaining" className="text-primary/80 font-medium">{formatBytes(quota.remainingBytes)}</span>
-                      {" free"}
+                      {" "}{t("upload.free")}
                     </span>
                   )}
                 </div>
@@ -444,10 +450,9 @@ export default function Upload() {
         >
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <div className="flex-1">
-            <span className="font-medium">Student uploads require lecturer approval before they appear publicly.</span>{" "}
+            <span className="font-medium">{t("upload.studentNoticeBold")}</span>{" "}
             <span className="text-muted-foreground">
-              Pick the course to send it to its lecturers. Restricted file types
-              (zip, exe, …) also require admin approval.
+              {t("upload.studentNoticeRest")}
             </span>
           </div>
         </div>
@@ -459,9 +464,9 @@ export default function Upload() {
             <div className="flex items-center gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">1</span>
               <div>
-                <CardTitle>Select Files</CardTitle>
+                <CardTitle>{t("upload.selectFiles")}</CardTitle>
                 <CardDescription className="mt-0.5">
-                  Drag & drop or click to browse. PDF, DOCX, PPTX, XLSX, images — up to {MAX_UPLOAD_MB}MB each.
+                  {t("upload.selectFilesDesc", { max: MAX_UPLOAD_MB })}
                 </CardDescription>
               </div>
             </div>
@@ -477,9 +482,9 @@ export default function Upload() {
               <div className="mx-auto mb-4 h-14 w-14 rounded-xl bg-primary/8 flex items-center justify-center group-hover:bg-primary/12 transition-colors">
                 <UploadCloud className="h-7 w-7 text-primary" />
               </div>
-              <p className="font-semibold text-foreground">Click to browse or drag files here</p>
+              <p className="font-semibold text-foreground">{t("upload.dropzoneTitle")}</p>
               <p className="text-sm text-muted-foreground mt-1.5">
-                PDF, DOCX, PPTX, XLSX, PNG, JPG, ZIP · up to {MAX_UPLOAD_MB}MB per file
+                {t("upload.dropzoneHint", { max: MAX_UPLOAD_MB })}
               </p>
               <input type="file" multiple className="hidden" ref={fileInputRef} onChange={handleFileSelect} />
             </div>
@@ -508,17 +513,17 @@ export default function Upload() {
           <div className="flex items-center gap-3">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">2</span>
             <div>
-              <p className="text-sm font-semibold text-foreground">Review & Upload</p>
+              <p className="text-sm font-semibold text-foreground">{t("upload.reviewUpload")}</p>
               <p className="text-xs text-muted-foreground">
                 {items.length === 0
-                  ? "Add files above to continue"
-                  : `${readyCount} ready · ${needsInfoCount} need${needsInfoCount === 1 ? "s" : ""} info`}
+                  ? t("upload.addFilesToContinue")
+                  : t("upload.readyNeedsInfo", { ready: readyCount, needs: needsInfoCount })}
               </p>
             </div>
           </div>
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setLocation("/")} disabled={isUploading}>
-              Cancel
+              {t("upload.cancel")}
             </Button>
             <Button
               type="submit"
@@ -527,8 +532,8 @@ export default function Upload() {
               data-testid="upload-submit"
               className="sm:min-w-[180px]"
             >
-              {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isUploading ? "Uploading…" : `Upload ${readyCount} ${readyCount === 1 ? "File" : "Files"}`}
+              {isUploading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              {isUploading ? t("upload.uploading") : t("upload.uploadFiles", { count: readyCount })}
             </Button>
           </div>
         </div>

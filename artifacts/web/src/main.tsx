@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import { setBaseUrl } from "@workspace/api-client-react";
 import App from "./App";
 import "./index.css";
+// Initialize i18n (loads translations, restores the saved language, and
+// syncs <html dir/lang>) before the app renders.
+import "./i18n";
 
 // Wire the generated API client to the right origin.
 // - In dev (Vite proxy mounted at /api), leave baseUrl unset so requests

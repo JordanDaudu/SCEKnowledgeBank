@@ -27,8 +27,10 @@ import {
   FileWarning,
   type LucideIcon,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
+import { LanguageSwitcher } from "./language-switcher";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -52,6 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const logout = useLogout();
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -80,42 +83,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // Analytics page rather than a top-level item.
   const primaryNav: NavItem[] = user
     ? [
-        { href: "/", icon: BookOpen, label: "Home" },
-        { href: "/browse", icon: Search, label: "Browse" },
+        { href: "/", icon: BookOpen, label: t("nav.home") },
+        { href: "/browse", icon: Search, label: t("nav.browse") },
         ...(!isAdmin
           ? [
-              { href: "/collections", icon: FolderOpen, label: "Collections" },
-              { href: "/prep-hub", icon: GraduationCap, label: "Prep Hub" },
+              { href: "/collections", icon: FolderOpen, label: t("nav.collections") },
+              { href: "/prep-hub", icon: GraduationCap, label: t("nav.prepHub") },
             ]
           : []),
-        { href: "/requests", icon: MessageSquare, label: "Requests" },
+        { href: "/requests", icon: MessageSquare, label: t("nav.requests") },
         ...(!isAdmin
-          ? [{ href: "/upload", icon: Upload, label: "Upload" }]
+          ? [{ href: "/upload", icon: Upload, label: t("nav.upload") }]
           : []),
       ]
     : [];
 
   const moreNav: NavItem[] = user
     ? [
-        { href: "/profile", icon: UserCircle, label: "Profile" },
+        { href: "/profile", icon: UserCircle, label: t("nav.profile") },
         ...(!isAdmin
           ? [
-              { href: "/uploads", icon: History, label: "My Uploads" },
-              { href: "/saved", icon: DownloadCloud, label: "Saved Offline" },
+              { href: "/uploads", icon: History, label: t("nav.myUploads") },
+              { href: "/saved", icon: DownloadCloud, label: t("nav.savedOffline") },
             ]
           : []),
         // Lecturers get a standalone Review item; for admins the review
         // queue is folded into "Admin Approvals", so it's hidden here.
         ...(isLecturerOrAdmin && !isAdmin
-          ? [{ href: "/review-queue", icon: ShieldCheck, label: "Review" }]
+          ? [{ href: "/review-queue", icon: ShieldCheck, label: t("nav.review") }]
           : []),
         ...(isAdmin
           ? [
-              { href: "/admin/users", icon: Users, label: "Admin" },
-              { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
-              { href: "/admin/approvals", icon: ShieldCheck, label: "Admin Approvals" },
-              { href: "/admin/prep-hub-moderation", icon: Shield, label: "Prep Hub Moderation" },
-              { href: "/admin/orphaned-files", icon: FileWarning, label: "Orphaned Files" },
+              { href: "/admin/users", icon: Users, label: t("nav.admin") },
+              { href: "/admin/analytics", icon: BarChart3, label: t("nav.analytics") },
+              { href: "/admin/approvals", icon: ShieldCheck, label: t("nav.adminApprovals") },
+              { href: "/admin/prep-hub-moderation", icon: Shield, label: t("nav.prepHubModeration") },
+              { href: "/admin/orphaned-files", icon: FileWarning, label: t("nav.orphanedFiles") },
             ]
           : []),
       ]
@@ -182,13 +185,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className="flex items-center gap-2 text-primary font-serif font-bold text-lg sm:text-xl shrink-0"
             >
               <Logo className="h-7 w-7" />
-              <span className="hidden sm:inline">Knowledge Bank</span>
+              <span className="hidden sm:inline">{t("common.appName")}</span>
               <span className="sm:hidden">KB</span>
             </Link>
 
             {/* Desktop nav: primary items inline + a "More" dropdown. */}
             {user && (
-              <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
+              <nav className="hidden md:flex items-center gap-1" aria-label={t("nav.mainNav")}>
                 {primaryNav.map((item) => (
                   <NavLink key={item.href} {...item} />
                 ))}
@@ -200,7 +203,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         data-testid="nav-more"
                       >
-                        More
+                        {t("nav.more")}
                         <ChevronDown className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
@@ -227,20 +230,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {user && (
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              <LanguageSwitcher />
               <NotificationBell />
 
               {/* User info — hidden on very small screens; links to Profile */}
               <Link
                 href="/profile"
                 className="hidden sm:flex items-center gap-3 hover:opacity-80"
-                aria-label="Open your profile"
+                aria-label={t("nav.openProfile")}
               >
                 <div className="flex flex-col items-end">
                   <span className="text-sm font-medium leading-none">
                     {user.displayName}
                   </span>
                   <span className="text-xs text-muted-foreground mt-1 capitalize">
-                    {user.primaryRole}
+                    {t(`roles.${user.primaryRole}`, { defaultValue: user.primaryRole })}
                   </span>
                 </div>
                 <UserAvatar className="h-8 w-8 text-sm" />
@@ -255,8 +259,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 size="icon"
                 onClick={handleLogout}
                 disabled={logout.isPending}
-                title="Log out"
-                aria-label="Log out"
+                title={t("common.logout")}
+                aria-label={t("common.logout")}
                 className="hidden sm:flex"
               >
                 {logout.isPending ? (
@@ -273,7 +277,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     variant="ghost"
                     size="icon"
                     className="md:hidden"
-                    aria-label="Open navigation menu"
+                    aria-label={t("nav.openMenu")}
                   >
                     {mobileOpen ? (
                       <X className="h-5 w-5" />
@@ -297,7 +301,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </div>
 
                   {/* Nav links — the sheet shows everything (no "More"). */}
-                  <nav className="flex flex-col gap-1 p-3 flex-1" aria-label="Mobile navigation">
+                  <nav className="flex flex-col gap-1 p-3 flex-1" aria-label={t("nav.mobileNav")}>
                     {allNav.map((item) => (
                       <SheetClose asChild key={item.href}>
                         <NavLink
@@ -324,7 +328,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       ) : (
                         <LogOut className="h-4 w-4" />
                       )}
-                      Log out
+                      {t("common.logout")}
                     </Button>
                   </div>
                 </SheetContent>

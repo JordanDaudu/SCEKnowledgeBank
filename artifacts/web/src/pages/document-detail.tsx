@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { apiUrl } from "@/lib/api-url";
 import PreviewPanel from "@/components/document-detail/PreviewPanel";
 import { previewKindForMime } from "@/lib/preview-kind";
@@ -75,6 +76,7 @@ export default function DocumentDetail() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { data: user } = useGetCurrentUser();
 
   const { data: doc, isLoading: isDocLoading } = useGetDocument(id, {
@@ -126,11 +128,11 @@ export default function DocumentDetail() {
           queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(id) });
           queryClient.invalidateQueries({ queryKey: getListMyFavoritesQueryKey() });
           toast({
-            title: doc.isFavorited ? "Removed from favorites" : "Added to favorites",
+            title: doc.isFavorited ? t("documentDetail.removedFavorite") : t("documentDetail.addedFavorite"),
           });
         },
         onError: () =>
-          toast({ variant: "destructive", title: "Could not update favorite" }),
+          toast({ variant: "destructive", title: t("documentDetail.favoriteFailed") }),
       },
     );
   };
@@ -148,12 +150,12 @@ export default function DocumentDetail() {
       {
         onSuccess: () => {
           invalidateDoc();
-          toast({ title: "Submitted for review" });
+          toast({ title: t("documentDetail.submittedReview") });
         },
         onError: () =>
           toast({
             variant: "destructive",
-            title: "Could not submit for review",
+            title: t("documentDetail.submitReviewFailed"),
           }),
       },
     );
@@ -164,10 +166,10 @@ export default function DocumentDetail() {
       {
         onSuccess: () => {
           invalidateDoc();
-          toast({ title: "Document approved" });
+          toast({ title: t("documentDetail.approved") });
         },
         onError: () =>
-          toast({ variant: "destructive", title: "Could not approve" }),
+          toast({ variant: "destructive", title: t("documentDetail.approveFailed") }),
       },
     );
   };
@@ -178,10 +180,10 @@ export default function DocumentDetail() {
         onSuccess: () => {
           invalidateDoc();
           setRejectOpen(false);
-          toast({ title: "Document rejected" });
+          toast({ title: t("documentDetail.rejected") });
         },
         onError: () =>
-          toast({ variant: "destructive", title: "Could not reject" }),
+          toast({ variant: "destructive", title: t("documentDetail.rejectFailed") }),
       },
     );
   };
@@ -205,15 +207,13 @@ export default function DocumentDetail() {
       const data = await getDocumentDownloadToken(id);
       window.open(apiUrl(data.url), "_blank");
     } catch {
-      toast({ variant: "destructive", title: "Download failed", description: "Could not generate download link." });
+      toast({ variant: "destructive", title: t("documentDetail.downloadFailed"), description: t("documentDetail.downloadFailedDesc") });
     }
   };
 
   const handleDeleteDoc = () => {
     if (
-      !confirm(
-        "Delete this document? This permanently deletes the entire document and ALL its versions (every uploaded file) — not just the current version. This cannot be undone.",
-      )
+      !confirm(t("documentDetail.deleteConfirm"))
     )
       return;
     deleteDocMutation.mutate({ id }, {
@@ -224,7 +224,7 @@ export default function DocumentDetail() {
         queryClient.invalidateQueries({
           queryKey: getGetMyStorageQuotaQueryKey(),
         });
-        toast({ title: "Document deleted" });
+        toast({ title: t("documentDetail.deleted") });
         setLocation("/browse");
       },
     });
@@ -236,7 +236,7 @@ export default function DocumentDetail() {
     updateDocMutation.mutate({ id, data: { status: newStatus } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(id) });
-        toast({ title: `Document ${newStatus}` });
+        toast({ title: t("documentDetail.statusChanged", { status: t(`status.${newStatus}`) }) });
       },
     });
   };
@@ -246,7 +246,7 @@ export default function DocumentDetail() {
   }
 
   if (!doc) {
-    return <div className="text-center py-20">Document not found</div>;
+    return <div className="text-center py-20">{t("documentDetail.notFound")}</div>;
   }
 
   return (
@@ -272,8 +272,8 @@ export default function DocumentDetail() {
             data-testid="favorite-toggle"
             title={
               doc.isFavorited
-                ? "Remove from favorites"
-                : "Add to favorites (also notifies you of new comments)"
+                ? t("documentDetail.favoriteTitleRemove")
+                : t("documentDetail.favoriteTitleAdd")
             }
             className={
               "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 " +
@@ -286,12 +286,12 @@ export default function DocumentDetail() {
               className={"h-4 w-4 " + (doc.isFavorited ? "fill-current" : "")}
               aria-hidden
             />
-            <span>{doc.isFavorited ? "Favorited" : "Favorite"}</span>
+            <span>{doc.isFavorited ? t("documentDetail.favorited") : t("documentDetail.favorite")}</span>
           </button>
           <p className="px-1 text-xs text-muted-foreground">
             {doc.isFavorited
-              ? "Saved to your favorites — you'll be notified of new comments."
-              : "Save to your favorites and get notified of new comments."}
+              ? t("documentDetail.favoritedHint")
+              : t("documentDetail.favoriteHint")}
           </p>
           <AddToCollection documentId={doc.id} />
         </div>

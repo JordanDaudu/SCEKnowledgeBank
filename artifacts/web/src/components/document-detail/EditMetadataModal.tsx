@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { MATERIAL_TYPES } from "@/lib/material-types";
 
 type Visibility = NonNullable<UpdateDocumentRequest["visibility"]>;
@@ -38,6 +39,7 @@ interface Props {
 export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { data: courses } = useListCourses();
   const { data: categories } = useListCategories();
   const { data: tags } = useListTags();
@@ -71,7 +73,7 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
 
   const handleSave = () => {
     if (!title.trim()) {
-      toast({ variant: "destructive", title: "Title required" });
+      toast({ variant: "destructive", title: t("editMetadata.titleRequired") });
       return;
     }
     const body: UpdateDocumentRequest = {
@@ -91,14 +93,14 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(docId) });
-          toast({ title: "Document updated" });
+          toast({ title: t("editMetadata.updated") });
           onOpenChange(false);
         },
         onError: (err) => {
           const data = (err as { data?: { error?: { message?: string } } })?.data;
           toast({
             variant: "destructive",
-            title: "Update failed",
+            title: t("editMetadata.updateFailed"),
             description: data?.error?.message || (err as Error)?.message,
           });
         },
@@ -110,20 +112,20 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="edit-metadata-dialog">
         <DialogHeader>
-          <DialogTitle>Edit document metadata</DialogTitle>
+          <DialogTitle>{t("editMetadata.title")}</DialogTitle>
           <DialogDescription>
-            Update the title, description, classification and visibility of this document.
+            {t("editMetadata.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Title</label>
+            <label className="text-sm font-medium">{t("editMetadata.titleLabel")}</label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
+            <label className="text-sm font-medium">{t("editMetadata.descriptionLabel")}</label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -134,9 +136,9 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Course</label>
+              <label className="text-sm font-medium">{t("editMetadata.course")}</label>
               <Select value={courseId} onValueChange={setCourseId}>
-                <SelectTrigger><SelectValue placeholder="Select course" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t("editMetadata.selectCourse")} /></SelectTrigger>
                 <SelectContent>
                   {courses?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>
@@ -146,11 +148,11 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
+              <label className="text-sm font-medium">{t("editMetadata.category")}</label>
               <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t("editMetadata.selectCategory")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="none">{t("editMetadata.none")}</SelectItem>
                   {categories?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -159,9 +161,9 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Material type</label>
+              <label className="text-sm font-medium">{t("editMetadata.materialType")}</label>
               <Select value={materialType} onValueChange={setMaterialType}>
-                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t("editMetadata.selectType")} /></SelectTrigger>
                 <SelectContent>
                   {MATERIAL_TYPES.map((t) => (
                     <SelectItem key={t.value} value={t.value} className="capitalize">{t.label}</SelectItem>
@@ -171,46 +173,46 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Visibility</label>
+              <label className="text-sm font-medium">{t("editMetadata.visibility")}</label>
               <Select value={visibility} onValueChange={(v) => setVisibility(v as Visibility)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="public">Public (Everyone)</SelectItem>
-                  <SelectItem value="restricted">Restricted (Enrolled only)</SelectItem>
-                  <SelectItem value="private">Private (Only me)</SelectItem>
+                  <SelectItem value="public">{t("editMetadata.visibilityPublic")}</SelectItem>
+                  <SelectItem value="restricted">{t("editMetadata.visibilityRestricted")}</SelectItem>
+                  <SelectItem value="private">{t("editMetadata.visibilityPrivate")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Semester</label>
+              <label className="text-sm font-medium">{t("editMetadata.semester")}</label>
               <Select
                 value={semester || "none"}
                 onValueChange={(v) => setSemester(v === "none" ? "" : (v as Semester))}
               >
-                <SelectTrigger><SelectValue placeholder="Select semester" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t("editMetadata.selectSemester")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="fall">Fall</SelectItem>
-                  <SelectItem value="spring">Spring</SelectItem>
-                  <SelectItem value="summer">Summer</SelectItem>
+                  <SelectItem value="none">{t("editMetadata.none")}</SelectItem>
+                  <SelectItem value="fall">{t("browse.filters.fall")}</SelectItem>
+                  <SelectItem value="spring">{t("browse.filters.spring")}</SelectItem>
+                  <SelectItem value="summer">{t("browse.filters.summer")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Academic year</label>
+              <label className="text-sm font-medium">{t("editMetadata.academicYear")}</label>
               <Input
                 type="number"
                 value={academicYear}
                 onChange={(e) => setAcademicYear(e.target.value)}
-                placeholder="e.g. 2024"
+                placeholder={t("browse.filters.yearPlaceholder")}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Tags</label>
+            <label className="text-sm font-medium">{t("editMetadata.tags")}</label>
             <div className="flex flex-wrap gap-2">
               {tags?.length ? tags.map((tag) => (
                 <Badge
@@ -222,7 +224,7 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
                   {tag.name}
                 </Badge>
               )) : (
-                <p className="text-xs text-muted-foreground">No tags available.</p>
+                <p className="text-xs text-muted-foreground">{t("editMetadata.noTags")}</p>
               )}
             </div>
           </div>
@@ -230,10 +232,10 @@ export default function EditMetadataModal({ open, onOpenChange, docId, doc }: Pr
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={updateDocMutation.isPending}>
-            Cancel
+            {t("editMetadata.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={updateDocMutation.isPending} data-testid="edit-metadata-save">
-            {updateDocMutation.isPending ? "Saving…" : "Save changes"}
+            {updateDocMutation.isPending ? t("editMetadata.saving") : t("editMetadata.saveChanges")}
           </Button>
         </DialogFooter>
       </DialogContent>

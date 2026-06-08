@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useTranslation } from "react-i18next";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import {
   listOfflineMeta,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 
 export default function SavedOffline() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const online = useOnlineStatus();
   const [items, setItems] = useState<OfflineMeta[] | null>(null);
@@ -46,27 +48,29 @@ export default function SavedOffline() {
       const r = await syncFavoritesForOffline();
       await reload();
       toast({
-        title: "Offline cache updated",
-        description: `${r.cached} added · ${r.removed} removed${r.skipped ? ` · ${r.skipped} skipped` : ""}`,
+        title: t("savedOffline.cacheUpdated"),
+        description: r.skipped
+          ? t("savedOffline.cacheUpdatedDescSkipped", { cached: r.cached, removed: r.removed, skipped: r.skipped })
+          : t("savedOffline.cacheUpdatedDesc", { cached: r.cached, removed: r.removed }),
       });
     } catch {
-      toast({ variant: "destructive", title: "Could not update offline cache" });
+      toast({ variant: "destructive", title: t("savedOffline.cacheUpdateFailed") });
     } finally {
       setSyncing(false);
     }
   };
 
   const handleClear = async () => {
-    if (!confirm("Remove all documents saved for offline use?")) return;
+    if (!confirm(t("savedOffline.clearConfirm"))) return;
     await clearOffline();
     await reload();
-    toast({ title: "Offline cache cleared" });
+    toast({ title: t("savedOffline.cacheCleared") });
   };
 
   const open = async (m: OfflineMeta) => {
     const blob = await getOfflineBlob(m.documentId);
     if (!blob) {
-      toast({ variant: "destructive", title: "File is no longer cached" });
+      toast({ variant: "destructive", title: t("savedOffline.noLongerCached") });
       void reload();
       return;
     }
@@ -85,11 +89,10 @@ export default function SavedOffline() {
           <div className="shrink-0 rounded-lg bg-primary/10 p-1.5">
             <DownloadCloud className="h-5 w-5 text-primary" />
           </div>
-          <h1 className="font-serif text-3xl font-bold text-foreground">Saved Offline</h1>
+          <h1 className="font-serif text-3xl font-bold text-foreground">{t("savedOffline.title")}</h1>
         </div>
         <p className="text-muted-foreground">
-          Your favorited materials are saved here automatically while you're
-          online, so you can open them with no connection.
+          {t("savedOffline.subtitle")}
         </p>
       </div>
 
@@ -104,11 +107,11 @@ export default function SavedOffline() {
           }
         >
           {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
-          {online ? "Online" : "Offline"}
+          {online ? t("savedOffline.online") : t("savedOffline.offline")}
         </span>
         {items && items.length > 0 && (
           <span className="text-sm text-muted-foreground tabular-nums">
-            {items.length} item{items.length === 1 ? "" : "s"} · {formatBytes(totalBytes)}
+            {t("savedOffline.itemCount", { count: items.length })} · {formatBytes(totalBytes)}
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -118,14 +121,14 @@ export default function SavedOffline() {
             className="gap-1"
             disabled={!online || syncing}
             onClick={handleRefresh}
-            title={online ? "Update from your favorites" : "Reconnect to update"}
+            title={online ? t("savedOffline.updateOnlineTitle") : t("savedOffline.updateOfflineTitle")}
           >
             {syncing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            Update
+            {t("savedOffline.update")}
           </Button>
           {items && items.length > 0 && (
             <Button
@@ -135,7 +138,7 @@ export default function SavedOffline() {
               onClick={handleClear}
             >
               <Trash2 className="h-4 w-4" />
-              Clear
+              {t("savedOffline.clear")}
             </Button>
           )}
         </div>
@@ -150,8 +153,7 @@ export default function SavedOffline() {
         <div className="rounded-xl border border-dashed bg-card py-20 text-center">
           <FileStack className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
           <p className="text-muted-foreground">
-            Nothing saved offline yet. Favorite a document while online and it
-            will be cached here automatically.
+            {t("savedOffline.empty")}
           </p>
         </div>
       ) : (
@@ -169,12 +171,12 @@ export default function SavedOffline() {
                       {m.materialType} · {m.filename} · {formatBytes(m.size)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Saved {formatDateTime(new Date(m.cachedAt).toISOString())}
+                      {t("savedOffline.savedAt", { date: formatDateTime(new Date(m.cachedAt).toISOString()) })}
                     </p>
                   </div>
                   <Button size="sm" variant="outline" className="gap-1 shrink-0" onClick={() => open(m)}>
                     <ExternalLink className="h-4 w-4" />
-                    Open
+                    {t("savedOffline.open")}
                   </Button>
                 </CardContent>
               </Card>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useBulkDocumentAction,
@@ -73,6 +74,7 @@ interface Props {
  *  this column toggles between (desc omitted for title, which is asc-only). */
 function SortHeader({
   label,
+  testId,
   asc,
   desc,
   sort,
@@ -80,6 +82,8 @@ function SortHeader({
   className,
 }: {
   label: string;
+  /** Stable English token for the test id (label may be translated). */
+  testId: string;
   asc: string;
   desc?: string;
   sort?: string;
@@ -100,7 +104,7 @@ function SortHeader({
         (active ? "text-foreground font-medium" : "") +
         (className ? ` ${className}` : "")
       }
-      data-testid={`sort-${label.toLowerCase()}`}
+      data-testid={`sort-${testId}`}
     >
       {label}
       {isAsc ? (
@@ -147,9 +151,18 @@ export default function DocumentTable({
   sort,
   onSortChange,
 }: Props) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const bulk = useBulkDocumentAction();
+
+  const COL_LABEL: Record<ColumnKey, string> = {
+    course: t("browse.table.colCourse"),
+    type: t("browse.table.colType"),
+    version: t("browse.table.colVersion"),
+    status: t("browse.table.colStatus"),
+    uploaded: t("browse.table.colUploaded"),
+  };
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [hiddenCols, setHiddenCols] = useState<ColumnKey[]>(() => readHiddenCols());
@@ -225,7 +238,7 @@ export default function DocumentTable({
           });
         },
         onError: () => {
-          toast({ variant: "destructive", title: "Bulk action failed" });
+          toast({ variant: "destructive", title: t("browse.table.bulkFailed") });
         },
       },
     );
@@ -237,8 +250,8 @@ export default function DocumentTable({
       { action: "delete", ids: selectedIds },
       (ok, fail) =>
         fail > 0
-          ? `Deleted ${ok}, ${fail} failed`
-          : `Deleted ${ok} document${ok === 1 ? "" : "s"}`,
+          ? t("browse.table.deletedPartial", { ok, fail })
+          : t("browse.table.deletedOk", { count: ok }),
     );
   };
 
@@ -246,7 +259,7 @@ export default function DocumentTable({
     runBulk(
       { action: "add_tag", ids: selectedIds, tagId },
       (ok, fail) =>
-        fail > 0 ? `Tagged ${ok}, ${fail} failed` : `Tagged ${ok} document${ok === 1 ? "" : "s"}`,
+        fail > 0 ? t("browse.table.taggedPartial", { ok, fail }) : t("browse.table.taggedOk", { count: ok }),
     );
 
   const handleAssignCategory = (categoryId: string | null) =>
@@ -254,8 +267,8 @@ export default function DocumentTable({
       { action: "assign_category", ids: selectedIds, categoryId },
       (ok, fail) =>
         fail > 0
-          ? `Updated ${ok}, ${fail} failed`
-          : `Updated ${ok} document${ok === 1 ? "" : "s"}`,
+          ? t("browse.table.updatedPartial", { ok, fail })
+          : t("browse.table.updatedOk", { count: ok }),
     );
 
   const colCount = 2 + COLUMNS.filter((c) => isVisible(c.key)).length;
@@ -270,7 +283,7 @@ export default function DocumentTable({
               data-testid="bulk-toolbar"
             >
               <span className="text-sm font-medium" data-testid="bulk-count">
-                {selected.size} selected
+                {t("browse.table.selected", { count: selected.size })}
               </span>
               <Button
                 variant="ghost"
@@ -278,7 +291,7 @@ export default function DocumentTable({
                 className="h-8 px-2 text-xs"
                 onClick={() => setSelected(new Set())}
               >
-                <X className="h-3.5 w-3.5" /> Clear
+                <X className="h-3.5 w-3.5" /> {t("browse.table.clear")}
               </Button>
 
               {tags && tags.length > 0 && (
@@ -291,11 +304,11 @@ export default function DocumentTable({
                       disabled={bulk.isPending}
                       data-testid="bulk-tag-trigger"
                     >
-                      <TagIcon className="h-3.5 w-3.5" /> Add tag
+                      <TagIcon className="h-3.5 w-3.5" /> {t("browse.table.addTag")}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
-                    <DropdownMenuLabel>Add a tag to selected</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("browse.table.addTagTo")}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {tags.map((t) => (
                       <DropdownMenuItem key={t.id} onSelect={() => handleAddTag(t.id)}>
@@ -316,11 +329,11 @@ export default function DocumentTable({
                       disabled={bulk.isPending}
                       data-testid="bulk-category-trigger"
                     >
-                      <FolderClosed className="h-3.5 w-3.5" /> Set category
+                      <FolderClosed className="h-3.5 w-3.5" /> {t("browse.table.setCategory")}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
-                    <DropdownMenuLabel>Assign category to selected</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("browse.table.assignCategoryTo")}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {categories.map((c) => (
                       <DropdownMenuItem
@@ -332,7 +345,7 @@ export default function DocumentTable({
                     ))}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => handleAssignCategory(null)}>
-                      Clear category
+                      {t("browse.table.clearCategory")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -351,12 +364,12 @@ export default function DocumentTable({
                 ) : (
                   <Trash2 className="h-3.5 w-3.5" />
                 )}
-                Delete
+                {t("browse.table.delete")}
               </Button>
             </div>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Select rows to act on multiple documents.
+              {t("browse.table.selectRowsHint")}
             </span>
           )}
         </div>
@@ -364,11 +377,11 @@ export default function DocumentTable({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-8" data-testid="column-toggle">
-              <SlidersHorizontal className="h-3.5 w-3.5" /> Columns
+              <SlidersHorizontal className="h-3.5 w-3.5" /> {t("browse.table.columns")}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("browse.table.visibleColumns")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {COLUMNS.map((c) => (
               <DropdownMenuCheckboxItem
@@ -377,7 +390,7 @@ export default function DocumentTable({
                 onCheckedChange={() => toggleCol(c.key)}
                 onSelect={(e) => e.preventDefault()}
               >
-                {c.label}
+                {COL_LABEL[c.key]}
               </DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuContent>
@@ -392,26 +405,28 @@ export default function DocumentTable({
                 <Checkbox
                   checked={allSelected ? true : someSelected ? "indeterminate" : false}
                   onCheckedChange={toggleAll}
-                  aria-label="Select all"
+                  aria-label={t("browse.table.selectAll")}
                   data-testid="select-all"
                 />
               </TableHead>
               <TableHead>
                 <SortHeader
-                  label="Title"
+                  label={t("browse.table.colTitle")}
+                  testId="title"
                   asc="title"
                   sort={sort}
                   onSortChange={onSortChange}
                 />
               </TableHead>
-              {isVisible("course") && <TableHead>Course</TableHead>}
-              {isVisible("type") && <TableHead>Type</TableHead>}
-              {isVisible("version") && <TableHead>Version</TableHead>}
-              {isVisible("status") && <TableHead>Status</TableHead>}
+              {isVisible("course") && <TableHead>{COL_LABEL.course}</TableHead>}
+              {isVisible("type") && <TableHead>{COL_LABEL.type}</TableHead>}
+              {isVisible("version") && <TableHead>{COL_LABEL.version}</TableHead>}
+              {isVisible("status") && <TableHead>{COL_LABEL.status}</TableHead>}
               {isVisible("uploaded") && (
                 <TableHead>
                   <SortHeader
-                    label="Uploaded"
+                    label={COL_LABEL.uploaded}
+                    testId="uploaded"
                     asc="oldest"
                     desc="recent"
                     sort={sort}
@@ -425,7 +440,7 @@ export default function DocumentTable({
             {items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colCount} className="text-center text-muted-foreground py-8">
-                  No documents.
+                  {t("browse.table.noDocuments")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -441,7 +456,7 @@ export default function DocumentTable({
                       <Checkbox
                         checked={checked}
                         onCheckedChange={() => toggleOne(doc.id)}
-                        aria-label={`Select ${doc.title}`}
+                        aria-label={t("browse.table.selectRow", { title: doc.title })}
                         data-testid="row-select"
                       />
                     </TableCell>
@@ -526,20 +541,19 @@ export default function DocumentTable({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {selected.size} document{selected.size === 1 ? "" : "s"}?
+              {t("browse.table.confirmDeleteTitle", { count: selected.size })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This moves the selected documents to the recycle bin using the same
-              per-document delete used elsewhere. This action is audited.
+              {t("browse.table.confirmDeleteDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("browse.table.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t("browse.table.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

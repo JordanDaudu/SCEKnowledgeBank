@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api-url";
+import { useTranslation } from "react-i18next";
 import { formatVersion } from "@/lib/format";
 
 interface Props {
@@ -37,6 +38,7 @@ function formatWhen(iso: string): string {
 export default function VersionsPanel({ documentId, canManage }: Props) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [changeNote, setChangeNote] = useState("");
 
@@ -71,14 +73,14 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
         onSuccess: () => {
           setChangeNote("");
           if (fileInputRef.current) fileInputRef.current.value = "";
-          toast({ title: "New version uploaded" });
+          toast({ title: t("uploads.newVersionUploaded") });
           invalidateAfterMutation();
         },
         onError: (err) => {
           toast({
             variant: "destructive",
-            title: "Upload failed",
-            description: err instanceof Error ? err.message : "Try again.",
+            title: t("versions.uploadFailed"),
+            description: err instanceof Error ? err.message : t("versions.tryAgain"),
           });
         },
       },
@@ -87,9 +89,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
 
   const handleRestore = (v: DocumentVersion) => {
     if (
-      !confirm(
-        `Restore ${formatVersion(v.versionNumber)}? A new version pointing at the same file will become the current one. History is preserved.`,
-      )
+      !confirm(t("versions.restoreConfirm", { version: formatVersion(v.versionNumber) }))
     ) {
       return;
     }
@@ -97,14 +97,14 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
       { id: documentId, versionId: v.id },
       {
         onSuccess: () => {
-          toast({ title: `Restored ${formatVersion(v.versionNumber)}` });
+          toast({ title: t("versions.restored", { version: formatVersion(v.versionNumber) }) });
           invalidateAfterMutation();
         },
         onError: (err) => {
           toast({
             variant: "destructive",
-            title: "Restore failed",
-            description: err instanceof Error ? err.message : "Try again.",
+            title: t("versions.restoreFailed"),
+            description: err instanceof Error ? err.message : t("versions.tryAgain"),
           });
         },
       },
@@ -122,8 +122,8 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
     } catch {
       toast({
         variant: "destructive",
-        title: "Download failed",
-        description: "Could not generate download link.",
+        title: t("documentDetail.downloadFailed"),
+        description: t("uploads.couldNotDownload"),
       });
     }
   };
@@ -131,10 +131,10 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
   return (
     <div className="rounded-lg border bg-card p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Versions</h3>
+        <h3 className="font-semibold">{t("versions.title")}</h3>
         {versions && versions.length > 0 && (
           <span className="text-xs text-muted-foreground">
-            {versions.length} total
+            {t("versions.totalCount", { count: versions.length })}
           </span>
         )}
       </div>
@@ -142,14 +142,14 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
       {canManage && (
         <div className="space-y-2 border-b pb-4">
           <label className="block text-xs font-medium text-muted-foreground">
-            Change note (optional)
+            {t("versions.changeNote")}
           </label>
           <input
             type="text"
             value={changeNote}
             onChange={(e) => setChangeNote(e.target.value)}
             maxLength={500}
-            placeholder="e.g. fixed typos in section 3"
+            placeholder={t("versions.changeNotePlaceholder")}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             disabled={uploadMut.isPending}
           />
@@ -170,18 +170,18 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
           >
             {uploadMut.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Uploading…
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                {t("upload.uploading")}
               </>
             ) : (
               <>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload new version
+                <Upload className="me-2 h-4 w-4" />
+                {t("versions.uploadNewVersion")}
               </>
             )}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Uploads a new version with the same details — just pick a file.
+            {t("versions.uploadHint")}
           </p>
         </div>
       )}
@@ -192,7 +192,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
           <Skeleton className="h-10 w-full" />
         </div>
       ) : !versions || versions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No versions yet.</p>
+        <p className="text-sm text-muted-foreground">{t("versions.noVersions")}</p>
       ) : (
         <ul className="space-y-3">
           {versions.map((v) => (
@@ -205,7 +205,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
                   <span className="font-medium">{formatVersion(v.versionNumber)}</span>
                   {v.isCurrent && (
                     <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
-                      Current
+                      {t("uploads.current")}
                     </span>
                   )}
                   <span className="text-xs text-muted-foreground">
@@ -216,7 +216,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
                   {v.originalFilename}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {v.uploader?.displayName ?? "Unknown"} ·{" "}
+                  {v.uploader?.displayName ?? t("uploads.unknown")} ·{" "}
                   {formatWhen(v.uploadedAt)}
                 </p>
                 {v.changeNote && (
@@ -231,7 +231,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
                   variant="outline"
                   onClick={() => handleDownloadVersion(v)}
                 >
-                  Download
+                  {t("uploads.download")}
                 </Button>
                 {canManage && !v.isCurrent && (
                   <Button
@@ -240,7 +240,7 @@ export default function VersionsPanel({ documentId, canManage }: Props) {
                     disabled={restoreMut.isPending}
                     onClick={() => handleRestore(v)}
                   >
-                    Restore
+                    {t("versions.restore")}
                   </Button>
                 )}
               </div>

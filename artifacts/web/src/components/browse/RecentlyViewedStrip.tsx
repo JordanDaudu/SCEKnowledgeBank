@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Clock, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useListRecentDocuments } from "@workspace/api-client-react";
 
 interface RecentItem {
@@ -35,6 +36,7 @@ function readLocalRecent(): RecentItem[] {
  * a fallback for when the API errors (e.g. offline / proxy hiccup).
  */
 export default function RecentlyViewedStrip() {
+  const { t } = useTranslation();
   const { data, isError } = useListRecentDocuments({ limit: 8 });
 
   const [fallback, setFallback] = useState<RecentItem[]>([]);
@@ -57,7 +59,7 @@ export default function RecentlyViewedStrip() {
         <div className="h-5 w-5 rounded bg-primary/8 flex items-center justify-center">
           <Clock className="h-3 w-3 text-primary" />
         </div>
-        Continue reading
+        {t("home.continueReading")}
       </div>
       <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5">
         {items.map((item) => (

@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import {
   Shield,
   ShieldAlert,
@@ -36,13 +37,14 @@ import {
 } from "lucide-react";
 
 function StatusBadge({ status }: { status?: string }) {
+  const { t } = useTranslation();
   if (status === "PENDING_APPROVAL") {
     return (
       <Badge
         variant="secondary"
         className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
       >
-        Pending
+        {t("admin.users.statusPending")}
       </Badge>
     );
   }
@@ -52,7 +54,7 @@ function StatusBadge({ status }: { status?: string }) {
         variant="secondary"
         className="bg-gray-100 text-gray-800 dark:bg-gray-800/40 dark:text-gray-300"
       >
-        Disabled
+        {t("admin.users.statusDisabled")}
       </Badge>
     );
   }
@@ -61,7 +63,7 @@ function StatusBadge({ status }: { status?: string }) {
       variant="secondary"
       className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
     >
-      Active
+      {t("admin.users.statusActive")}
     </Badge>
   );
 }
@@ -79,6 +81,7 @@ export default function AdminUsers() {
   const { data: pending, isLoading: pendingLoading } = useListPendingLecturers();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const approveMutation = useApproveUser();
   const disableMutation = useDisableUser();
   const { data: deleted } = useListDeletedAccounts({
@@ -102,16 +105,16 @@ export default function AdminUsers() {
       {
         onSuccess: () => {
           toast({
-            title: "Lecturer approved",
-            description: `${name} can now sign in.`,
+            title: t("admin.users.lecturerApproved"),
+            description: t("admin.users.canSignIn", { name }),
           });
           invalidate();
         },
         onError: (e: any) =>
           toast({
             variant: "destructive",
-            title: "Could not approve",
-            description: e?.data?.error?.message ?? "Try again in a moment.",
+            title: t("admin.users.approveFailed"),
+            description: e?.data?.error?.message ?? t("admin.users.tryAgain"),
           }),
       },
     );
@@ -123,16 +126,16 @@ export default function AdminUsers() {
       {
         onSuccess: () => {
           toast({
-            title: "Account disabled",
-            description: `${name} can no longer sign in.`,
+            title: t("admin.users.accountDisabled"),
+            description: t("admin.users.canNoLongerSignIn", { name }),
           });
           invalidate();
         },
         onError: (e: any) =>
           toast({
             variant: "destructive",
-            title: "Could not disable",
-            description: e?.data?.error?.message ?? "Try again in a moment.",
+            title: t("admin.users.disableFailed"),
+            description: e?.data?.error?.message ?? t("admin.users.tryAgain"),
           }),
       },
     );
@@ -142,10 +145,10 @@ export default function AdminUsers() {
     <div className="max-w-5xl mx-auto space-y-8" data-testid="page-admin-users">
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">
-          User Management
+          {t("admin.users.title")}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Admin oversight of platform users.
+          {t("admin.users.subtitle")}
         </p>
       </div>
 
@@ -153,10 +156,10 @@ export default function AdminUsers() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-amber-600" />
-            Lecturers Awaiting Approval
+            {t("admin.users.pendingLecturers")}
           </CardTitle>
           <CardDescription>
-            New lecturer accounts cannot sign in until you approve them.
+            {t("admin.users.pendingLecturersDesc")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -164,10 +167,10 @@ export default function AdminUsers() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Requested</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("admin.users.colUser")}</TableHead>
+                  <TableHead>{t("admin.users.colEmail")}</TableHead>
+                  <TableHead>{t("admin.users.colRequested")}</TableHead>
+                  <TableHead className="text-right">{t("admin.users.colActions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -177,7 +180,7 @@ export default function AdminUsers() {
                       colSpan={4}
                       className="text-center py-6 text-muted-foreground"
                     >
-                      Loading…
+                      {t("admin.users.loading")}
                     </TableCell>
                   </TableRow>
                 ) : pending && pending.length > 0 ? (
@@ -211,9 +214,9 @@ export default function AdminUsers() {
                               {busy && approveMutation.isPending ? (
                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                               ) : (
-                                <CheckCircle2 className="mr-1 h-3 w-3 text-green-600" />
+                                <CheckCircle2 className="me-1 h-3 w-3 text-green-600" />
                               )}
-                              Approve
+                              {t("admin.users.approve")}
                             </Button>
                             <Button
                               size="sm"
@@ -222,8 +225,8 @@ export default function AdminUsers() {
                               disabled={busy}
                               data-testid={`disable-${u.id}`}
                             >
-                              <XCircle className="mr-1 h-3 w-3 text-destructive" />
-                              Disable
+                              <XCircle className="me-1 h-3 w-3 text-destructive" />
+                              {t("admin.users.disable")}
                             </Button>
                           </div>
                         </TableCell>
@@ -236,7 +239,7 @@ export default function AdminUsers() {
                       colSpan={4}
                       className="text-center py-6 text-muted-foreground"
                     >
-                      No pending lecturers.
+                      {t("admin.users.noPending")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -250,7 +253,7 @@ export default function AdminUsers() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            Registered Users
+            {t("admin.users.registeredUsers")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -258,12 +261,12 @@ export default function AdminUsers() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("admin.users.colUser")}</TableHead>
+                  <TableHead>{t("admin.users.colEmail")}</TableHead>
+                  <TableHead>{t("admin.users.colRoles")}</TableHead>
+                  <TableHead>{t("admin.users.colStatus")}</TableHead>
+                  <TableHead>{t("admin.users.colJoined")}</TableHead>
+                  <TableHead className="text-right">{t("admin.users.colActions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -273,7 +276,7 @@ export default function AdminUsers() {
                       colSpan={6}
                       className="text-center py-8 text-muted-foreground"
                     >
-                      Loading users...
+                      {t("admin.users.loadingUsers")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -301,7 +304,7 @@ export default function AdminUsers() {
                                 variant="outline"
                                 className="capitalize text-[10px]"
                               >
-                                {role}
+                                {t(`roles.${role}`, { defaultValue: role })}
                               </Badge>
                             ))}
                           </div>
@@ -327,8 +330,8 @@ export default function AdminUsers() {
                               disabled={busy}
                               data-testid={`reenable-${user.id}`}
                             >
-                              <CheckCircle2 className="mr-1 h-3 w-3 text-green-600" />
-                              Re-enable
+                              <CheckCircle2 className="me-1 h-3 w-3 text-green-600" />
+                              {t("admin.users.reEnable")}
                             </Button>
                           ) : (
                             <Button
@@ -340,8 +343,8 @@ export default function AdminUsers() {
                               disabled={busy}
                               data-testid={`disable-${user.id}`}
                             >
-                              <XCircle className="mr-1 h-3 w-3 text-destructive" />
-                              Disable
+                              <XCircle className="me-1 h-3 w-3 text-destructive" />
+                              {t("admin.users.disable")}
                             </Button>
                           )}
                         </TableCell>
@@ -359,11 +362,10 @@ export default function AdminUsers() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <XCircle className="h-5 w-5 text-destructive" />
-            Deleted Accounts
+            {t("admin.users.deletedAccounts")}
           </CardTitle>
           <CardDescription>
-            Soft-deleted accounts. Restore within 30 days; permanent removal (purge) is
-            available after 30 days and anonymizes the account while keeping its files.
+            {t("admin.users.deletedAccountsDesc")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -382,10 +384,10 @@ export default function AdminUsers() {
                         <span className="text-muted-foreground">· {u.email}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {u.roles.join(", ") || "—"} · {u.fileCount} file(s) ·{" "}
+                        {u.roles.join(", ") || "—"} · {t("admin.users.fileCount", { count: u.fileCount })} ·{" "}
                         {u.anonymizedAt
-                          ? "permanently removed"
-                          : `deleted ${u.deletedAt ? formatDateTime(u.deletedAt) : ""}`}
+                          ? t("admin.users.permanentlyRemoved")
+                          : t("admin.users.deletedAt", { date: u.deletedAt ? formatDateTime(u.deletedAt) : "" })}
                       </p>
                     </div>
                     {!u.anonymizedAt && (
@@ -399,17 +401,17 @@ export default function AdminUsers() {
                               { userId: u.id },
                               {
                                 onSuccess: () => {
-                                  toast({ title: "Account restored" });
+                                  toast({ title: t("admin.users.accountRestored") });
                                   refreshDeleted();
                                 },
                                 onError: () =>
-                                  toast({ variant: "destructive", title: "Could not restore" }),
+                                  toast({ variant: "destructive", title: t("admin.users.restoreFailed") }),
                               },
                             )
                           }
                           data-testid={`account-restore-${u.id}`}
                         >
-                          Restore
+                          {t("admin.users.restore")}
                         </Button>
                         <Button
                           variant="destructive"
@@ -417,25 +419,25 @@ export default function AdminUsers() {
                           disabled={!u.eligibleForPurge || busy}
                           title={
                             u.eligibleForPurge
-                              ? "Permanently remove (anonymize)"
-                              : "Eligible 30 days after deletion"
+                              ? t("admin.users.purgeEligibleTitle")
+                              : t("admin.users.purgeNotEligibleTitle")
                           }
                           onClick={() =>
                             purgeMut.mutate(
                               { userId: u.id },
                               {
                                 onSuccess: () => {
-                                  toast({ title: "Account permanently removed" });
+                                  toast({ title: t("admin.users.accountPurged") });
                                   refreshDeleted();
                                 },
                                 onError: () =>
-                                  toast({ variant: "destructive", title: "Could not purge" }),
+                                  toast({ variant: "destructive", title: t("admin.users.purgeFailed") }),
                               },
                             )
                           }
                           data-testid={`account-purge-${u.id}`}
                         >
-                          Purge
+                          {t("admin.users.purge")}
                         </Button>
                       </div>
                     )}
@@ -444,7 +446,7 @@ export default function AdminUsers() {
               })}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No deleted accounts.</p>
+            <p className="text-sm text-muted-foreground">{t("admin.users.noDeleted")}</p>
           )}
         </CardContent>
       </Card>

@@ -18,6 +18,7 @@ import { useQueryStateSync } from "@/hooks/use-query-state-sync";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDocumentSnapshot } from "@/hooks/use-document-snapshot";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
 import { Search, Library } from "lucide-react";
 import BrowseFilters, {
   type Sort,
@@ -50,6 +51,7 @@ function readView(): BrowseView {
 }
 
 export default function Browse() {
+  const { t } = useTranslation();
   const currentSearch = useSearch();
   const initialParams = useMemo(() => new URLSearchParams(currentSearch), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -285,9 +287,9 @@ export default function Browse() {
             <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
               <Library className="h-5 w-5 text-primary" />
             </div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Browse Library</h1>
+            <h1 className="text-3xl font-serif font-bold text-foreground">{t("browse.title")}</h1>
           </div>
-          <p className="text-muted-foreground">Discover course materials by title, topic, course, or lecturer.</p>
+          <p className="text-muted-foreground">{t("browse.subtitle")}</p>
         </div>
       </div>
 
@@ -296,10 +298,10 @@ export default function Browse() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
           <TabsTrigger value="library" data-testid="browse-tab-library">
-            Library
+            {t("browse.tabLibrary")}
           </TabsTrigger>
           <TabsTrigger value="following" data-testid="browse-tab-following">
-            Following
+            {t("browse.tabFollowing")}
           </TabsTrigger>
         </TabsList>
 
@@ -314,8 +316,7 @@ export default function Browse() {
               data-testid="following-empty"
             >
               <p className="text-muted-foreground">
-                You're not following any documents yet. Star a document to get
-                notified when new comments are posted.
+                {t("browse.followingEmpty")}
               </p>
             </div>
           )}
@@ -325,14 +326,14 @@ export default function Browse() {
       <div className="bg-card border rounded-xl p-4 space-y-4 shadow-sm">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setShowSuggestions(false)}
-              placeholder="Search titles, descriptions..."
-              className="pl-9 w-full bg-background"
+              placeholder={t("browse.searchPlaceholder")}
+              className="ps-9 w-full bg-background"
               data-testid="browse-search"
             />
             {showSuggestions && (
@@ -415,8 +416,8 @@ export default function Browse() {
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
                 <span className="font-semibold text-foreground tabular-nums">{viewData.total}</span>
-                {" "}result{viewData.total === 1 ? "" : "s"}
-                {isFetching && <span className="ml-2 text-primary/60 animate-pulse">· refreshing…</span>}
+                {" "}{t("browse.resultsLabel", { count: viewData.total })}
+                {isFetching && <span className="ms-2 text-primary/60 animate-pulse">{t("browse.refreshing")}</span>}
               </p>
             </div>
 

@@ -35,11 +35,13 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import { ActivityFeed } from "@/components/activity-feed";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 function WoW({ now, prev }: { now: number; prev: number }) {
+  const { t } = useTranslation();
   if (prev === 0 && now === 0) return <span className="text-muted-foreground">—</span>;
-  if (prev === 0) return <span className="text-emerald-600 font-medium">new</span>;
+  if (prev === 0) return <span className="text-emerald-600 font-medium">{t("admin.analytics.new")}</span>;
   const pct = Math.round(((now - prev) / prev) * 100);
   const tone =
     pct > 0
@@ -49,8 +51,7 @@ function WoW({ now, prev }: { now: number; prev: number }) {
       : "text-muted-foreground";
   return (
     <span className={tone}>
-      {pct > 0 ? "+" : ""}
-      {pct}% vs last week
+      {t("admin.analytics.vsLastWeek", { pct: (pct > 0 ? "+" : "") + pct })}
     </span>
   );
 }
@@ -89,6 +90,7 @@ function StatTile({
 }
 
 export default function AdminAnalytics() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useGetAdminAnalyticsOverview();
 
   if (isLoading) {
@@ -101,29 +103,29 @@ export default function AdminAnalytics() {
   if (error || !data) {
     return (
       <div className="container mx-auto p-6">
-        <p className="text-rose-600">Failed to load analytics.</p>
+        <p className="text-rose-600">{t("admin.analytics.loadFailed")}</p>
       </div>
     );
   }
 
-  const t = data.totals;
+  const totals = data.totals;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-serif font-bold flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-primary" /> Workspace analytics
+            <BarChart3 className="h-6 w-6 text-primary" /> {t("admin.analytics.title")}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Read-only snapshot · updated {new Date(data.generatedAt).toLocaleTimeString()}.
+            {t("admin.analytics.updated", { time: new Date(data.generatedAt).toLocaleTimeString() })}
           </p>
         </div>
-        {t.pendingReviewCount > 0 && (
+        {totals.pendingReviewCount > 0 && (
           <Link href="/review-queue">
             <span className="inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer">
               <ShieldCheck className="h-4 w-4" />
-              {t.pendingReviewCount} pending review
+              {t("admin.analytics.pendingReview", { count: totals.pendingReviewCount })}
             </span>
           </Link>
         )}
@@ -131,71 +133,71 @@ export default function AdminAnalytics() {
 
       <Tabs defaultValue="overview">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="activity">Activity logs</TabsTrigger>
+          <TabsTrigger value="overview">{t("admin.analytics.overview")}</TabsTrigger>
+          <TabsTrigger value="activity">{t("admin.analytics.activityLogs")}</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-6 mt-4">
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={FileText}
-          label="Documents"
-          value={t.totalDocuments}
+          label={t("admin.analytics.documents")}
+          value={totals.totalDocuments}
           tileClass="bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
         />
         <StatTile
           icon={Users}
-          label="Active users"
-          value={t.totalUsers}
+          label={t("admin.analytics.activeUsers")}
+          value={totals.totalUsers}
           tileClass="bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
         />
         <StatTile
           icon={MessageSquare}
-          label="Comments"
-          value={t.totalComments}
+          label={t("admin.analytics.comments")}
+          value={totals.totalComments}
           tileClass="bg-violet-100 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400"
         />
         <StatTile
           icon={FileText}
-          label="Uploads this week"
-          value={t.uploadsThisWeek}
+          label={t("admin.analytics.uploadsThisWeek")}
+          value={totals.uploadsThisWeek}
           tileClass="bg-primary/10 text-primary"
         />
         <StatTile
           icon={Eye}
-          label="Views this week"
-          value={t.viewsThisWeek}
-          hint={<WoW now={t.viewsThisWeek} prev={t.viewsPriorWeek} />}
+          label={t("admin.analytics.viewsThisWeek")}
+          value={totals.viewsThisWeek}
+          hint={<WoW now={totals.viewsThisWeek} prev={totals.viewsPriorWeek} />}
           tileClass="bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-400"
         />
         <StatTile
           icon={Download}
-          label="Downloads this week"
-          value={t.downloadsThisWeek}
-          hint={<WoW now={t.downloadsThisWeek} prev={t.downloadsPriorWeek} />}
+          label={t("admin.analytics.downloadsThisWeek")}
+          value={totals.downloadsThisWeek}
+          hint={<WoW now={totals.downloadsThisWeek} prev={totals.downloadsPriorWeek} />}
           tileClass="bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
         />
         <StatTile
           icon={ShieldCheck}
-          label="Pending review"
-          value={t.pendingReviewCount}
+          label={t("admin.analytics.pendingReviewLabel")}
+          value={totals.pendingReviewCount}
           tileClass={
-            t.pendingReviewCount > 0
+            totals.pendingReviewCount > 0
               ? "bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
               : "bg-secondary text-muted-foreground"
           }
-          cardClass={t.pendingReviewCount > 0 ? "border-amber-200 dark:border-amber-800" : undefined}
+          cardClass={totals.pendingReviewCount > 0 ? "border-amber-200 dark:border-amber-800" : undefined}
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Uploads — last 14 days</CardTitle>
-          <CardDescription>Documents created per day (deleted excluded).</CardDescription>
+          <CardTitle className="text-base">{t("admin.analytics.uploads14")}</CardTitle>
+          <CardDescription>{t("admin.analytics.uploads14Desc")}</CardDescription>
         </CardHeader>
         <CardContent className="h-56 sm:h-64">
           {data.uploadsLast14Days.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No uploads in the last 14 days.</p>
+            <p className="text-muted-foreground text-sm">{t("admin.analytics.noUploads14")}</p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.uploadsLast14Days}>
@@ -212,13 +214,13 @@ export default function AdminAnalytics() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Leaderboard
-          title="Most viewed (30 days)"
+          title={t("admin.analytics.mostViewed30")}
           icon={<Eye className="h-4 w-4" />}
           rows={data.topDocumentsByViews}
           metricLabel="views"
         />
         <Leaderboard
-          title="Most downloaded (30 days)"
+          title={t("admin.analytics.mostDownloaded30")}
           icon={<Download className="h-4 w-4" />}
           rows={data.topDocumentsByDownloads}
           metricLabel="downloads"
@@ -227,11 +229,11 @@ export default function AdminAnalytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Active uploaders this week</CardTitle>
+          <CardTitle className="text-base">{t("admin.analytics.activeUploaders")}</CardTitle>
         </CardHeader>
         <CardContent>
           {data.activeUploaders.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No uploads this week.</p>
+            <p className="text-muted-foreground text-sm">{t("admin.analytics.noUploadsWeek")}</p>
           ) : (
             <ul className="divide-y divide-border/60">
               {data.activeUploaders.map((u) => (
@@ -240,8 +242,8 @@ export default function AdminAnalytics() {
                   className="flex items-center justify-between py-2 first:pt-0 last:pb-0"
                 >
                   <span className="font-medium text-sm truncate">{u.displayName}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums ml-3 shrink-0">
-                    {u.uploadCount} upload{u.uploadCount !== 1 ? "s" : ""}
+                  <span className="text-xs text-muted-foreground tabular-nums ms-3 shrink-0">
+                    {t("admin.analytics.uploadCount", { count: u.uploadCount })}
                   </span>
                 </li>
               ))}
@@ -254,13 +256,13 @@ export default function AdminAnalytics() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <FolderTree className="h-4 w-4" /> Top categories
+              <FolderTree className="h-4 w-4" /> {t("admin.analytics.topCategories")}
             </CardTitle>
-            <CardDescription>Published documents grouped by category.</CardDescription>
+            <CardDescription>{t("admin.analytics.topCategoriesDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             {data.topCategories.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No categorised documents yet.</p>
+              <p className="text-muted-foreground text-sm">{t("admin.analytics.noCategorised")}</p>
             ) : (
               <ol className="divide-y divide-border/60">
                 {data.topCategories.map((c, idx) => (
@@ -289,13 +291,13 @@ export default function AdminAnalytics() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Copy className="h-4 w-4" /> Possible duplicates
+              <Copy className="h-4 w-4" /> {t("admin.analytics.possibleDuplicates")}
             </CardTitle>
-            <CardDescription>Files that share identical content checksums.</CardDescription>
+            <CardDescription>{t("admin.analytics.possibleDuplicatesDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             {data.duplicateGroups.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No duplicate files detected.</p>
+              <p className="text-muted-foreground text-sm">{t("admin.analytics.noDuplicates")}</p>
             ) : (
               <ul className="divide-y divide-border/60">
                 {data.duplicateGroups.map((g) => (
@@ -311,7 +313,7 @@ export default function AdminAnalytics() {
                       {g.sampleTitle}
                     </Link>
                     <span className="inline-flex items-center rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700 shrink-0 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
-                      {g.count} copies
+                      {t("admin.analytics.copies", { count: g.count })}
                     </span>
                   </li>
                 ))}
@@ -341,6 +343,7 @@ function Leaderboard({
   rows: Array<{ documentId: string; title: string; courseCode: string | null; count: number }>;
   metricLabel: string;
 }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -350,7 +353,7 @@ function Leaderboard({
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No data yet.</p>
+          <p className="text-muted-foreground text-sm">{t("admin.analytics.noData")}</p>
         ) : (
           <ol className="divide-y divide-border/60">
             {rows.map((r, idx) => (

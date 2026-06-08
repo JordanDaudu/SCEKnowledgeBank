@@ -34,6 +34,7 @@ import { formatMaterialType } from "@/lib/material-types";
 import { KIND_LABEL } from "@/components/collections/CollectionCard";
 import CollectionComments from "@/components/collections/CollectionComments";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   FolderOpen,
@@ -47,6 +48,7 @@ import {
 } from "lucide-react";
 
 export default function PrepHubCollection() {
+  const { t } = useTranslation();
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
 
@@ -83,8 +85,8 @@ export default function PrepHubCollection() {
 
   const handleError = (err: unknown) => {
     const data = (err as { data?: { error?: { message?: string } } })?.data;
-    const message = data?.error?.message ?? (err as Error)?.message ?? "Something went wrong";
-    toast({ variant: "destructive", title: "Action failed", description: message });
+    const message = data?.error?.message ?? (err as Error)?.message ?? t("prepHubCollection.somethingWentWrong");
+    toast({ variant: "destructive", title: t("prepHubCollection.actionFailed"), description: message });
   };
 
   const setProgress = (documentId: string, status: string) =>
@@ -110,7 +112,7 @@ export default function PrepHubCollection() {
 
   const handleHide = () => {
     if (!col) return;
-    const reason = prompt("Optional reason for hiding this collection:") ?? "";
+    const reason = prompt(t("prepHubCollection.hidePrompt")) ?? "";
     hideMut.mutate(
       { id, data: { reason: reason.trim() || undefined } },
       { onSuccess: refresh, onError: handleError },
@@ -136,9 +138,9 @@ export default function PrepHubCollection() {
   if (!col) {
     return (
       <div className="py-20 text-center text-muted-foreground">
-        Collection not found.{" "}
+        {t("collectionManage.notFound")}{" "}
         <Link href="/prep-hub" className="text-primary hover:underline">
-          Back to Prep Hub
+          {t("prepHubCollection.backToPrepHub")}
         </Link>
       </div>
     );
@@ -169,14 +171,14 @@ export default function PrepHubCollection() {
         href="/prep-hub"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ChevronLeft className="h-4 w-4" /> Prep Hub
+        <ChevronLeft className="h-4 w-4" /> {t("prepHub.title")}
       </Link>
 
       {col.hiddenAt && (
         <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <EyeOff className="h-4 w-4 shrink-0" />
           <span>
-            <span className="font-semibold">Hidden from Prep Hub</span>
+            <span className="font-semibold">{t("collectionManage.hiddenTitle")}</span>
             {col.hiddenReason ? `: ${col.hiddenReason}` : ""}
           </span>
         </div>
@@ -194,12 +196,12 @@ export default function PrepHubCollection() {
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               {categoryName && (
                 <span>
-                  Subject: <span className="text-foreground">{categoryName}</span>
+                  {t("collectionManage.subject")} <span className="text-foreground">{categoryName}</span>
                 </span>
               )}
               {col.examName && (
                 <span>
-                  Exam: <span className="text-foreground">{col.examName}</span>
+                  {t("collectionManage.exam")} <span className="text-foreground">{col.examName}</span>
                 </span>
               )}
               {(semesterLabel || col.academicYear) && (
@@ -222,22 +224,22 @@ export default function PrepHubCollection() {
           )}
           <p className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <span>
-              {col.itemCount} {col.itemCount === 1 ? "document" : "documents"}
+              {t("collectionManage.documentCount", { count: col.itemCount })}
             </span>
-            <span className="inline-flex items-center gap-1" title="Followers">
+            <span className="inline-flex items-center gap-1" title={t("collectionManage.followers")}>
               <Users className="h-3.5 w-3.5" />
               {col.followerCount}
             </span>
             <span
               className="inline-flex items-center gap-1 text-primary/80"
-              title="Popularity score (followers × 3 + materials)"
+              title={t("collectionManage.popularityTitle")}
             >
               <TrendingUp className="h-3.5 w-3.5" />
               {col.popularityScore}
             </span>
-            <span className="inline-flex items-center gap-1" title="Views">
+            <span className="inline-flex items-center gap-1" title={t("browse.card.views")}>
               <Eye className="h-3.5 w-3.5" />
-              {col.viewCount} views · {col.uniqueViewCount} unique
+              {t("prepHubCollection.viewsDetail", { count: col.viewCount, unique: col.uniqueViewCount })}
             </span>
           </p>
         </div>
@@ -253,7 +255,7 @@ export default function PrepHubCollection() {
                 data-testid="collection-unhide"
               >
                 <Eye className="h-4 w-4" />
-                Unhide
+                {t("prepHubCollection.unhide")}
               </Button>
             ) : (
               <Button
@@ -265,7 +267,7 @@ export default function PrepHubCollection() {
                 data-testid="collection-hide"
               >
                 <EyeOff className="h-4 w-4" />
-                Hide
+                {t("prepHubCollection.hide")}
               </Button>
             )
           ) : (
@@ -278,7 +280,7 @@ export default function PrepHubCollection() {
               data-testid="collection-follow"
             >
               <Heart className={"h-4 w-4 " + (col.isFollowing ? "fill-current" : "")} />
-              {col.isFollowing ? "Following" : "Follow"}
+              {col.isFollowing ? t("prepHubCollection.following") : t("prepHubCollection.follow")}
             </Button>
           )}
 
@@ -293,7 +295,7 @@ export default function PrepHubCollection() {
                 <button
                   key={star}
                   type="button"
-                  aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
+                  aria-label={t("prepHubCollection.rateStar", { count: star })}
                   disabled={isAdmin || isRatingPending}
                   onClick={isAdmin ? undefined : () => handleRate(star)}
                   className={
@@ -323,7 +325,7 @@ export default function PrepHubCollection() {
           {!isAdmin && (
             <button
               type="button"
-              aria-label={col.isLiked ? "Unlike collection" : "Like collection"}
+              aria-label={col.isLiked ? t("prepHubCollection.unlike") : t("prepHubCollection.like")}
               disabled={likeMut.isPending || unlikeMut.isPending}
               onClick={toggleLike}
               data-testid="collection-like"
@@ -346,9 +348,9 @@ export default function PrepHubCollection() {
       {canTrack && col.itemCount > 0 && (
         <div className="rounded-lg border bg-card p-4">
           <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="font-medium">Study progress</span>
+            <span className="font-medium">{t("collectionManage.studyProgress")}</span>
             <span className="text-muted-foreground tabular-nums">
-              {col.completedCount} of {col.itemCount} completed · {col.progressPercent}%
+              {t("collectionManage.progressDetail", { completed: col.completedCount, total: col.itemCount, pct: col.progressPercent })}
             </span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
@@ -366,7 +368,7 @@ export default function PrepHubCollection() {
 
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-card py-16 text-center" data-testid="collection-empty">
-          <p className="text-muted-foreground">This collection has no materials yet.</p>
+          <p className="text-muted-foreground">{t("prepHubCollection.empty")}</p>
         </div>
       ) : (
         <ul className="space-y-2" data-testid="collection-items">
@@ -403,9 +405,9 @@ export default function PrepHubCollection() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Not started</SelectItem>
-                        <SelectItem value="reviewing">Reviewing</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="none">{t("collectionManage.notStarted")}</SelectItem>
+                        <SelectItem value="reviewing">{t("collectionManage.reviewing")}</SelectItem>
+                        <SelectItem value="completed">{t("collectionManage.completed")}</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
