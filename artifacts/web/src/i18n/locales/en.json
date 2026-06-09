@@ -27,10 +27,36 @@
     "adminApprovals": "Admin Approvals",
     "prepHubModeration": "Prep Hub Moderation",
     "orphanedFiles": "Orphaned Files",
+    "leaderboard": "Leaderboard",
     "mainNav": "Main navigation",
     "mobileNav": "Mobile navigation",
     "openMenu": "Open navigation menu",
     "openProfile": "Open your profile"
+  },
+  "reputation": {
+    "title": "Reputation",
+    "score": "Reputation score",
+    "rank": "Rank",
+    "points": "{{count}} pts",
+    "level": "Level",
+    "badges": "Badges",
+    "earnedBadges": "Earned badges",
+    "lockedBadges": "Badges to unlock",
+    "noBadgesYet": "No badges yet — start contributing to earn your first.",
+    "yourReputation": "Your reputation",
+    "topContributors": "Top contributors",
+    "nextUp": "Next up"
+  },
+  "leaderboard": {
+    "title": "Contributor Leaderboard",
+    "subtitle": "Ranked by reputation — uploads, helpful contributions, and engagement.",
+    "rankCol": "Rank",
+    "memberCol": "Member",
+    "levelCol": "Level",
+    "scoreCol": "Score",
+    "badgesCol": "Badges",
+    "empty": "No contributors yet. Be the first to share material!",
+    "you": "You"
   },
   "login": {
     "tagline": "Academic materials, requests, and course knowledge in one place.",
