@@ -1,10 +1,11 @@
 # Cloud Build CI/CD pipeline for the Knowledge Bank.
 #
-# Triggered on push to `main`: builds + pushes the three images, applies any
-# new DB migrations (idempotent; seed is gated by a sentinel), then redeploys
-# the API and web Cloud Run services with the new images. Existing service
-# config (secrets, env vars, GCS volume) is preserved because each
-# `gcloud run deploy` only changes --image.
+# Triggered on push to `main`: first runs a typecheck gate (the whole build
+# aborts if it fails, so nothing is built or deployed), then builds + pushes the
+# three images, applies any new DB migrations (idempotent; seed is gated by a
+# sentinel), and redeploys the API and web Cloud Run services with the new
+# images. Existing service config (secrets, env vars, GCS volume) is preserved
+# because each `gcloud run deploy` only changes --image.
 #
 # Manual run (same effect): gcloud builds submit . --config=cloudbuild.yaml
 # Override the API URL baked into the web bundle:
@@ -25,6 +26,23 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
+  # ---- gate: typecheck before building or deploying anything ----
+  # Same toolchain as the Dockerfiles (Node 24 + corepack/pnpm). The Prisma
+  # client must be generated first because pnpm's onlyBuiltDependencies gate
+  # skips it on install and the typecheck imports its generated types. If
+  # `pnpm typecheck` exits non-zero this step fails and the whole build aborts,
+  # so a commit that doesn't compile never reaches build/migrate/deploy.
+  - name: node:24-alpine
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        set -e
+        corepack enable
+        pnpm install --no-frozen-lockfile
+        pnpm --filter @workspace/db run generate
+        pnpm run typecheck
+
   # ---- build + push: API ----
   - name: gcr.io/cloud-builders/docker
     env: ['DOCKER_BUILDKIT=1']
