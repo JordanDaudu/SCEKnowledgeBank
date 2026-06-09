@@ -4,6 +4,7 @@ import * as docsRepo from "../repositories/documents.repo";
 import * as usersRepo from "../repositories/users.repo";
 import * as usersService from "./users.service";
 import * as auditService from "./audit.service";
+import * as reputation from "./reputation.service";
 import * as notificationsService from "./notifications.service";
 import * as favoritesService from "./favorites.service";
 import * as permissions from "./permissions.service";
@@ -219,6 +220,10 @@ export async function createForDocument(
   await auditService.record(user.id, "comment.create", "comment", c.id, {
     documentId,
     mentionCount: mentionUserIds.length,
+  });
+  // Reputation: the author may have crossed a comment milestone. Best-effort.
+  void reputation.evaluateBadges(user.id).catch(() => {
+    /* badges are non-critical */
   });
 
   // Producer hooks (Sprint-3 M1). Fire-and-forget: notifications must

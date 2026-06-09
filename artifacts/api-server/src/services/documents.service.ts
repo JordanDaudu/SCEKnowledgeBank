@@ -15,6 +15,7 @@ import * as taxonomyService from "./taxonomy.service";
 import * as auditService from "./audit.service";
 import * as permissions from "./permissions.service";
 import * as notificationsService from "./notifications.service";
+import * as reputation from "./reputation.service";
 import { badRequest, forbidden, notFound, unauthorized } from "../lib/errors";
 import { signToken, verifyToken } from "../lib/sign-url";
 import { getStorage } from "../lib/storage";
@@ -1254,6 +1255,12 @@ export async function uploadDocuments(
     }
   }
 
+  // Reputation: the uploader may have just crossed an upload milestone
+  // (e.g. First Upload). Best-effort; never affect the upload result.
+  void reputation.evaluateBadges(user.id).catch(() => {
+    /* badges are non-critical */
+  });
+
   return results;
 }
 
@@ -1717,6 +1724,14 @@ export async function streamDownload(
     .incrementDownloadCount(id)
     .catch(() => {
       /* best-effort counter; ignore */
+    });
+  // Reputation: the document's owner just earned a download — re-check their
+  // badges. Fire-and-forget; never block or fail the stream.
+  void docsRepo
+    .findByIdAlive(id)
+    .then((d) => (d ? reputation.evaluateBadges(d.uploaderId) : undefined))
+    .catch(() => {
+      /* badges are non-critical */
     });
 }
 

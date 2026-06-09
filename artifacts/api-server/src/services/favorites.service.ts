@@ -4,6 +4,7 @@ import * as enrollmentsRepo from "../repositories/enrollments.repo";
 import * as documentsService from "./documents.service";
 import * as permissions from "./permissions.service";
 import * as auditService from "./audit.service";
+import * as reputation from "./reputation.service";
 import { forbidden, notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -22,12 +23,16 @@ export async function favoriteDocument(
   documentId: string,
   user: AuthenticatedUser,
 ): Promise<{ favorited: true }> {
-  await loadVisibleDocument(documentId, user);
+  const doc = await loadVisibleDocument(documentId, user);
   const inserted = await favoritesRepo.insertIfAbsent(user.id, documentId);
   // Audit only on an actual insert so a repeat favorite doesn't duplicate
   // the activity entry.
   if (inserted) {
     await auditService.record(user.id, "document.favorite", "document", documentId);
+    // Reputation: the owner just earned a favorite — re-check their badges.
+    void reputation.evaluateBadges(doc.uploaderId).catch(() => {
+      /* badges are non-critical */
+    });
   }
   return { favorited: true };
 }
