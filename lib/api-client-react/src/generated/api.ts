@@ -48,8 +48,10 @@ import type {
   EditCollectionCommentBody,
   FavoriteStatus,
   GetDocumentThumbnailParams,
+  GetLeaderboardParams,
   HealthStatus,
   HideCollectionBody,
+  Leaderboard,
   ListActivityParams,
   ListCollectionModerationParams,
   ListCoursesParams,
@@ -102,6 +104,7 @@ import type {
   UploadDocumentsBody,
   UploadMyAvatarBody,
   UploadResult,
+  UserReputation,
   UserSummary,
 } from "./api.schemas";
 
@@ -9644,6 +9647,188 @@ export function useListRecommendations<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListRecommendationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Users ranked by derived reputation score. Served from a short-lived in-memory cache. Score is computed from current state (uploads, downloads/favorites received, comments, collections, etc.).
+ * @summary Contributor reputation leaderboard
+ */
+export const getGetLeaderboardUrl = (params?: GetLeaderboardParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/leaderboard?${stringifiedParams}`
+    : `/api/leaderboard`;
+};
+
+export const getLeaderboard = async (
+  params?: GetLeaderboardParams,
+  options?: RequestInit,
+): Promise<Leaderboard> => {
+  return customFetch<Leaderboard>(getGetLeaderboardUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLeaderboardQueryKey = (params?: GetLeaderboardParams) => {
+  return [`/api/leaderboard`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetLeaderboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: GetLeaderboardParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeaderboard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboard>>> = ({
+    signal,
+  }) => getLeaderboard(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeaderboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLeaderboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeaderboard>>
+>;
+export type GetLeaderboardQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Contributor reputation leaderboard
+ */
+
+export function useGetLeaderboard<
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: GetLeaderboardParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeaderboard>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLeaderboardQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary A user's reputation score, level, and badges
+ */
+export const getGetUserReputationUrl = (id: string) => {
+  return `/api/users/${id}/reputation`;
+};
+
+export const getUserReputation = async (
+  id: string,
+  options?: RequestInit,
+): Promise<UserReputation> => {
+  return customFetch<UserReputation>(getGetUserReputationUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUserReputationQueryKey = (id: string) => {
+  return [`/api/users/${id}/reputation`] as const;
+};
+
+export const getGetUserReputationQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUserReputation>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserReputation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUserReputationQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUserReputation>>
+  > = ({ signal }) => getUserReputation(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUserReputation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUserReputationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUserReputation>>
+>;
+export type GetUserReputationQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary A user's reputation score, level, and badges
+ */
+
+export function useGetUserReputation<
+  TData = Awaited<ReturnType<typeof getUserReputation>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUserReputation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUserReputationQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -8830,3 +8830,88 @@ export const ListRecommendationsResponseItem = zod.object({
 export const ListRecommendationsResponse = zod.array(
   ListRecommendationsResponseItem,
 );
+
+/**
+ * Users ranked by derived reputation score. Served from a short-lived in-memory cache. Score is computed from current state (uploads, downloads/favorites received, comments, collections, etc.).
+ * @summary Contributor reputation leaderboard
+ */
+export const getLeaderboardQueryLimitDefault = 50;
+export const getLeaderboardQueryLimitMax = 100;
+
+export const GetLeaderboardQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(getLeaderboardQueryLimitMax)
+    .default(getLeaderboardQueryLimitDefault),
+});
+
+export const GetLeaderboardResponse = zod.object({
+  rows: zod.array(
+    zod.object({
+      rank: zod.number(),
+      userId: zod.string().uuid(),
+      displayName: zod.string(),
+      username: zod.string().nullable(),
+      avatarUrl: zod.string().nullable(),
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadges: zod.array(
+        zod.object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  generatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary A user's reputation score, level, and badges
+ */
+export const GetUserReputationParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetUserReputationResponse = zod.object({
+  userId: zod.string().uuid(),
+  score: zod.number(),
+  level: zod.object({
+    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+    label: zod.string(),
+    minScore: zod.number(),
+  }),
+  stats: zod.object({
+    publishedUploads: zod.number(),
+    downloadsReceived: zod.number(),
+    favoritesReceived: zod.number(),
+    publicCollections: zod.number(),
+    followersReceived: zod.number(),
+    comments: zod.number(),
+    reactionsReceived: zod.number(),
+    requests: zod.number(),
+  }),
+  badges: zod.array(
+    zod.object({
+      key: zod.string(),
+      name: zod.string(),
+      description: zod.string(),
+      icon: zod.string(),
+    }),
+  ),
+  nextBadges: zod.array(
+    zod.object({
+      key: zod.string(),
+      name: zod.string(),
+      description: zod.string(),
+      icon: zod.string(),
+    }),
+  ),
+});

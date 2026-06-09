@@ -1765,8 +1765,125 @@ paths:
           content:
             application/json:
               schema: { type: array, items: { $ref: "#/components/schemas/Document" } }
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [reputation]
+      summary: Contributor reputation leaderboard
+      description: >-
+        Users ranked by derived reputation score. Served from a short-lived
+        in-memory cache. Score is computed from current state (uploads,
+        downloads/favorites received, comments, collections, etc.).
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Leaderboard" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
+
+  /users/{id}/reputation:
+    get:
+      operationId: getUserReputation
+      tags: [reputation]
+      summary: A user's reputation score, level, and badges
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: User reputation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserReputation" }
+        "401": { description: Not authenticated, content: { application/json: { schema: { $ref: "#/components/schemas/ApiError" } } } }
 components:
   schemas:
+    ReputationLevel:
+      type: object
+      required: [key, label, minScore]
+      properties:
+        key: { type: string, enum: [novice, contributor, scholar, sage] }
+        label: { type: string }
+        minScore: { type: integer }
+
+    ReputationBadge:
+      type: object
+      required: [key, name, description, icon]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+        icon: { type: string }
+
+    ReputationStats:
+      type: object
+      required:
+        - publishedUploads
+        - downloadsReceived
+        - favoritesReceived
+        - publicCollections
+        - followersReceived
+        - comments
+        - reactionsReceived
+        - requests
+      properties:
+        publishedUploads: { type: integer }
+        downloadsReceived: { type: integer }
+        favoritesReceived: { type: integer }
+        publicCollections: { type: integer }
+        followersReceived: { type: integer }
+        comments: { type: integer }
+        reactionsReceived: { type: integer }
+        requests: { type: integer }
+
+    UserReputation:
+      type: object
+      required: [userId, score, level, stats, badges, nextBadges]
+      properties:
+        userId: { type: string, format: uuid }
+        score: { type: integer }
+        level: { $ref: "#/components/schemas/ReputationLevel" }
+        stats: { $ref: "#/components/schemas/ReputationStats" }
+        badges:
+          type: array
+          items: { $ref: "#/components/schemas/ReputationBadge" }
+        nextBadges:
+          type: array
+          items: { $ref: "#/components/schemas/ReputationBadge" }
+
+    LeaderboardRow:
+      type: object
+      required: [rank, userId, displayName, username, avatarUrl, score, level, topBadges]
+      properties:
+        rank: { type: integer }
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        username: { type: string, nullable: true }
+        avatarUrl: { type: string, nullable: true }
+        score: { type: integer }
+        level: { $ref: "#/components/schemas/ReputationLevel" }
+        topBadges:
+          type: array
+          items: { $ref: "#/components/schemas/ReputationBadge" }
+
+    Leaderboard:
+      type: object
+      required: [rows, generatedAt]
+      properties:
+        rows:
+          type: array
+          items: { $ref: "#/components/schemas/LeaderboardRow" }
+        generatedAt: { type: string, format: date-time }
+
     HealthStatus:
       type: object
       required: [status]
