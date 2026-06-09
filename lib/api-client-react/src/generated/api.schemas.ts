@@ -5,6 +5,71 @@
  * Knowledge Bank API
  * OpenAPI spec version: 0.2.0
  */
+export type ReputationLevelKey =
+  (typeof ReputationLevelKey)[keyof typeof ReputationLevelKey];
+
+export const ReputationLevelKey = {
+  novice: "novice",
+  contributor: "contributor",
+  scholar: "scholar",
+  sage: "sage",
+} as const;
+
+export interface ReputationLevel {
+  key: ReputationLevelKey;
+  label: string;
+  minScore: number;
+}
+
+export interface ReputationBadge {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
+export interface AuthorReputation {
+  score: number;
+  level: ReputationLevel;
+  topBadge: ReputationBadge | null;
+}
+
+export interface ReputationStats {
+  publishedUploads: number;
+  downloadsReceived: number;
+  favoritesReceived: number;
+  publicCollections: number;
+  followersReceived: number;
+  comments: number;
+  reactionsReceived: number;
+  requests: number;
+}
+
+export interface UserReputation {
+  userId: string;
+  score: number;
+  level: ReputationLevel;
+  stats: ReputationStats;
+  badges: ReputationBadge[];
+  nextBadges: ReputationBadge[];
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  userId: string;
+  displayName: string;
+  username: string | null;
+  avatarUrl: string | null;
+  score: number;
+  level: ReputationLevel;
+  topBadges: ReputationBadge[];
+}
+
+export interface Leaderboard {
+  rows: LeaderboardRow[];
+  generatedAt: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -95,6 +160,7 @@ export interface UserSummary {
   isActive: boolean;
   status: UserSummaryStatus;
   createdAt: string;
+  reputation?: AuthorReputation | null;
 }
 
 export type RegisterRequestRole =
@@ -1468,4 +1534,12 @@ export type ListCollectionModerationParams = {
 
 export type HideCollectionBody = {
   reason?: string;
+};
+
+export type GetLeaderboardParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
 };

@@ -99,6 +99,7 @@ model User {
   collectionRatings  StudyCollectionRating[]
   collectionViews    StudyCollectionView[]
   collectionComments StudyCollectionComment[]
+  badges             UserBadge[]
 
   @@index([primaryRoleId], map: "users_primary_role_idx")
   @@map("users")
@@ -115,6 +116,22 @@ model UserRole {
   @@id([userId, roleId])
   @@index([roleId], map: "user_roles_role_idx")
   @@map("user_roles")
+}
+
+// Earned gamification achievements. Definitions live in code
+// (`api-server/src/lib/reputation.ts`); only the awarded rows are stored.
+// Permanent once earned — the unique key makes awarding idempotent.
+model UserBadge {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  badgeKey  String   @map("badge_key")
+  awardedAt DateTime @default(now()) @map("awarded_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeKey], map: "user_badges_user_key_unique")
+  @@index([userId], map: "user_badges_user_idx")
+  @@map("user_badges")
 }
 
 model Permission {

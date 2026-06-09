@@ -27,10 +27,36 @@
     "adminApprovals": "אישורי מנהל",
     "prepHubModeration": "ניהול מרכז הכנה",
     "orphanedFiles": "קבצים יתומים",
+    "leaderboard": "טבלת מובילים",
     "mainNav": "ניווט ראשי",
     "mobileNav": "ניווט נייד",
     "openMenu": "פתיחת תפריט הניווט",
     "openProfile": "פתיחת הפרופיל שלך"
+  },
+  "reputation": {
+    "title": "מוניטין",
+    "score": "ניקוד מוניטין",
+    "rank": "דירוג",
+    "points": "{{count}} נק׳",
+    "level": "רמה",
+    "badges": "תגים",
+    "earnedBadges": "תגים שהושגו",
+    "lockedBadges": "תגים לפתיחה",
+    "noBadgesYet": "עדיין אין תגים — התחילו לתרום כדי להשיג את הראשון.",
+    "yourReputation": "המוניטין שלך",
+    "topContributors": "התורמים המובילים",
+    "nextUp": "הבא בתור"
+  },
+  "leaderboard": {
+    "title": "טבלת התורמים המובילים",
+    "subtitle": "מדורג לפי מוניטין — העלאות, תרומות מועילות ומעורבות.",
+    "rankCol": "דירוג",
+    "memberCol": "חבר",
+    "levelCol": "רמה",
+    "scoreCol": "ניקוד",
+    "badgesCol": "תגים",
+    "empty": "אין עדיין תורמים. היו הראשונים לשתף חומר!",
+    "you": "את/ה"
   },
   "login": {
     "tagline": "חומרים אקדמיים, בקשות וידע על קורסים במקום אחד.",

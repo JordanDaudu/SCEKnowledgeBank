@@ -6,6 +6,8 @@ import {
   useRemoveMyAvatar,
   useCheckUsernameAvailability,
   getCheckUsernameAvailabilityQueryKey,
+  useGetUserReputation,
+  getGetUserReputationQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,12 +22,20 @@ import { apiUrl } from "@/lib/api-url";
 import { UserCircle, Upload, Trash2, Loader2 } from "lucide-react";
 import CourseMembership from "@/components/profile/CourseMembership";
 import DeleteAccount from "@/components/profile/DeleteAccount";
+import { ReputationBadge } from "@/components/reputation/ReputationBadge";
+import { BadgeShelf } from "@/components/reputation/BadgeShelf";
 
 export default function Profile() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: me, isLoading } = useGetCurrentUser();
+  const { data: rep } = useGetUserReputation(me?.id ?? "", {
+    query: {
+      queryKey: getGetUserReputationQueryKey(me?.id ?? ""),
+      enabled: !!me?.id,
+    },
+  });
 
   const [username, setUsername] = useState("");
   const [avatarBust, setAvatarBust] = useState(0); // cache-bust the <img> after change
@@ -198,6 +208,21 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reputation & badges */}
+      {rep ? (
+        <Card>
+          <CardContent className="space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif text-xl font-bold text-foreground">
+                {t("reputation.title")}
+              </h2>
+              <ReputationBadge level={rep.level} score={rep.score} size="md" />
+            </div>
+            <BadgeShelf earned={rep.badges} locked={rep.nextBadges} />
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

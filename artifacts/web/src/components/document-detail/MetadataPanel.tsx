@@ -6,6 +6,7 @@ import { formatDateTime, formatVersion } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
 import { useTranslation } from "react-i18next";
 import { StatusBadge } from "./StatusBadge";
+import { ReputationBadge } from "@/components/reputation/ReputationBadge";
 
 interface Props {
   doc: DocumentDetailDto;
@@ -179,7 +180,15 @@ export default function MetadataPanel({
 
       <div className="flex items-center justify-between text-sm text-muted-foreground mb-6 pb-6 border-b">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1"><User className="h-3 w-3" /> {doc.uploader.displayName}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1"><User className="h-3 w-3" /> {doc.uploader.displayName}</span>
+            {doc.uploader.reputation ? (
+              <ReputationBadge
+                level={doc.uploader.reputation.level}
+                score={doc.uploader.reputation.score}
+              />
+            ) : null}
+          </div>
           <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> {formatDateTime(doc.createdAt)}</div>
         </div>
       </div>

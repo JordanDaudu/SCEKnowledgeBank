@@ -21,6 +21,7 @@ import { db } from "@workspace/db";
 import { getStorage } from "../lib/storage";
 import { logger } from "../lib/logger";
 import { extractMetadata } from "../services/documents/metadata.service";
+import { backfillBadges } from "./backfill-badges";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = path.resolve(
@@ -1954,6 +1955,11 @@ async function main() {
   console.log("     Exams, For You) populated by the seeded public collections");
   console.log(" 11. Login as Admin → Analytics → Activity logs tab; check the dashboard");
   /* eslint-enable no-console */
+
+  // Grant badges for the freshly-seeded contributions so the demo shows a
+  // realistic spread of achievements + leaderboard standings.
+  const badgedUsers = await backfillBadges();
+  logger.info({ badgedUsers }, "✓ Backfilled reputation badges.");
 
   logger.info("✓ Demo seed complete.");
 }
