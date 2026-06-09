@@ -929,6 +929,10 @@ async function main() {
     { key: "friedman",  email: "hila.friedman@knowledgebank.demo",  name: "Dr. Hila Friedman",   dept: "Mathematics",            lid: "L-2006" },
     { key: "rosenberg", email: "avi.rosenberg@knowledgebank.demo",  name: "Prof. Avi Rosenberg", dept: "Computer Science",       lid: "L-2007" },
     { key: "katz",      email: "dana.katz@knowledgebank.demo",      name: "Dr. Dana Katz",       dept: "Cyber Security",         lid: "L-2008" },
+    { key: "barak",     email: "tal.barak@knowledgebank.demo",      name: "Dr. Tal Barak",       dept: "Computer Science",       lid: "L-2009" },
+    { key: "shani",     email: "noam.shani@knowledgebank.demo",     name: "Prof. Noam Shani",    dept: "Data Science",               lid: "L-2010" },
+    { key: "dayan",     email: "efrat.dayan@knowledgebank.demo",    name: "Dr. Efrat Dayan",     dept: "Human-Computer Interaction", lid: "L-2011" },
+    { key: "solomon",   email: "gad.solomon@knowledgebank.demo",    name: "Prof. Gad Solomon",   dept: "Mathematics",            lid: "L-2012" },
   ];
   const lec: Record<string, { id: string; displayName: string }> = {};
   for (const l of BULK_LECTURERS) {
@@ -944,6 +948,10 @@ async function main() {
     ["Gilad Stern", "gilad.stern"], ["Yuval Harari", "yuval.harari"], ["Daniella Mor", "daniella.mor"],
     ["Ronen Geva", "ronen.geva"], ["Maya Sharabi", "maya.sharabi"], ["Adi Cohen", "adi.cohen"],
     ["Nadav Klein", "nadav.klein"], ["Hadar Vaknin", "hadar.vaknin"],
+    ["Ofir Buskila", "ofir.buskila"], ["Liel Azulay", "liel.azulay"], ["Bar Ohayon", "bar.ohayon"],
+    ["Tomer Regev", "tomer.regev"], ["Shani Lavi", "shani.lavi"], ["Nitzan Yaron", "nitzan.yaron"],
+    ["Idan Carmel", "idan.carmel"], ["Reut Halevi", "reut.halevi"], ["Yonatan Erez", "yonatan.erez"],
+    ["Avigail Tal", "avigail.tal"], ["Matan Dror", "matan.dror"], ["Sapir Elbaz", "sapir.elbaz"],
   ];
   const students: Array<{ id: string }> = [];
   for (let i = 0; i < BULK_STUDENTS.length; i++) {
@@ -960,6 +968,9 @@ async function main() {
     "cyber-security", "cryptography", "calculus", "linear-algebra", "discrete-math", "statistics",
     "web-development", "mobile-development", "devops", "software-engineering", "databases",
     "software-architecture", "compilers", "digital-logic", "data-structures", "scrum",
+    "theory-of-computation", "deep-learning", "distributed-systems", "data-science", "data-visualization",
+    "business-intelligence", "digital-forensics", "numerical-methods", "human-computer-interaction",
+    "ux-design", "software-testing", "cloud-computing",
   ];
   for (const t of BULK_TAGS) if (!tagsByName[t]) tagsByName[t] = (await ensureTag(t)).id;
 
@@ -967,6 +978,12 @@ async function main() {
     cs: ["software-engineering"], systems: ["operating-systems"], algo: ["algorithms", "data-structures"],
     data: ["databases"], ai: ["machine-learning", "artificial-intelligence"], se: ["software-engineering"],
     web: ["web-development"], security: ["cyber-security"], math: ["discrete-math"],
+    theory: ["theory-of-computation", "algorithms"], dl: ["deep-learning", "machine-learning"],
+    dist: ["distributed-systems", "operating-systems"], qa: ["software-testing", "software-engineering"],
+    cloud: ["cloud-computing", "devops"], ds: ["data-science", "statistics"],
+    dataviz: ["data-visualization", "data-science"], bi: ["business-intelligence", "databases"],
+    forensics: ["digital-forensics", "cyber-security"], numerical: ["numerical-methods", "calculus"],
+    hci: ["human-computer-interaction", "ux-design"], ux: ["ux-design", "web-development"],
   };
 
   interface BulkCourseDef { code: string; title: string; lec: string; area: string; topics: string[] }
@@ -995,6 +1012,18 @@ async function main() {
     { code: "MATH210", title: "Discrete Mathematics", lec: "friedman", area: "math", topics: ["Logic and proofs", "Set theory", "Functions and relations", "Combinatorics", "Graph theory", "Recurrences"] },
     { code: "MATH220", title: "Probability and Statistics", lec: "friedman", area: "math", topics: ["Sample spaces", "Conditional probability", "Random variables", "Common distributions", "Expectation and variance", "Hypothesis testing"] },
     { code: "EE201", title: "Digital Systems", lec: "shapira", area: "systems", topics: ["Binary and logic gates", "Combinational circuits", "Karnaugh maps", "Sequential circuits", "Finite state machines", "Registers and memory"] },
+    { code: "CS260", title: "Theory of Computation", lec: "barak", area: "theory", topics: ["Finite automata", "Regular languages", "Context-free grammars", "Turing machines", "Decidability", "Complexity classes"] },
+    { code: "CS380", title: "Deep Learning", lec: "shani", area: "dl", topics: ["Neural network basics", "Backpropagation", "Convolutional networks", "Recurrent networks", "Attention and transformers", "Training and regularization"] },
+    { code: "CS410", title: "Distributed Systems", lec: "barak", area: "dist", topics: ["Models of distribution", "Time and clocks", "Consensus and Paxos", "Replication", "Fault tolerance", "Distributed storage"] },
+    { code: "SE350", title: "Software Testing and QA", lec: "levin", area: "qa", topics: ["Testing fundamentals", "Unit and integration testing", "Test-driven development", "Mocking and fixtures", "Property-based testing", "Test automation"] },
+    { code: "SE360", title: "Cloud Computing", lec: "bendavid", area: "cloud", topics: ["Cloud service models", "Virtualization and containers", "Scaling and load balancing", "Serverless computing", "Cloud storage", "Cost and reliability"] },
+    { code: "DS201", title: "Introduction to Data Science", lec: "shani", area: "ds", topics: ["The data science workflow", "Data cleaning", "Exploratory data analysis", "Feature engineering", "Modeling basics", "Communicating results"] },
+    { code: "DS310", title: "Data Visualization", lec: "shani", area: "dataviz", topics: ["Principles of visual encoding", "Charts and when to use them", "Color and perception", "Interactive dashboards", "Storytelling with data", "Common pitfalls"] },
+    { code: "IS340", title: "Business Intelligence", lec: "bendavid", area: "bi", topics: ["BI architecture", "Data warehousing", "ETL pipelines", "OLAP and cubes", "Reporting and KPIs", "Self-service analytics"] },
+    { code: "CY330", title: "Digital Forensics", lec: "katz", area: "forensics", topics: ["The forensic process", "Disk and file system analysis", "Memory forensics", "Network forensics", "Mobile forensics", "Evidence and reporting"] },
+    { code: "MATH230", title: "Numerical Methods", lec: "solomon", area: "numerical", topics: ["Floating-point arithmetic", "Root finding", "Interpolation", "Numerical integration", "Solving linear systems", "Differential equations"] },
+    { code: "HCI201", title: "Human-Computer Interaction", lec: "dayan", area: "hci", topics: ["Foundations of HCI", "Human perception and cognition", "Interaction styles", "Usability evaluation", "Accessibility", "Design guidelines"] },
+    { code: "HCI310", title: "User Experience Design", lec: "dayan", area: "ux", topics: ["The UX process", "User research", "Personas and journeys", "Wireframing and prototyping", "Visual and interaction design", "Usability testing"] },
   ];
 
   const semesters = ["Fall", "Spring"];
