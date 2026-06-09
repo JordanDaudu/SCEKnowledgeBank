@@ -24,6 +24,7 @@ export * from "./analyticsTopCategory";
 export * from "./analyticsTopDocument";
 export * from "./apiError";
 export * from "./apiErrorError";
+export * from "./authorReputation";
 export * from "./autocompleteCourseHit";
 export * from "./autocompleteDocumentHit";
 export * from "./autocompleteTagHit";

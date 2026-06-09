@@ -1,5 +1,6 @@
 import * as usersRepo from "../repositories/users.repo";
 import * as quotaService from "./quota.service";
+import * as reputation from "./reputation.service";
 import { notFound } from "../lib/errors";
 import type { AuthenticatedUser } from "../middlewares/auth";
 
@@ -40,6 +41,9 @@ export interface UserSummaryDTO {
   isActive: boolean;
   status: usersRepo.AccountStatus;
   createdAt: string;
+  /** Optional author-credibility block; populated only when a caller passes
+   *  `{ withReputation: true }` (e.g. document uploaders). */
+  reputation?: reputation.AuthorReputation | null;
 }
 
 function toSummary(u: usersRepo.UserWithRoles): UserSummaryDTO {
@@ -56,12 +60,21 @@ function toSummary(u: usersRepo.UserWithRoles): UserSummaryDTO {
 
 export async function loadUserSummaries(
   ids: string[],
+  opts: { withReputation?: boolean } = {},
 ): Promise<Map<string, UserSummaryDTO>> {
   const out = new Map<string, UserSummaryDTO>();
   if (ids.length === 0) return out;
   const users = await usersRepo.findManyWithRolesByIds(ids);
   for (const u of users) {
     out.set(u.id, toSummary(u));
+  }
+  // Opt-in author credibility: one batched reputation lookup for the whole id
+  // set (no N+1). Only callers that surface author chips pay this cost.
+  if (opts.withReputation) {
+    const repMap = await reputation.reputationForUsers(ids);
+    for (const [id, summary] of out) {
+      summary.reputation = repMap.get(id) ?? null;
+    }
   }
   return out;
 }

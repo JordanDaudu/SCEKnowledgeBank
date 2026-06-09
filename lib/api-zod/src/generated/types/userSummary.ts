@@ -5,6 +5,7 @@
  * Knowledge Bank API
  * OpenAPI spec version: 0.2.0
  */
+import type { AuthorReputation } from "./authorReputation";
 import type { UserSummaryStatus } from "./userSummaryStatus";
 
 export interface UserSummary {
@@ -15,4 +16,5 @@ export interface UserSummary {
   isActive: boolean;
   status: UserSummaryStatus;
   createdAt: Date;
+  reputation?: AuthorReputation | null;
 }

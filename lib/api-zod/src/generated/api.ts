@@ -380,6 +380,24 @@ export const ListDocumentsResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        reputation: zod
+          .object({
+            score: zod.number(),
+            level: zod.object({
+              key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+              label: zod.string(),
+              minScore: zod.number(),
+            }),
+            topBadge: zod
+              .object({
+                key: zod.string(),
+                name: zod.string(),
+                description: zod.string(),
+                icon: zod.string(),
+              })
+              .nullable(),
+          })
+          .nullish(),
       }),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
@@ -514,6 +532,24 @@ export const ListDocumentsResponse = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          reputation: zod
+            .object({
+              score: zod.number(),
+              level: zod.object({
+                key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                label: zod.string(),
+                minScore: zod.number(),
+              }),
+              topBadge: zod
+                .object({
+                  key: zod.string(),
+                  name: zod.string(),
+                  description: zod.string(),
+                  icon: zod.string(),
+                })
+                .nullable(),
+            })
+            .nullish(),
         })
         .optional(),
       reviewReason: zod
@@ -634,6 +670,24 @@ export const ListRecentDocumentsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -762,6 +816,24 @@ export const ListRecentDocumentsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -879,6 +951,24 @@ export const SearchDocumentsV2Response = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          reputation: zod
+            .object({
+              score: zod.number(),
+              level: zod.object({
+                key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                label: zod.string(),
+                minScore: zod.number(),
+              }),
+              topBadge: zod
+                .object({
+                  key: zod.string(),
+                  name: zod.string(),
+                  description: zod.string(),
+                  icon: zod.string(),
+                })
+                .nullable(),
+            })
+            .nullish(),
         }),
         createdAt: zod.coerce.date(),
         updatedAt: zod.coerce.date(),
@@ -1013,6 +1103,24 @@ export const SearchDocumentsV2Response = zod.object({
             isActive: zod.boolean(),
             status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
             createdAt: zod.coerce.date(),
+            reputation: zod
+              .object({
+                score: zod.number(),
+                level: zod.object({
+                  key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                  label: zod.string(),
+                  minScore: zod.number(),
+                }),
+                topBadge: zod
+                  .object({
+                    key: zod.string(),
+                    name: zod.string(),
+                    description: zod.string(),
+                    icon: zod.string(),
+                  })
+                  .nullable(),
+              })
+              .nullish(),
           })
           .optional(),
         reviewReason: zod
@@ -1270,6 +1378,24 @@ export const GetDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -1398,6 +1524,24 @@ export const GetDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -1481,6 +1625,24 @@ export const UpdateDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -1609,6 +1771,24 @@ export const UpdateDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -1726,6 +1906,24 @@ export const ListDocumentVersionsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .nullish(),
   isCurrent: zod
@@ -1780,6 +1978,24 @@ export const RestoreDocumentVersionResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .nullish(),
   isCurrent: zod
@@ -1815,6 +2031,24 @@ export const ListDocumentCommentsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   editedAt: zod.coerce.date().optional(),
@@ -1829,6 +2063,24 @@ export const ListDocumentCommentsResponseItem = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        reputation: zod
+          .object({
+            score: zod.number(),
+            level: zod.object({
+              key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+              label: zod.string(),
+              minScore: zod.number(),
+            }),
+            topBadge: zod
+              .object({
+                key: zod.string(),
+                name: zod.string(),
+                description: zod.string(),
+                icon: zod.string(),
+              })
+              .nullable(),
+          })
+          .nullish(),
       }),
     )
     .describe(
@@ -1894,6 +2146,24 @@ export const UpdateCommentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   editedAt: zod.coerce.date().optional(),
@@ -1908,6 +2178,24 @@ export const UpdateCommentResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        reputation: zod
+          .object({
+            score: zod.number(),
+            level: zod.object({
+              key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+              label: zod.string(),
+              minScore: zod.number(),
+            }),
+            topBadge: zod
+              .object({
+                key: zod.string(),
+                name: zod.string(),
+                description: zod.string(),
+                icon: zod.string(),
+              })
+              .nullable(),
+          })
+          .nullish(),
       }),
     )
     .describe(
@@ -2063,6 +2351,24 @@ export const ListMyFavoritesResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -2191,6 +2497,24 @@ export const ListMyFavoritesResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -2234,6 +2558,24 @@ export const ListRequestsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   voteCount: zod.number(),
   hasVoted: zod.boolean(),
@@ -2280,6 +2622,24 @@ export const UpdateRequestResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   voteCount: zod.number(),
   hasVoted: zod.boolean(),
@@ -2312,6 +2672,24 @@ export const VoteRequestResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   voteCount: zod.number(),
   hasVoted: zod.boolean(),
@@ -2364,6 +2742,24 @@ export const ListUsersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 export const ListUsersResponse = zod.array(ListUsersResponseItem);
 
@@ -2378,6 +2774,24 @@ export const ListPendingLecturersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 export const ListPendingLecturersResponse = zod.array(
   ListPendingLecturersResponseItem,
@@ -2398,6 +2812,24 @@ export const ApproveUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 
 /**
@@ -2415,6 +2847,24 @@ export const DisableUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 
 /**
@@ -2428,6 +2878,24 @@ export const AdminListPendingLecturersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 export const AdminListPendingLecturersResponse = zod.array(
   AdminListPendingLecturersResponseItem,
@@ -2448,6 +2916,24 @@ export const AdminApproveUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 
 /**
@@ -2465,6 +2951,24 @@ export const AdminDisableUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 
 /**
@@ -2492,6 +2996,24 @@ export const SearchUsersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  reputation: zod
+    .object({
+      score: zod.number(),
+      level: zod.object({
+        key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+        label: zod.string(),
+        minScore: zod.number(),
+      }),
+      topBadge: zod
+        .object({
+          key: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          icon: zod.string(),
+        })
+        .nullable(),
+    })
+    .nullish(),
 });
 export const SearchUsersResponse = zod.array(SearchUsersResponseItem);
 
@@ -2568,6 +3090,24 @@ export const ListPendingReviewDocumentsResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        reputation: zod
+          .object({
+            score: zod.number(),
+            level: zod.object({
+              key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+              label: zod.string(),
+              minScore: zod.number(),
+            }),
+            topBadge: zod
+              .object({
+                key: zod.string(),
+                name: zod.string(),
+                description: zod.string(),
+                icon: zod.string(),
+              })
+              .nullable(),
+          })
+          .nullish(),
       }),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
@@ -2702,6 +3242,24 @@ export const ListPendingReviewDocumentsResponse = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          reputation: zod
+            .object({
+              score: zod.number(),
+              level: zod.object({
+                key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                label: zod.string(),
+                minScore: zod.number(),
+              }),
+              topBadge: zod
+                .object({
+                  key: zod.string(),
+                  name: zod.string(),
+                  description: zod.string(),
+                  icon: zod.string(),
+                })
+                .nullable(),
+            })
+            .nullish(),
         })
         .optional(),
       reviewReason: zod
@@ -2780,6 +3338,24 @@ export const SubmitDocumentForReviewResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -2914,6 +3490,24 @@ export const SubmitDocumentForReviewResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -2987,6 +3581,24 @@ export const ApproveDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -3115,6 +3727,24 @@ export const ApproveDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -3200,6 +3830,24 @@ export const RejectDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -3328,6 +3976,24 @@ export const RejectDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -3416,6 +4082,24 @@ export const ListPendingAdminApprovalDocumentsResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        reputation: zod
+          .object({
+            score: zod.number(),
+            level: zod.object({
+              key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+              label: zod.string(),
+              minScore: zod.number(),
+            }),
+            topBadge: zod
+              .object({
+                key: zod.string(),
+                name: zod.string(),
+                description: zod.string(),
+                icon: zod.string(),
+              })
+              .nullable(),
+          })
+          .nullish(),
       }),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
@@ -3550,6 +4234,24 @@ export const ListPendingAdminApprovalDocumentsResponse = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          reputation: zod
+            .object({
+              score: zod.number(),
+              level: zod.object({
+                key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                label: zod.string(),
+                minScore: zod.number(),
+              }),
+              topBadge: zod
+                .object({
+                  key: zod.string(),
+                  name: zod.string(),
+                  description: zod.string(),
+                  icon: zod.string(),
+                })
+                .nullable(),
+            })
+            .nullish(),
         })
         .optional(),
       reviewReason: zod
@@ -3628,6 +4330,24 @@ export const AdminApproveDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -3758,6 +4478,24 @@ export const AdminApproveDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -3813,6 +4551,24 @@ export const ListNotificationsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .nullable(),
 });
@@ -4283,6 +5039,24 @@ export const GetCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -4417,6 +5191,29 @@ export const GetCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -4553,6 +5350,24 @@ export const UpdateCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -4687,6 +5502,29 @@ export const UpdateCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -4817,6 +5655,24 @@ export const AddCollectionItemResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -4951,6 +5807,29 @@ export const AddCollectionItemResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -5077,6 +5956,24 @@ export const SetCollectionItemNoteResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -5211,6 +6108,29 @@ export const SetCollectionItemNoteResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -5333,6 +6253,24 @@ export const RemoveCollectionItemResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -5467,6 +6405,29 @@ export const RemoveCollectionItemResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -5592,6 +6553,24 @@ export const ReorderCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -5726,6 +6705,29 @@ export const ReorderCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -6056,6 +7058,24 @@ export const GetPublicCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -6190,6 +7210,29 @@ export const GetPublicCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -6314,6 +7357,24 @@ export const FollowCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -6448,6 +7509,29 @@ export const FollowCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -6572,6 +7656,24 @@ export const UnfollowCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -6706,6 +7808,29 @@ export const UnfollowCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -6830,6 +7955,24 @@ export const LikeCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -6964,6 +8107,29 @@ export const LikeCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -7088,6 +8254,24 @@ export const UnlikeCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -7222,6 +8406,29 @@ export const UnlikeCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -7352,6 +8559,24 @@ export const RateCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -7486,6 +8711,29 @@ export const RateCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -7610,6 +8858,24 @@ export const ClearCollectionRatingResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -7744,6 +9010,29 @@ export const ClearCollectionRatingResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -7991,6 +9280,24 @@ export const HideCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -8125,6 +9432,29 @@ export const HideCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -8249,6 +9579,24 @@ export const UnhideCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              reputation: zod
+                .object({
+                  score: zod.number(),
+                  level: zod.object({
+                    key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+                    label: zod.string(),
+                    minScore: zod.number(),
+                  }),
+                  topBadge: zod
+                    .object({
+                      key: zod.string(),
+                      name: zod.string(),
+                      description: zod.string(),
+                      icon: zod.string(),
+                    })
+                    .nullable(),
+                })
+                .nullish(),
             }),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date(),
@@ -8383,6 +9731,29 @@ export const UnhideCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                reputation: zod
+                  .object({
+                    score: zod.number(),
+                    level: zod.object({
+                      key: zod.enum([
+                        "novice",
+                        "contributor",
+                        "scholar",
+                        "sage",
+                      ]),
+                      label: zod.string(),
+                      minScore: zod.number(),
+                    }),
+                    topBadge: zod
+                      .object({
+                        key: zod.string(),
+                        name: zod.string(),
+                        description: zod.string(),
+                        icon: zod.string(),
+                      })
+                      .nullable(),
+                  })
+                  .nullish(),
               })
               .optional(),
             reviewReason: zod
@@ -8482,6 +9853,24 @@ export const ListContinueStudyingResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -8612,6 +10001,24 @@ export const ListContinueStudyingResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod
@@ -8684,6 +10091,24 @@ export const ListRecommendationsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    reputation: zod
+      .object({
+        score: zod.number(),
+        level: zod.object({
+          key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+          label: zod.string(),
+          minScore: zod.number(),
+        }),
+        topBadge: zod
+          .object({
+            key: zod.string(),
+            name: zod.string(),
+            description: zod.string(),
+            icon: zod.string(),
+          })
+          .nullable(),
+      })
+      .nullish(),
   }),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
@@ -8812,6 +10237,24 @@ export const ListRecommendationsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      reputation: zod
+        .object({
+          score: zod.number(),
+          level: zod.object({
+            key: zod.enum(["novice", "contributor", "scholar", "sage"]),
+            label: zod.string(),
+            minScore: zod.number(),
+          }),
+          topBadge: zod
+            .object({
+              key: zod.string(),
+              name: zod.string(),
+              description: zod.string(),
+              icon: zod.string(),
+            })
+            .nullable(),
+        })
+        .nullish(),
     })
     .optional(),
   reviewReason: zod

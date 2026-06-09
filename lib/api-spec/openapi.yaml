@@ -1824,6 +1824,17 @@ components:
         description: { type: string }
         icon: { type: string }
 
+    AuthorReputation:
+      type: object
+      required: [score, level, topBadge]
+      properties:
+        score: { type: integer }
+        level: { $ref: "#/components/schemas/ReputationLevel" }
+        topBadge:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ReputationBadge"
+
     ReputationStats:
       type: object
       required:
@@ -1981,6 +1992,12 @@ components:
           type: string
           enum: [ACTIVE, PENDING_APPROVAL, DISABLED]
         createdAt: { type: string, format: date-time }
+        # Optional author-credibility block; populated only where requested
+        # (e.g. on document uploaders). Absent/null on most user summaries.
+        reputation:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AuthorReputation"
 
     RegisterRequest:
       type: object

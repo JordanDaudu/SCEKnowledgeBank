@@ -138,7 +138,7 @@ export async function assembleDocuments(
     await Promise.all([
       taxonomyService.loadCourses(docs.map((d) => d.courseId)),
       taxonomyService.loadCategories(docs.map((d) => d.categoryId)),
-      usersService.loadUserSummaries(userIds),
+      usersService.loadUserSummaries(userIds, { withReputation: true }),
       docsRepo.findFilesByDocumentIds(ids),
       docsRepo.findTagLinksForDocuments(ids),
     ]);

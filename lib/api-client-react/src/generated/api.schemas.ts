@@ -28,6 +28,12 @@ export interface ReputationBadge {
   icon: string;
 }
 
+export interface AuthorReputation {
+  score: number;
+  level: ReputationLevel;
+  topBadge: ReputationBadge | null;
+}
+
 export interface ReputationStats {
   publishedUploads: number;
   downloadsReceived: number;
@@ -154,6 +160,7 @@ export interface UserSummary {
   isActive: boolean;
   status: UserSummaryStatus;
   createdAt: string;
+  reputation?: AuthorReputation | null;
 }
 
 export type RegisterRequestRole =
