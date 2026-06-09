@@ -19,6 +19,7 @@ import Collections from "@/pages/collections";
 import CollectionManage from "@/pages/collection-manage";
 import Profile from "@/pages/profile";
 import Requests from "@/pages/requests";
+import Leaderboard from "@/pages/leaderboard";
 import Notifications from "@/pages/notifications";
 import AdminUsers from "@/pages/admin-users";
 import AdminAnalytics from "@/pages/admin-analytics";
@@ -151,6 +152,14 @@ function Router() {
         <AuthGuard>
           <Layout>
             <Requests />
+          </Layout>
+        </AuthGuard>
+      </Route>
+
+      <Route path="/leaderboard">
+        <AuthGuard>
+          <Layout>
+            <Leaderboard />
           </Layout>
         </AuthGuard>
       </Route>

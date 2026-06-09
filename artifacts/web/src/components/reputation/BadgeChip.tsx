@@ -44,12 +44,15 @@ export function BadgeChip({
   badge,
   earned = true,
   progress,
+  size = "md",
 }: {
   badge: BadgeChipData;
   /** Earned badges render in full colour; locked ones are greyed. */
   earned?: boolean;
   /** Optional progress hint shown in the tooltip for locked badges. */
   progress?: string;
+  /** `md` (48px) on the badge shelf; `sm` (32px) inline in lists. */
+  size?: "sm" | "md";
 }) {
   const Icon = ICONS[badge.icon] ?? Award;
   return (
@@ -57,7 +60,8 @@ export function BadgeChip({
       <TooltipTrigger asChild>
         <span
           className={cn(
-            "inline-flex h-12 w-12 items-center justify-center rounded-full border transition-colors",
+            "inline-flex items-center justify-center rounded-full border transition-colors",
+            size === "sm" ? "h-8 w-8" : "h-12 w-12",
             earned
               ? "border-primary/30 bg-primary/10 text-primary"
               : "border-muted bg-muted/40 text-muted-foreground/50",
@@ -65,7 +69,7 @@ export function BadgeChip({
           aria-label={badge.name}
           data-testid={`badge-${badge.key}`}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className={size === "sm" ? "h-4 w-4" : "h-5 w-5"} />
         </span>
       </TooltipTrigger>
       <TooltipContent>

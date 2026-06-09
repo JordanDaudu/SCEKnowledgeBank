@@ -18,6 +18,7 @@ import {
   History,
   DownloadCloud,
   GraduationCap,
+  Trophy,
   FolderOpen,
   Menu,
   X,
@@ -101,6 +102,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const moreNav: NavItem[] = user
     ? [
         { href: "/profile", icon: UserCircle, label: t("nav.profile") },
+        { href: "/leaderboard", icon: Trophy, label: t("nav.leaderboard") },
         ...(!isAdmin
           ? [
               { href: "/uploads", icon: History, label: t("nav.myUploads") },
