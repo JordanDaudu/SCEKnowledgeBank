@@ -11,6 +11,7 @@ import { SearchBar } from "@/components/search-bar";
 import { RecentActivity } from "@/components/recent-activity";
 import { TrendingDocuments } from "@/components/dashboard/trending-documents";
 import { ContinueStudyingWidget } from "@/components/dashboard/continue-studying-widget";
+import { ReputationHomeWidget } from "@/components/dashboard/reputation-widget";
 import { AdminInsights } from "@/components/dashboard/admin-insights";
 import DocumentCards from "@/components/browse/DocumentCards";
 import { SectionHeader } from "@/components/section-header";
@@ -351,6 +352,9 @@ export default function Home() {
           {/* Continue studying — Prep Hub progress (renders only when non-empty).
               Admins don't study (they moderate), so this is hidden for them. */}
           {user && !isAdmin && <ContinueStudyingWidget />}
+
+          {/* Reputation snapshot + top contributors. */}
+          {user && <ReputationHomeWidget userId={user.id} />}
         </div>
 
         {/* ── Discovery zone: the content the page is really about, set apart
