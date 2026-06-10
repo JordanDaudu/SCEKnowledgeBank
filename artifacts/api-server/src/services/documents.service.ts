@@ -1245,6 +1245,14 @@ export async function uploadDocuments(
           }),
         )
         .catch(() => {});
+
+      // AI suggestions (design 2026-06-10): best-effort background
+      // summary + tag generation. Dynamic import keeps the Gemini SDK
+      // off the upload path; generateForDocumentSafe never throws and
+      // no-ops when GEMINI_API_KEY is unset or no text was extracted.
+      void import("./ai-suggestions.service")
+        .then((m) => m.generateForDocumentSafe(insertedDoc.id))
+        .catch(() => {});
     } catch (e) {
       results.push({
         originalFilename: file.originalname,
