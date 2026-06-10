@@ -339,6 +339,8 @@ export interface Document {
   id: string;
   title: string;
   description: string;
+  /** Uploader-accepted AI-generated summary (may be absent/empty). */
+  aiSummary?: string;
   course?: Course;
   category?: Category;
   materialType: string;
@@ -374,6 +376,43 @@ export interface Document {
 }
 
 export type DocumentDetail = Document;
+
+export interface AiSuggestionTag {
+  id: string;
+  name: string;
+}
+
+export type AiSuggestionStatus =
+  (typeof AiSuggestionStatus)[keyof typeof AiSuggestionStatus];
+
+export const AiSuggestionStatus = {
+  pending: "pending",
+  accepted: "accepted",
+  dismissed: "dismissed",
+  failed: "failed",
+} as const;
+
+export interface AiSuggestion {
+  id: string;
+  status: AiSuggestionStatus;
+  summary: string;
+  suggestedTags: AiSuggestionTag[];
+  error?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
+export interface AiSuggestionEnvelope {
+  enabled: boolean;
+  hasExtractedText: boolean;
+  suggestion: AiSuggestion | null;
+}
+
+export interface AcceptAiSuggestionRequest {
+  acceptSummary: boolean;
+  /** @maxItems 5 */
+  tagIds?: string[];
+}
 
 export interface DuplicateDocument {
   documentId: string;

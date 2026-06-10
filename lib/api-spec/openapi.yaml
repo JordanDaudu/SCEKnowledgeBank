@@ -647,6 +647,67 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SignedTokenResponse" }
 
+  /documents/{id}/ai-suggestions:
+    get:
+      operationId: getDocumentAiSuggestions
+      tags: [documents]
+      summary: Get AI suggestion state for a document (owner only)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Suggestion envelope
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiSuggestionEnvelope" }
+
+  /documents/{id}/ai-suggestions/accept:
+    post:
+      operationId: acceptDocumentAiSuggestions
+      tags: [documents]
+      summary: Accept the pending AI suggestion (summary and/or tags)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AcceptAiSuggestionRequest" }
+      responses:
+        "200":
+          description: Updated envelope
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiSuggestionEnvelope" }
+
+  /documents/{id}/ai-suggestions/dismiss:
+    post:
+      operationId: dismissDocumentAiSuggestions
+      tags: [documents]
+      summary: Dismiss the pending AI suggestion
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Updated envelope
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiSuggestionEnvelope" }
+
+  /documents/{id}/ai-suggestions/generate:
+    post:
+      operationId: generateDocumentAiSuggestions
+      tags: [documents]
+      summary: Generate (or regenerate) AI suggestions for a document
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Envelope with the fresh suggestion (pending or failed)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiSuggestionEnvelope" }
+
   /documents/{id}/preview:
     get:
       operationId: previewDocument
@@ -2084,6 +2145,9 @@ components:
         id: { type: string, format: uuid }
         title: { type: string }
         description: { type: string }
+        aiSummary:
+          type: string
+          description: Uploader-accepted AI-generated summary (may be absent/empty).
         course: { $ref: "#/components/schemas/Course" }
         category: { $ref: "#/components/schemas/Category" }
         materialType: { type: string }
@@ -2183,6 +2247,50 @@ components:
     DocumentDetail:
       allOf:
         - $ref: "#/components/schemas/Document"
+
+    AiSuggestionTag:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    AiSuggestion:
+      type: object
+      required: [id, status, summary, suggestedTags, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [pending, accepted, dismissed, failed]
+        summary: { type: string }
+        suggestedTags:
+          type: array
+          items: { $ref: "#/components/schemas/AiSuggestionTag" }
+        error: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+
+    AiSuggestionEnvelope:
+      type: object
+      required: [enabled, hasExtractedText, suggestion]
+      properties:
+        enabled: { type: boolean }
+        hasExtractedText: { type: boolean }
+        suggestion:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AiSuggestion"
+
+    AcceptAiSuggestionRequest:
+      type: object
+      required: [acceptSummary]
+      properties:
+        acceptSummary: { type: boolean }
+        tagIds:
+          type: array
+          maxItems: 5
+          items: { type: string, format: uuid }
 
     DocumentFileMeta:
       type: object
