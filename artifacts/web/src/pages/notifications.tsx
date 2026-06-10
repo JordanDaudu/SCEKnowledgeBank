@@ -19,6 +19,8 @@ function typeLabel(type: string): string {
       return "mentioned you in a comment";
     case "comment.reply":
       return "replied to your comment";
+    case "document.ai_suggestions_ready":
+      return "AI suggestions are ready";
     default:
       return type;
   }

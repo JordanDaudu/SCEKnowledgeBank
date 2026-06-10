@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 
+export * from "./acceptAiSuggestionRequest";
 export * from "./activityEntry";
 export * from "./activityEntryActor";
 export * from "./activityEntryMetadata";
@@ -14,6 +15,10 @@ export * from "./activityPage";
 export * from "./addCollectionItemRequest";
 export * from "./addMyCourseBody";
 export * from "./adminAnalyticsOverview";
+export * from "./aiSuggestion";
+export * from "./aiSuggestionEnvelope";
+export * from "./aiSuggestionStatus";
+export * from "./aiSuggestionTag";
 export * from "./analyticsActiveUploader";
 export * from "./analyticsCourseInfo";
 export * from "./analyticsCourseTotals";

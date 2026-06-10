@@ -30,6 +30,12 @@ async function buildAll() {
     external: [
       "*.node",
       "sharp",
+      // pdf-parse runs pdf.js in a worker thread and resolves its worker
+      // entry by file path; bundling it breaks the worker so every PDF
+      // extracts to empty text (verified bundled→0 chars, external→full
+      // text). Keep it external like sharp/canvas so it loads from
+      // node_modules at runtime.
+      "pdf-parse",
       "better-sqlite3",
       "sqlite3",
       "canvas",

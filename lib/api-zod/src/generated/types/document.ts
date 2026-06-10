@@ -20,6 +20,8 @@ export interface Document {
   id: string;
   title: string;
   description: string;
+  /** Uploader-accepted AI-generated summary (may be absent/empty). */
+  aiSummary?: string;
   course?: Course;
   category?: Category;
   materialType: string;

@@ -333,12 +333,16 @@ export interface DocumentPermissions {
   canSubmitForReview: boolean;
   /** True when the user can approve/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course). */
   canReview: boolean;
+  /** True when the user may view/generate/accept AI summary + tag suggestions. More permissive than canEdit: the uploader/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins. */
+  canManageAiSuggestions: boolean;
 }
 
 export interface Document {
   id: string;
   title: string;
   description: string;
+  /** Uploader-accepted AI-generated summary (may be absent/empty). */
+  aiSummary?: string;
   course?: Course;
   category?: Category;
   materialType: string;
@@ -374,6 +378,50 @@ export interface Document {
 }
 
 export type DocumentDetail = Document;
+
+export interface AiSuggestionTag {
+  id: string;
+  name: string;
+}
+
+export type AiSuggestionStatus =
+  (typeof AiSuggestionStatus)[keyof typeof AiSuggestionStatus];
+
+export const AiSuggestionStatus = {
+  pending: "pending",
+  accepted: "accepted",
+  dismissed: "dismissed",
+  failed: "failed",
+} as const;
+
+export interface AiSuggestion {
+  id: string;
+  status: AiSuggestionStatus;
+  summary: string;
+  suggestedTags: AiSuggestionTag[];
+  /** Proposed brand-new tag names not yet in the catalog. */
+  suggestedNewTags: string[];
+  error?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
+export interface AiSuggestionEnvelope {
+  enabled: boolean;
+  hasExtractedText: boolean;
+  suggestion: AiSuggestion | null;
+}
+
+export interface AcceptAiSuggestionRequest {
+  acceptSummary: boolean;
+  /** @maxItems 5 */
+  tagIds?: string[];
+  /**
+   * New tag names to create (subset of the suggestion's suggestedNewTags).
+   * @maxItems 3
+   */
+  newTags?: string[];
+}
 
 export interface DuplicateDocument {
   documentId: string;

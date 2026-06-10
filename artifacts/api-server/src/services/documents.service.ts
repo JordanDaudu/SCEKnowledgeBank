@@ -38,6 +38,12 @@ export interface DocumentDTO {
   id: string;
   title: string;
   description: string;
+  /**
+   * Uploader-accepted AI-generated summary (design 2026-06-10).
+   * Empty/absent until the owner accepts a suggestion. Rendered with
+   * an explicit "AI-generated" label — distinct from `description`.
+   */
+  aiSummary?: string;
   course?: taxonomyService.CourseDTO;
   category?: taxonomyService.CategoryDTO;
   materialType: string;
@@ -105,6 +111,12 @@ export interface DocumentDTO {
     /** Sprint-3 M2: review workflow transition affordances. */
     canSubmitForReview: boolean;
     canReview: boolean;
+    /**
+     * AI suggestions (design 2026-06-10): owner/uploader/admin/course-
+     * lecturer may review AI summary + tag suggestions. More permissive
+     * than canEdit so a student can use it on their own course upload.
+     */
+    canManageAiSuggestions: boolean;
   };
   // ─── Review workflow (Sprint-3 M2) ───────────────────────────────
   // All four are NULL/absent until the doc enters the workflow.
@@ -213,6 +225,10 @@ export async function assembleDocuments(
         canReview:
           permissions.canReview(permObj, user) &&
           d.status === "pending_review",
+        canManageAiSuggestions: permissions.canManageAiSuggestions(
+          permObj,
+          user,
+        ),
       },
     };
     if (d.submittedForReviewAt)
@@ -223,6 +239,7 @@ export async function assembleDocuments(
       if (r) dto.reviewer = r;
     }
     if (d.reviewReason) dto.reviewReason = d.reviewReason;
+    if (d.aiSummary) dto.aiSummary = d.aiSummary;
     const c = d.courseId ? coursesMap.get(d.courseId) : undefined;
     if (c) dto.course = c;
     const cat = d.categoryId ? categoriesMap.get(d.categoryId) : undefined;
@@ -1244,6 +1261,14 @@ export async function uploadDocuments(
             status: insertedDoc.status,
           }),
         )
+        .catch(() => {});
+
+      // AI suggestions (design 2026-06-10): best-effort background
+      // summary + tag generation. Dynamic import keeps the Gemini SDK
+      // off the upload path; generateForDocumentSafe never throws and
+      // no-ops when GEMINI_API_KEY is unset or no text was extracted.
+      void import("./ai-suggestions.service")
+        .then((m) => m.generateForDocumentSafe(insertedDoc.id))
         .catch(() => {});
     } catch (e) {
       results.push({

@@ -340,6 +340,12 @@ export const ListDocumentsResponse = zod.object({
       id: zod.string().uuid(),
       title: zod.string(),
       description: zod.string(),
+      aiSummary: zod
+        .string()
+        .optional()
+        .describe(
+          "Uploader-accepted AI-generated summary (may be absent\/empty).",
+        ),
       course: zod
         .object({
           id: zod.string().uuid(),
@@ -511,6 +517,11 @@ export const ListDocumentsResponse = zod.object({
             .describe(
               "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
             ),
+          canManageAiSuggestions: zod
+            .boolean()
+            .describe(
+              "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+            ),
         })
         .describe(
           "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -630,6 +641,10 @@ export const ListRecentDocumentsResponseItem = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -795,6 +810,11 @@ export const ListRecentDocumentsResponseItem = zod.object({
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
         ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -911,6 +931,12 @@ export const SearchDocumentsV2Response = zod.object({
         id: zod.string().uuid(),
         title: zod.string(),
         description: zod.string(),
+        aiSummary: zod
+          .string()
+          .optional()
+          .describe(
+            "Uploader-accepted AI-generated summary (may be absent\/empty).",
+          ),
         course: zod
           .object({
             id: zod.string().uuid(),
@@ -1081,6 +1107,11 @@ export const SearchDocumentsV2Response = zod.object({
               .boolean()
               .describe(
                 "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+              ),
+            canManageAiSuggestions: zod
+              .boolean()
+              .describe(
+                "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
               ),
           })
           .describe(
@@ -1338,6 +1369,10 @@ export const GetDocumentResponse = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -1503,6 +1538,11 @@ export const GetDocumentResponse = zod.object({
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
         ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -1585,6 +1625,10 @@ export const UpdateDocumentResponse = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -1750,6 +1794,11 @@ export const UpdateDocumentResponse = zod.object({
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
         ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -1861,6 +1910,149 @@ export const GetDocumentDownloadTokenResponse = zod.object({
   token: zod.string(),
   expiresAt: zod.coerce.date(),
   url: zod.string().describe("Fully-qualified URL with token already attached"),
+});
+
+/**
+ * @summary Get AI suggestion state for a document (owner only)
+ */
+export const GetDocumentAiSuggestionsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetDocumentAiSuggestionsResponse = zod.object({
+  enabled: zod.boolean(),
+  hasExtractedText: zod.boolean(),
+  suggestion: zod
+    .object({
+      id: zod.string().uuid(),
+      status: zod.enum(["pending", "accepted", "dismissed", "failed"]),
+      summary: zod.string(),
+      suggestedTags: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+        }),
+      ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
+      error: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      resolvedAt: zod.coerce.date().nullish(),
+    })
+    .nullable(),
+});
+
+/**
+ * @summary Accept the pending AI suggestion (summary and/or tags)
+ */
+export const AcceptDocumentAiSuggestionsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const acceptDocumentAiSuggestionsBodyTagIdsMax = 5;
+
+export const acceptDocumentAiSuggestionsBodyNewTagsMax = 3;
+
+export const AcceptDocumentAiSuggestionsBody = zod.object({
+  acceptSummary: zod.boolean(),
+  tagIds: zod
+    .array(zod.string().uuid())
+    .max(acceptDocumentAiSuggestionsBodyTagIdsMax)
+    .optional(),
+  newTags: zod
+    .array(zod.string())
+    .max(acceptDocumentAiSuggestionsBodyNewTagsMax)
+    .optional()
+    .describe(
+      "New tag names to create (subset of the suggestion's suggestedNewTags).",
+    ),
+});
+
+export const AcceptDocumentAiSuggestionsResponse = zod.object({
+  enabled: zod.boolean(),
+  hasExtractedText: zod.boolean(),
+  suggestion: zod
+    .object({
+      id: zod.string().uuid(),
+      status: zod.enum(["pending", "accepted", "dismissed", "failed"]),
+      summary: zod.string(),
+      suggestedTags: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+        }),
+      ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
+      error: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      resolvedAt: zod.coerce.date().nullish(),
+    })
+    .nullable(),
+});
+
+/**
+ * @summary Dismiss the pending AI suggestion
+ */
+export const DismissDocumentAiSuggestionsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const DismissDocumentAiSuggestionsResponse = zod.object({
+  enabled: zod.boolean(),
+  hasExtractedText: zod.boolean(),
+  suggestion: zod
+    .object({
+      id: zod.string().uuid(),
+      status: zod.enum(["pending", "accepted", "dismissed", "failed"]),
+      summary: zod.string(),
+      suggestedTags: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+        }),
+      ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
+      error: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      resolvedAt: zod.coerce.date().nullish(),
+    })
+    .nullable(),
+});
+
+/**
+ * @summary Generate (or regenerate) AI suggestions for a document
+ */
+export const GenerateDocumentAiSuggestionsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GenerateDocumentAiSuggestionsResponse = zod.object({
+  enabled: zod.boolean(),
+  hasExtractedText: zod.boolean(),
+  suggestion: zod
+    .object({
+      id: zod.string().uuid(),
+      status: zod.enum(["pending", "accepted", "dismissed", "failed"]),
+      summary: zod.string(),
+      suggestedTags: zod.array(
+        zod.object({
+          id: zod.string().uuid(),
+          name: zod.string(),
+        }),
+      ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
+      error: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      resolvedAt: zod.coerce.date().nullish(),
+    })
+    .nullable(),
 });
 
 export const PreviewDocumentParams = zod.object({
@@ -2311,6 +2503,10 @@ export const ListMyFavoritesResponseItem = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -2475,6 +2671,11 @@ export const ListMyFavoritesResponseItem = zod.object({
         .boolean()
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
         ),
     })
     .describe(
@@ -3050,6 +3251,12 @@ export const ListPendingReviewDocumentsResponse = zod.object({
       id: zod.string().uuid(),
       title: zod.string(),
       description: zod.string(),
+      aiSummary: zod
+        .string()
+        .optional()
+        .describe(
+          "Uploader-accepted AI-generated summary (may be absent\/empty).",
+        ),
       course: zod
         .object({
           id: zod.string().uuid(),
@@ -3221,6 +3428,11 @@ export const ListPendingReviewDocumentsResponse = zod.object({
             .describe(
               "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
             ),
+          canManageAiSuggestions: zod
+            .boolean()
+            .describe(
+              "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+            ),
         })
         .describe(
           "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -3298,6 +3510,10 @@ export const SubmitDocumentForReviewResponse = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -3469,6 +3685,11 @@ export const SubmitDocumentForReviewResponse = zod.object({
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
         ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -3541,6 +3762,10 @@ export const ApproveDocumentResponse = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -3706,6 +3931,11 @@ export const ApproveDocumentResponse = zod.object({
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
         ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -3790,6 +4020,10 @@ export const RejectDocumentResponse = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -3955,6 +4189,11 @@ export const RejectDocumentResponse = zod.object({
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
         ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -4042,6 +4281,12 @@ export const ListPendingAdminApprovalDocumentsResponse = zod.object({
       id: zod.string().uuid(),
       title: zod.string(),
       description: zod.string(),
+      aiSummary: zod
+        .string()
+        .optional()
+        .describe(
+          "Uploader-accepted AI-generated summary (may be absent\/empty).",
+        ),
       course: zod
         .object({
           id: zod.string().uuid(),
@@ -4213,6 +4458,11 @@ export const ListPendingAdminApprovalDocumentsResponse = zod.object({
             .describe(
               "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
             ),
+          canManageAiSuggestions: zod
+            .boolean()
+            .describe(
+              "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+            ),
         })
         .describe(
           "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -4290,6 +4540,10 @@ export const AdminApproveDocumentResponse = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -4456,6 +4710,11 @@ export const AdminApproveDocumentResponse = zod.object({
         .boolean()
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
         ),
     })
     .describe(
@@ -4999,6 +5258,12 @@ export const GetCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -5170,6 +5435,11 @@ export const GetCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -5310,6 +5580,12 @@ export const UpdateCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -5481,6 +5757,11 @@ export const UpdateCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -5615,6 +5896,12 @@ export const AddCollectionItemResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -5786,6 +6073,11 @@ export const AddCollectionItemResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -5916,6 +6208,12 @@ export const SetCollectionItemNoteResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -6087,6 +6385,11 @@ export const SetCollectionItemNoteResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -6213,6 +6516,12 @@ export const RemoveCollectionItemResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -6384,6 +6693,11 @@ export const RemoveCollectionItemResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -6513,6 +6827,12 @@ export const ReorderCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -6683,6 +7003,11 @@ export const ReorderCollectionResponse = zod
                   .boolean()
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+                  ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
                   ),
               })
               .describe(
@@ -7018,6 +7343,12 @@ export const GetPublicCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -7189,6 +7520,11 @@ export const GetPublicCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -7317,6 +7653,12 @@ export const FollowCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -7488,6 +7830,11 @@ export const FollowCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -7616,6 +7963,12 @@ export const UnfollowCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -7787,6 +8140,11 @@ export const UnfollowCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -7915,6 +8273,12 @@ export const LikeCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -8086,6 +8450,11 @@ export const LikeCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -8214,6 +8583,12 @@ export const UnlikeCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -8385,6 +8760,11 @@ export const UnlikeCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -8519,6 +8899,12 @@ export const RateCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -8690,6 +9076,11 @@ export const RateCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -8818,6 +9209,12 @@ export const ClearCollectionRatingResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -8988,6 +9385,11 @@ export const ClearCollectionRatingResponse = zod
                   .boolean()
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+                  ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
                   ),
               })
               .describe(
@@ -9240,6 +9642,12 @@ export const HideCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -9411,6 +9819,11 @@ export const HideCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -9539,6 +9952,12 @@ export const UnhideCollectionResponse = zod
             id: zod.string().uuid(),
             title: zod.string(),
             description: zod.string(),
+            aiSummary: zod
+              .string()
+              .optional()
+              .describe(
+                "Uploader-accepted AI-generated summary (may be absent\/empty).",
+              ),
             course: zod
               .object({
                 id: zod.string().uuid(),
@@ -9710,6 +10129,11 @@ export const UnhideCollectionResponse = zod
                   .describe(
                     "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
                   ),
+                canManageAiSuggestions: zod
+                  .boolean()
+                  .describe(
+                    "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+                  ),
               })
               .describe(
                 "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -9813,6 +10237,10 @@ export const ListContinueStudyingResponseItem = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -9980,6 +10408,11 @@ export const ListContinueStudyingResponseItem = zod.object({
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
         ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
+        ),
     })
     .describe(
       "Server-computed permission flags for the requesting user against this document. The frontend MUST use these flags (rather than role\/uploader heuristics) to gate UI affordances — they encode the same course-aware logic the API enforces on write paths.",
@@ -10051,6 +10484,10 @@ export const ListRecommendationsResponseItem = zod.object({
   id: zod.string().uuid(),
   title: zod.string(),
   description: zod.string(),
+  aiSummary: zod
+    .string()
+    .optional()
+    .describe("Uploader-accepted AI-generated summary (may be absent\/empty)."),
   course: zod
     .object({
       id: zod.string().uuid(),
@@ -10215,6 +10652,11 @@ export const ListRecommendationsResponseItem = zod.object({
         .boolean()
         .describe(
           "True when the user can approve\/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course).",
+        ),
+      canManageAiSuggestions: zod
+        .boolean()
+        .describe(
+          "True when the user may view\/generate\/accept AI summary + tag suggestions. More permissive than canEdit: the uploader\/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins.",
         ),
     })
     .describe(

@@ -80,12 +80,16 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 
 async function extractPdf(buf: Buffer): Promise<ExtractedMetadata> {
   const { PDFParse } = await loadPdfParse();
-  const parser = new PDFParse({ data: buf });
+  // pdf-parse v2 runs pdf.js in a worker thread. Calling getInfo() and
+  // getText() concurrently on one parser transfers the same backing
+  // buffer to the worker twice and throws "Cannot transfer object of
+  // unsupported type" — which the caller swallows, leaving every PDF
+  // with NULL extracted text. Pass a private Uint8Array copy and call
+  // the two extractors SEQUENTIALLY to avoid the double-transfer.
+  const parser = new PDFParse({ data: new Uint8Array(buf) });
   try {
-    const [info, text] = await Promise.all([
-      parser.getInfo(),
-      parser.getText(),
-    ]);
+    const info = await parser.getInfo();
+    const text = await parser.getText();
     const out: ExtractedMetadata = {};
     const pageCount = info?.total ?? text?.total;
     if (typeof pageCount === "number" && pageCount > 0) out.pageCount = pageCount;

@@ -1,7 +1,7 @@
 import type { DocumentDetail as DocumentDetailDto } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Download, User, Clock, Send, Check, X } from "lucide-react";
+import { Edit, Trash2, Download, User, Clock, Send, Check, X, Sparkles } from "lucide-react";
 import { formatDateTime, formatVersion } from "@/lib/format";
 import { formatMaterialType } from "@/lib/material-types";
 import { useTranslation } from "react-i18next";
@@ -139,6 +139,16 @@ export default function MetadataPanel({
         </div>
       )}
       <p className="text-muted-foreground text-sm mb-6">{doc.description}</p>
+
+      {doc.aiSummary ? (
+        <div className="mt-3 mb-6" data-testid="ai-summary">
+          <Badge variant="secondary" className="mb-1">
+            <Sparkles className="h-3 w-3 me-1" />
+            {t("aiSuggestions.aiSummaryBadge")}
+          </Badge>
+          <p className="text-sm text-muted-foreground">{doc.aiSummary}</p>
+        </div>
+      ) : null}
 
       {(canSubmitForReview || canReview) && (
         <div className="flex flex-wrap gap-2 mb-6">

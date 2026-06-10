@@ -779,5 +779,19 @@
     "titleRequired": "נדרשת כותרת",
     "updated": "המסמך עודכן",
     "updateFailed": "העדכון נכשל"
+  },
+  "aiSuggestions": {
+    "title": "הצעות בינה מלאכותית",
+    "summaryLabel": "תקציר מוצע",
+    "useSummary": "השתמש בתקציר זה",
+    "tagsLabel": "תגיות מוצעות",
+    "newTagsLabel": "תגיות חדשות מוצעות (ייווצרו עם האישור)",
+    "accept": "אשר את הנבחרים",
+    "dismiss": "דחה",
+    "generate": "צור הצעות AI",
+    "generating": "יוצר…",
+    "failed": "יצירת הצעות ה-AI נכשלה. אפשר לנסות שוב.",
+    "aiSummaryBadge": "תקציר שנוצר על ידי AI",
+    "notificationReady": "הצעות AI מוכנות"
   }
 }

@@ -779,5 +779,19 @@
     "titleRequired": "Title required",
     "updated": "Document updated",
     "updateFailed": "Update failed"
+  },
+  "aiSuggestions": {
+    "title": "AI suggestions",
+    "summaryLabel": "Suggested summary",
+    "useSummary": "Use this summary",
+    "tagsLabel": "Suggested tags",
+    "newTagsLabel": "Suggested new tags (created when accepted)",
+    "accept": "Accept selected",
+    "dismiss": "Dismiss",
+    "generate": "Generate AI suggestions",
+    "generating": "Generating…",
+    "failed": "AI suggestion generation failed. You can try again.",
+    "aiSummaryBadge": "AI-generated summary",
+    "notificationReady": "AI suggestions are ready"
   }
 }

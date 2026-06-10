@@ -17,10 +17,12 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AcceptAiSuggestionRequest,
   ActivityPage,
   AddCollectionItemRequest,
   AddMyCourseBody,
   AdminAnalyticsOverview,
+  AiSuggestionEnvelope,
   ApiError,
   BulkDocumentActionRequest,
   BulkDocumentActionResult,
@@ -3217,6 +3219,360 @@ export function useGetDocumentDownloadToken<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get AI suggestion state for a document (owner only)
+ */
+export const getGetDocumentAiSuggestionsUrl = (id: string) => {
+  return `/api/documents/${id}/ai-suggestions`;
+};
+
+export const getDocumentAiSuggestions = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AiSuggestionEnvelope> => {
+  return customFetch<AiSuggestionEnvelope>(getGetDocumentAiSuggestionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDocumentAiSuggestionsQueryKey = (id: string) => {
+  return [`/api/documents/${id}/ai-suggestions`] as const;
+};
+
+export const getGetDocumentAiSuggestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDocumentAiSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentAiSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDocumentAiSuggestionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDocumentAiSuggestions>>
+  > = ({ signal }) =>
+    getDocumentAiSuggestions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDocumentAiSuggestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDocumentAiSuggestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDocumentAiSuggestions>>
+>;
+export type GetDocumentAiSuggestionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI suggestion state for a document (owner only)
+ */
+
+export function useGetDocumentAiSuggestions<
+  TData = Awaited<ReturnType<typeof getDocumentAiSuggestions>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentAiSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDocumentAiSuggestionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Accept the pending AI suggestion (summary and/or tags)
+ */
+export const getAcceptDocumentAiSuggestionsUrl = (id: string) => {
+  return `/api/documents/${id}/ai-suggestions/accept`;
+};
+
+export const acceptDocumentAiSuggestions = async (
+  id: string,
+  acceptAiSuggestionRequest: AcceptAiSuggestionRequest,
+  options?: RequestInit,
+): Promise<AiSuggestionEnvelope> => {
+  return customFetch<AiSuggestionEnvelope>(
+    getAcceptDocumentAiSuggestionsUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(acceptAiSuggestionRequest),
+    },
+  );
+};
+
+export const getAcceptDocumentAiSuggestionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptDocumentAiSuggestions>>,
+    TError,
+    { id: string; data: BodyType<AcceptAiSuggestionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptDocumentAiSuggestions>>,
+  TError,
+  { id: string; data: BodyType<AcceptAiSuggestionRequest> },
+  TContext
+> => {
+  const mutationKey = ["acceptDocumentAiSuggestions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptDocumentAiSuggestions>>,
+    { id: string; data: BodyType<AcceptAiSuggestionRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return acceptDocumentAiSuggestions(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptDocumentAiSuggestionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptDocumentAiSuggestions>>
+>;
+export type AcceptDocumentAiSuggestionsMutationBody =
+  BodyType<AcceptAiSuggestionRequest>;
+export type AcceptDocumentAiSuggestionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Accept the pending AI suggestion (summary and/or tags)
+ */
+export const useAcceptDocumentAiSuggestions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptDocumentAiSuggestions>>,
+    TError,
+    { id: string; data: BodyType<AcceptAiSuggestionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptDocumentAiSuggestions>>,
+  TError,
+  { id: string; data: BodyType<AcceptAiSuggestionRequest> },
+  TContext
+> => {
+  return useMutation(getAcceptDocumentAiSuggestionsMutationOptions(options));
+};
+
+/**
+ * @summary Dismiss the pending AI suggestion
+ */
+export const getDismissDocumentAiSuggestionsUrl = (id: string) => {
+  return `/api/documents/${id}/ai-suggestions/dismiss`;
+};
+
+export const dismissDocumentAiSuggestions = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AiSuggestionEnvelope> => {
+  return customFetch<AiSuggestionEnvelope>(
+    getDismissDocumentAiSuggestionsUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getDismissDocumentAiSuggestionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissDocumentAiSuggestions>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dismissDocumentAiSuggestions>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["dismissDocumentAiSuggestions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dismissDocumentAiSuggestions>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return dismissDocumentAiSuggestions(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DismissDocumentAiSuggestionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissDocumentAiSuggestions>>
+>;
+
+export type DismissDocumentAiSuggestionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Dismiss the pending AI suggestion
+ */
+export const useDismissDocumentAiSuggestions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dismissDocumentAiSuggestions>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dismissDocumentAiSuggestions>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDismissDocumentAiSuggestionsMutationOptions(options));
+};
+
+/**
+ * @summary Generate (or regenerate) AI suggestions for a document
+ */
+export const getGenerateDocumentAiSuggestionsUrl = (id: string) => {
+  return `/api/documents/${id}/ai-suggestions/generate`;
+};
+
+export const generateDocumentAiSuggestions = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AiSuggestionEnvelope> => {
+  return customFetch<AiSuggestionEnvelope>(
+    getGenerateDocumentAiSuggestionsUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getGenerateDocumentAiSuggestionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateDocumentAiSuggestions>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateDocumentAiSuggestions>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["generateDocumentAiSuggestions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateDocumentAiSuggestions>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return generateDocumentAiSuggestions(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateDocumentAiSuggestionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateDocumentAiSuggestions>>
+>;
+
+export type GenerateDocumentAiSuggestionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate (or regenerate) AI suggestions for a document
+ */
+export const useGenerateDocumentAiSuggestions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateDocumentAiSuggestions>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateDocumentAiSuggestions>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getGenerateDocumentAiSuggestionsMutationOptions(options));
+};
 
 export const getPreviewDocumentUrl = (
   id: string,
