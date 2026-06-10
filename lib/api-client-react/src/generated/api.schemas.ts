@@ -333,6 +333,8 @@ export interface DocumentPermissions {
   canSubmitForReview: boolean;
   /** True when the user can approve/reject this doc (status is currently `pending_review`, and they are an admin or a lecturer for the doc's course). */
   canReview: boolean;
+  /** True when the user may view/generate/accept AI summary + tag suggestions. More permissive than canEdit: the uploader/owner qualifies even for a course document (so students can use it on their own uploads), as do course lecturers and admins. */
+  canManageAiSuggestions: boolean;
 }
 
 export interface Document {

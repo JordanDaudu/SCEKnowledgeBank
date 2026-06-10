@@ -111,6 +111,12 @@ export interface DocumentDTO {
     /** Sprint-3 M2: review workflow transition affordances. */
     canSubmitForReview: boolean;
     canReview: boolean;
+    /**
+     * AI suggestions (design 2026-06-10): owner/uploader/admin/course-
+     * lecturer may review AI summary + tag suggestions. More permissive
+     * than canEdit so a student can use it on their own course upload.
+     */
+    canManageAiSuggestions: boolean;
   };
   // ─── Review workflow (Sprint-3 M2) ───────────────────────────────
   // All four are NULL/absent until the doc enters the workflow.
@@ -219,6 +225,10 @@ export async function assembleDocuments(
         canReview:
           permissions.canReview(permObj, user) &&
           d.status === "pending_review",
+        canManageAiSuggestions: permissions.canManageAiSuggestions(
+          permObj,
+          user,
+        ),
       },
     };
     if (d.submittedForReviewAt)

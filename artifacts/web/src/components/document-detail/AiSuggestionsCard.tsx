@@ -15,8 +15,12 @@ import { useTranslation } from "react-i18next";
 
 interface Props {
   documentId: string;
-  /** Server-computed permission flag — card is owner/admin only. */
-  canEdit: boolean;
+  /**
+   * Server-computed permission flag (`permissions.canManageAiSuggestions`).
+   * More permissive than canEdit so a student sees the card on their own
+   * course uploads.
+   */
+  canManage: boolean;
 }
 
 /**
@@ -25,12 +29,12 @@ interface Props {
  * no extracted text, or the suggestion is already resolved (accepted/
  * dismissed). A failed or absent suggestion shows a Generate button.
  */
-export default function AiSuggestionsCard({ documentId, canEdit }: Props) {
+export default function AiSuggestionsCard({ documentId, canManage }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data, isLoading, refetch } = useGetDocumentAiSuggestions(documentId, {
     query: {
-      enabled: canEdit,
+      enabled: canManage,
       queryKey: getGetDocumentAiSuggestionsQueryKey(documentId),
     },
   });
@@ -53,7 +57,7 @@ export default function AiSuggestionsCard({ documentId, canEdit }: Props) {
     mutation: { onSuccess: invalidate },
   });
 
-  if (!canEdit || isLoading || !data || !data.enabled) return null;
+  if (!canManage || isLoading || !data || !data.enabled) return null;
 
   const suggestion = data.suggestion;
   const resolved =

@@ -254,7 +254,10 @@ async function requireEditableDoc(
     courseId: doc.courseId,
     status: doc.status,
   };
-  if (!permissions.canEdit(permObj, user)) {
+  // Gated on ownership (not canEdit): a student must be able to manage
+  // AI suggestions on a course document THEY uploaded. canEdit locks
+  // course docs to lecturers, which would exclude the primary user.
+  if (!permissions.canManageAiSuggestions(permObj, user)) {
     throw new AiSuggestionError("forbidden", "Not allowed");
   }
   return doc;

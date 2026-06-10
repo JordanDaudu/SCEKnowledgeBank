@@ -231,6 +231,18 @@ describe("getForDocument", () => {
     });
   });
 
+  it("allows the student uploader of a COURSE document (not gated on canEdit)", async () => {
+    // canEdit would deny a student on a course-scoped doc; the AI feature
+    // must not — the uploader manages suggestions on their own upload.
+    findDocContext.mockResolvedValueOnce({
+      ...DOC,
+      courseId: "course-123",
+    });
+    findByDocument.mockResolvedValueOnce(row());
+    const out = await svc.getForDocument("d1", owner);
+    expect(out.suggestion?.status).toBe("pending");
+  });
+
   it("returns suggestion null when none exists", async () => {
     findByDocument.mockResolvedValueOnce(null);
     const out = await svc.getForDocument("d1", owner);

@@ -297,7 +297,10 @@ export default function DocumentDetail() {
           </p>
           <AddToCollection documentId={doc.id} />
         </div>
-        <AiSuggestionsCard documentId={doc.id} canEdit={canEdit} />
+        <AiSuggestionsCard
+          documentId={doc.id}
+          canManage={doc.permissions.canManageAiSuggestions}
+        />
         <MetadataPanel
           doc={doc}
           canEdit={canEdit}

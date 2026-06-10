@@ -199,6 +199,28 @@ export function canDelete(
   return false;
 }
 
+/**
+ * Can the user view/generate/accept AI suggestions for this document?
+ *
+ * Deliberately more permissive than `canEdit`: the uploader/owner may
+ * always manage AI suggestions on their OWN upload — even one attached
+ * to a course — so a student gets summaries/tags on the course material
+ * they uploaded (canEdit would lock that to course lecturers). Course
+ * lecturers and admins may also manage suggestions on docs they govern.
+ * Mirrors `canDelete`'s ownership-first logic.
+ */
+export function canManageAiSuggestions(
+  doc: DocumentForPermission,
+  user: AuthenticatedUser,
+): boolean {
+  if (isAdmin(user)) return true;
+  if (doc.uploaderId === user.id || doc.ownerId === user.id) return true;
+  if (doc.courseId) {
+    return hasRole(user, "lecturer") && isLecturerForCourse(user, doc.courseId);
+  }
+  return false;
+}
+
 /** Can the user post or read comments on this document? */
 export function canComment(
   doc: DocumentForPermission,
