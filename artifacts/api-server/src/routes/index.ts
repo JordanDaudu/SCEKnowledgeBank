@@ -18,6 +18,7 @@ import moderationRouter from "./moderation";
 import profileRouter from "./profile";
 import adminOrphanedFilesRouter from "./admin-orphaned-files";
 import reputationRouter from "./reputation";
+import aiSuggestionsRouter from "./ai-suggestions";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(moderationRouter);
 router.use(profileRouter);
 router.use(adminOrphanedFilesRouter);
 router.use(reputationRouter);
+router.use(aiSuggestionsRouter);
 
 export default router;
