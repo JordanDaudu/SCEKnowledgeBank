@@ -1908,6 +1908,9 @@ export const GetDocumentAiSuggestionsResponse = zod.object({
           name: zod.string(),
         }),
       ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
       error: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       resolvedAt: zod.coerce.date().nullish(),
@@ -1924,12 +1927,21 @@ export const AcceptDocumentAiSuggestionsParams = zod.object({
 
 export const acceptDocumentAiSuggestionsBodyTagIdsMax = 5;
 
+export const acceptDocumentAiSuggestionsBodyNewTagsMax = 3;
+
 export const AcceptDocumentAiSuggestionsBody = zod.object({
   acceptSummary: zod.boolean(),
   tagIds: zod
     .array(zod.string().uuid())
     .max(acceptDocumentAiSuggestionsBodyTagIdsMax)
     .optional(),
+  newTags: zod
+    .array(zod.string())
+    .max(acceptDocumentAiSuggestionsBodyNewTagsMax)
+    .optional()
+    .describe(
+      "New tag names to create (subset of the suggestion's suggestedNewTags).",
+    ),
 });
 
 export const AcceptDocumentAiSuggestionsResponse = zod.object({
@@ -1946,6 +1958,9 @@ export const AcceptDocumentAiSuggestionsResponse = zod.object({
           name: zod.string(),
         }),
       ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
       error: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       resolvedAt: zod.coerce.date().nullish(),
@@ -1974,6 +1989,9 @@ export const DismissDocumentAiSuggestionsResponse = zod.object({
           name: zod.string(),
         }),
       ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
       error: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       resolvedAt: zod.coerce.date().nullish(),
@@ -2002,6 +2020,9 @@ export const GenerateDocumentAiSuggestionsResponse = zod.object({
           name: zod.string(),
         }),
       ),
+      suggestedNewTags: zod
+        .array(zod.string())
+        .describe("Proposed brand-new tag names not yet in the catalog."),
       error: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       resolvedAt: zod.coerce.date().nullish(),

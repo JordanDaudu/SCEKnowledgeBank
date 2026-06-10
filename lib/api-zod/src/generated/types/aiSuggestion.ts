@@ -13,6 +13,8 @@ export interface AiSuggestion {
   status: AiSuggestionStatus;
   summary: string;
   suggestedTags: AiSuggestionTag[];
+  /** Proposed brand-new tag names not yet in the catalog. */
+  suggestedNewTags: string[];
   error?: string | null;
   createdAt: Date;
   resolvedAt?: Date | null;

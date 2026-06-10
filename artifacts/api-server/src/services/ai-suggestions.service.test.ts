@@ -82,6 +82,7 @@ function row(over: Partial<repo.AiSuggestionRow> = {}): repo.AiSuggestionRow {
     documentId: "d1",
     summary: "A summary.",
     suggestedTagIds: ["t1"],
+    suggestedNewTags: [],
     status: "pending",
     error: null,
     createdAt: new Date(),
@@ -140,12 +141,31 @@ describe("generateForDocument", () => {
       text: JSON.stringify({
         summary: "S",
         tagIds: ["t1", "bogus", "t2", "t2"],
+        newTags: [],
       }),
     });
     upsertForDocument.mockResolvedValueOnce(row());
     await svc.generateForDocument("d1");
     expect(upsertForDocument).toHaveBeenCalledWith(
       expect.objectContaining({ suggestedTagIds: ["t1", "t2"] }),
+    );
+  });
+
+  it("stores proposed new tags, deduped and minus catalog duplicates", async () => {
+    generateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        summary: "S",
+        tagIds: [],
+        // "Calculus" duplicates the existing "calculus" tag (case-insensitive)
+        // and "Vectors"/"vectors " collapse to one. Expect only the genuinely
+        // new names, trimmed and deduped.
+        newTags: ["Calculus", "Vectors", "vectors ", "linear algebra"],
+      }),
+    });
+    upsertForDocument.mockResolvedValueOnce(row());
+    await svc.generateForDocument("d1");
+    expect(upsertForDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedNewTags: ["Vectors", "linear algebra"] }),
     );
   });
 
@@ -230,6 +250,7 @@ describe("accept", () => {
       documentId: "d1",
       summary: "A summary.",
       tagIds: ["t1"],
+      newTagNames: [],
     });
     expect(out.suggestion?.status).toBe("accepted");
   });
@@ -242,6 +263,27 @@ describe("accept", () => {
       documentId: "d1",
       summary: null,
       tagIds: [],
+      newTagNames: [],
+    });
+  });
+
+  it("creates only new tags that were actually proposed (case-insensitive)", async () => {
+    findByDocument.mockResolvedValueOnce(
+      row({ suggestedNewTags: ["Vectors", "linear algebra"] }),
+    );
+    applyAcceptance.mockResolvedValueOnce(row({ status: "accepted" }));
+    await svc.accept("d1", owner, {
+      acceptSummary: false,
+      tagIds: [],
+      // "vectors" matches a proposal case-insensitively (→ canonical
+      // "Vectors"); "made up" was never proposed and must be dropped.
+      newTags: ["vectors", "made up"],
+    });
+    expect(applyAcceptance).toHaveBeenCalledWith({
+      documentId: "d1",
+      summary: null,
+      tagIds: [],
+      newTagNames: ["Vectors"],
     });
   });
 

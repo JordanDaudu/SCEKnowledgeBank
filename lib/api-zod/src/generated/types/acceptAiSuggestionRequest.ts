@@ -10,4 +10,9 @@ export interface AcceptAiSuggestionRequest {
   acceptSummary: boolean;
   /** @maxItems 5 */
   tagIds?: string[];
+  /**
+   * New tag names to create (subset of the suggestion's suggestedNewTags).
+   * @maxItems 3
+   */
+  newTags?: string[];
 }

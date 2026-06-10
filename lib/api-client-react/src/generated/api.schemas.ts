@@ -397,6 +397,8 @@ export interface AiSuggestion {
   status: AiSuggestionStatus;
   summary: string;
   suggestedTags: AiSuggestionTag[];
+  /** Proposed brand-new tag names not yet in the catalog. */
+  suggestedNewTags: string[];
   error?: string | null;
   createdAt: string;
   resolvedAt?: string | null;
@@ -412,6 +414,11 @@ export interface AcceptAiSuggestionRequest {
   acceptSummary: boolean;
   /** @maxItems 5 */
   tagIds?: string[];
+  /**
+   * New tag names to create (subset of the suggestion's suggestedNewTags).
+   * @maxItems 3
+   */
+  newTags?: string[];
 }
 
 export interface DuplicateDocument {

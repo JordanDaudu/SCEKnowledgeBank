@@ -2257,7 +2257,7 @@ components:
 
     AiSuggestion:
       type: object
-      required: [id, status, summary, suggestedTags, createdAt]
+      required: [id, status, summary, suggestedTags, suggestedNewTags, createdAt]
       properties:
         id: { type: string, format: uuid }
         status:
@@ -2267,6 +2267,10 @@ components:
         suggestedTags:
           type: array
           items: { $ref: "#/components/schemas/AiSuggestionTag" }
+        suggestedNewTags:
+          type: array
+          description: Proposed brand-new tag names not yet in the catalog.
+          items: { type: string }
         error: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
         resolvedAt: { type: string, format: date-time, nullable: true }
@@ -2291,6 +2295,11 @@ components:
           type: array
           maxItems: 5
           items: { type: string, format: uuid }
+        newTags:
+          type: array
+          description: New tag names to create (subset of the suggestion's suggestedNewTags).
+          maxItems: 3
+          items: { type: string }
 
     DocumentFileMeta:
       type: object

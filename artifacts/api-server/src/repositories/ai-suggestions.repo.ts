@@ -5,6 +5,7 @@ export interface AiSuggestionRow {
   documentId: string;
   summary: string;
   suggestedTagIds: string[];
+  suggestedNewTags: string[];
   status: string; // pending | accepted | dismissed | failed
   error: string | null;
   createdAt: Date;
@@ -86,12 +87,14 @@ export async function upsertForDocument(values: {
   documentId: string;
   summary: string;
   suggestedTagIds: string[];
+  suggestedNewTags: string[];
   status: "pending" | "failed";
   error?: string | null;
 }): Promise<AiSuggestionRow> {
   const data = {
     summary: values.summary,
     suggestedTagIds: values.suggestedTagIds,
+    suggestedNewTags: values.suggestedNewTags,
     status: values.status,
     error: values.error ?? null,
     createdAt: new Date(),
@@ -106,13 +109,16 @@ export async function upsertForDocument(values: {
 
 /**
  * Apply an acceptance atomically: optionally copy the summary onto the
- * document, attach the chosen tags (duplicates ignored), and resolve
- * the suggestion row.
+ * document, attach the chosen existing tags, create-and-attach any
+ * accepted new tags (reusing a tag with the same name case-insensitively
+ * so we never duplicate an existing label), and resolve the suggestion
+ * row. All writes happen in one transaction.
  */
 export async function applyAcceptance(args: {
   documentId: string;
   summary: string | null; // null = summary not accepted
   tagIds: string[];
+  newTagNames: string[];
 }): Promise<AiSuggestionRow> {
   return db.$transaction(async (tx) => {
     if (args.summary !== null) {
@@ -121,9 +127,29 @@ export async function applyAcceptance(args: {
         data: { aiSummary: args.summary },
       });
     }
-    if (args.tagIds.length > 0) {
+
+    // Resolve accepted new-tag names to Tag ids: reuse an existing tag
+    // whose name matches case-insensitively, otherwise create one. This
+    // guards against creating a near-duplicate of a label that already
+    // exists under different casing.
+    const createdTagIds: string[] = [];
+    for (const rawName of args.newTagNames) {
+      const name = rawName.trim();
+      if (!name) continue;
+      const existing = await tx.tag.findFirst({
+        where: { name: { equals: name, mode: "insensitive" } },
+        select: { id: true },
+      });
+      const tagId =
+        existing?.id ??
+        (await tx.tag.create({ data: { name }, select: { id: true } })).id;
+      createdTagIds.push(tagId);
+    }
+
+    const allTagIds = Array.from(new Set([...args.tagIds, ...createdTagIds]));
+    if (allTagIds.length > 0) {
       await tx.documentTag.createMany({
-        data: args.tagIds.map((tagId) => ({
+        data: allTagIds.map((tagId) => ({
           documentId: args.documentId,
           tagId,
         })),

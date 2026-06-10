@@ -394,6 +394,9 @@ model DocumentAiSuggestion {
   documentId      String    @unique(map: "document_ai_suggestions_document_unique") @map("document_id") @db.Uuid
   summary         String    @default("")
   suggestedTagIds String[]  @default([]) @map("suggested_tag_ids") @db.Uuid
+  // Proposed brand-new tag names (not yet in the catalog). Created as
+  // Tag rows only if the uploader accepts them (design 2026-06-10 v2).
+  suggestedNewTags String[] @default([]) @map("suggested_new_tags")
   status          String    @default("pending")
   error           String?
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()

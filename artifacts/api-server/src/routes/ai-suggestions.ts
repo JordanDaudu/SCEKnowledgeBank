@@ -11,6 +11,7 @@ const IdParams = z.object({ id: z.string().uuid() });
 const AcceptBody = z.object({
   acceptSummary: z.boolean(),
   tagIds: z.array(z.string().uuid()).max(5).default([]),
+  newTags: z.array(z.string().min(1).max(64)).max(3).default([]),
 });
 
 /** Map service error codes to HTTP statuses. */

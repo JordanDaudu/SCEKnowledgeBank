@@ -36,6 +36,7 @@ export default function AiSuggestionsCard({ documentId, canEdit }: Props) {
   });
   const [useSummary, setUseSummary] = useState(true);
   const [selectedTagIds, setSelectedTagIds] = useState<string[] | null>(null);
+  const [selectedNewTags, setSelectedNewTags] = useState<string[] | null>(null);
 
   const invalidate = () => {
     void refetch();
@@ -93,6 +94,17 @@ export default function AiSuggestionsCard({ documentId, canEdit }: Props) {
       tagIds.includes(id) ? tagIds.filter((x) => x !== id) : [...tagIds, id],
     );
 
+  // New-tag proposals default to all-selected, same as existing tags.
+  const newTags = selectedNewTags ?? suggestion.suggestedNewTags;
+  const toggleNewTag = (name: string) =>
+    setSelectedNewTags(
+      newTags.includes(name)
+        ? newTags.filter((x) => x !== name)
+        : [...newTags, name],
+    );
+  const nothingSelected =
+    !useSummary && tagIds.length === 0 && newTags.length === 0;
+
   return (
     <div className="rounded-lg border p-4 mb-4" data-testid="ai-suggestions-card">
       <div className="flex items-center gap-2 mb-3">
@@ -134,14 +146,34 @@ export default function AiSuggestionsCard({ documentId, canEdit }: Props) {
           </div>
         </div>
       )}
+      {suggestion.suggestedNewTags.length > 0 && (
+        <div className="mb-3">
+          <p className="text-sm font-medium mb-1">
+            {t("aiSuggestions.newTagsLabel")}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {suggestion.suggestedNewTags.map((name) => (
+              <Badge
+                key={name}
+                variant={newTags.includes(name) ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => toggleNewTag(name)}
+                data-testid={`ai-suggestions-newtag-${name}`}
+              >
+                + {name}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex gap-2">
         <Button
           size="sm"
-          disabled={acceptMutation.isPending || (!useSummary && tagIds.length === 0)}
+          disabled={acceptMutation.isPending || nothingSelected}
           onClick={() =>
             acceptMutation.mutate({
               id: documentId,
-              data: { acceptSummary: useSummary, tagIds },
+              data: { acceptSummary: useSummary, tagIds, newTags },
             })
           }
           data-testid="ai-suggestions-accept"

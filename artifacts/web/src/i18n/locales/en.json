@@ -785,6 +785,7 @@
     "summaryLabel": "Suggested summary",
     "useSummary": "Use this summary",
     "tagsLabel": "Suggested tags",
+    "newTagsLabel": "Suggested new tags (created when accepted)",
     "accept": "Accept selected",
     "dismiss": "Dismiss",
     "generate": "Generate AI suggestions",

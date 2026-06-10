@@ -39,6 +39,8 @@ export interface AiSuggestionDTO {
   status: string;
   summary: string;
   suggestedTags: Array<{ id: string; name: string }>;
+  /** Proposed brand-new tag names not yet in the catalog. */
+  suggestedNewTags: string[];
   error: string | null;
   createdAt: string;
   resolvedAt: string | null;
@@ -64,7 +66,8 @@ export function buildPrompt(
   return [
     "You are helping organize a university course-material library.",
     "Write a concise 2-4 sentence summary of the document below, in the SAME LANGUAGE as the document text (e.g. Hebrew text gets a Hebrew summary).",
-    "Then pick up to 5 tags from the catalog that genuinely fit the document. Only use tag ids that appear in the catalog; return an empty list if none fit.",
+    "Then pick up to 5 tags from the catalog that genuinely fit the document (field `tagIds`). Only use tag ids that appear in the catalog; return an empty list if none fit.",
+    "If the document covers an important topic that NO catalog tag captures, you may propose up to 3 short, new tag names in `newTags` (1-3 words each, in the document's language, lowercase unless a proper noun). Do not propose a new tag that merely restates one already in the catalog. Return an empty list when the catalog is sufficient.",
     "",
     `Document title: ${doc.title}`,
     doc.description ? `Uploader description: ${doc.description}` : "",
@@ -86,8 +89,9 @@ const RESPONSE_SCHEMA = {
   properties: {
     summary: { type: Type.STRING },
     tagIds: { type: Type.ARRAY, items: { type: Type.STRING } },
+    newTags: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
-  required: ["summary", "tagIds"],
+  required: ["summary", "tagIds", "newTags"],
 } as const;
 
 let client: GoogleGenAI | null = null;
@@ -99,6 +103,7 @@ function getClient(): GoogleGenAI {
 async function callGemini(prompt: string): Promise<{
   summary: string;
   tagIds: string[];
+  newTags: string[];
 }> {
   const res = await getClient().models.generateContent({
     model: env.aiSuggestionsModel,
@@ -117,10 +122,14 @@ async function callGemini(prompt: string): Promise<{
   ) {
     throw new Error("Malformed model response");
   }
-  const p = parsed as { summary: string; tagIds: unknown[] };
+  const p = parsed as { summary: string; tagIds: unknown[]; newTags?: unknown };
   return {
     summary: p.summary.trim(),
     tagIds: p.tagIds.filter((t): t is string => typeof t === "string"),
+    // newTags is optional defensively: a model that omits it shouldn't fail.
+    newTags: Array.isArray(p.newTags)
+      ? p.newTags.filter((t): t is string => typeof t === "string")
+      : [],
   };
 }
 
@@ -151,10 +160,25 @@ export async function generateForDocument(
     const tagIds = Array.from(
       new Set(out.tagIds.filter((id) => validIds.has(id))),
     ).slice(0, 5);
+    // New-tag proposals: trim, drop empties, dedupe case-insensitively,
+    // and drop any that already exist in the catalog (the model should
+    // have used the existing tag — never propose a duplicate label).
+    const existingNames = new Set(tags.map((t) => t.name.toLowerCase()));
+    const seen = new Set<string>();
+    const newTags: string[] = [];
+    for (const raw of out.newTags) {
+      const name = raw.trim();
+      const key = name.toLowerCase();
+      if (!name || existingNames.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      newTags.push(name);
+      if (newTags.length >= 3) break;
+    }
     const row = await repo.upsertForDocument({
       documentId,
       summary: out.summary,
       suggestedTagIds: tagIds,
+      suggestedNewTags: newTags,
       status: "pending",
     });
     // actorId MUST be null: notify() suppresses self-notifications, and
@@ -176,6 +200,7 @@ export async function generateForDocument(
       documentId,
       summary: "",
       suggestedTagIds: [],
+      suggestedNewTags: [],
       status: "failed",
       error: message,
     });
@@ -209,6 +234,7 @@ function toDTO(r: repo.AiSuggestionRow, tagNames: Map<string, string>): AiSugges
       id,
       name: tagNames.get(id) ?? "",
     })),
+    suggestedNewTags: r.suggestedNewTags,
     error: r.error,
     createdAt: r.createdAt.toISOString(),
     resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
@@ -262,6 +288,8 @@ export async function getForDocument(
 export interface AcceptInput {
   acceptSummary: boolean;
   tagIds: string[];
+  /** New tag names the uploader chose to create (subset of suggestions). */
+  newTags?: string[];
 }
 
 export async function accept(
@@ -278,10 +306,23 @@ export async function accept(
   // Only tags that were actually suggested may be accepted.
   const suggested = new Set(row.suggestedTagIds);
   const tagIds = Array.from(new Set(input.tagIds.filter((id) => suggested.has(id))));
+  // Likewise, only new-tag names that were actually proposed may be created
+  // (case-insensitive match against the stored proposals).
+  const suggestedNew = new Map(
+    row.suggestedNewTags.map((n) => [n.toLowerCase(), n]),
+  );
+  const newTagNames = Array.from(
+    new Set(
+      (input.newTags ?? [])
+        .map((n) => suggestedNew.get(n.trim().toLowerCase()))
+        .filter((n): n is string => !!n),
+    ),
+  );
   const updated = await repo.applyAcceptance({
     documentId,
     summary: input.acceptSummary ? row.summary : null,
     tagIds,
+    newTagNames,
   });
   return envelope(doc, updated);
 }
