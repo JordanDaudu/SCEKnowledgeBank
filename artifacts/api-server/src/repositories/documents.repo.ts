@@ -32,6 +32,10 @@ export interface DocumentRow {
   viewCount: number;
   downloadCount: number;
   favoriteCount: number;
+  // AI suggestions (design 2026-06-10). Uploader-accepted AI summary;
+  // empty string when none has been accepted. Loaded via whole-row
+  // findMany so no explicit select change is needed.
+  aiSummary: string;
 }
 
 export type DocumentInsert = Prisma.DocumentUncheckedCreateInput;

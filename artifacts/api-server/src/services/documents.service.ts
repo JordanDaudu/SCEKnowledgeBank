@@ -38,6 +38,12 @@ export interface DocumentDTO {
   id: string;
   title: string;
   description: string;
+  /**
+   * Uploader-accepted AI-generated summary (design 2026-06-10).
+   * Empty/absent until the owner accepts a suggestion. Rendered with
+   * an explicit "AI-generated" label — distinct from `description`.
+   */
+  aiSummary?: string;
   course?: taxonomyService.CourseDTO;
   category?: taxonomyService.CategoryDTO;
   materialType: string;
@@ -223,6 +229,7 @@ export async function assembleDocuments(
       if (r) dto.reviewer = r;
     }
     if (d.reviewReason) dto.reviewReason = d.reviewReason;
+    if (d.aiSummary) dto.aiSummary = d.aiSummary;
     const c = d.courseId ? coursesMap.get(d.courseId) : undefined;
     if (c) dto.course = c;
     const cat = d.categoryId ? categoriesMap.get(d.categoryId) : undefined;
