@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import * as z from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { User, BookA, ShieldAlert, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/logo";
 
 import { Button } from "@/components/ui/button";
@@ -74,13 +74,6 @@ export default function Login() {
     });
   };
 
-  const DEMO_PASSWORD = "Demo1234!";
-  const loginAsDemo = (email: string) => {
-    form.setValue("email", email);
-    form.setValue("password", DEMO_PASSWORD);
-    onSubmit({ email, password: DEMO_PASSWORD });
-  };
-
   if (user && !isUserLoading) {
     return <Redirect to="/" />;
   }
@@ -104,68 +97,6 @@ export default function Login() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Quick login */}
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-center text-muted-foreground uppercase tracking-wider">
-              {t("login.quickDemo")}
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {/* Student */}
-              <button
-                type="button"
-                onClick={() => loginAsDemo("noa.student@knowledgebank.demo")}
-                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-sky-50 hover:border-sky-300 dark:hover:bg-sky-950/20 dark:hover:border-sky-700/40 transition-all group text-start sm:text-center"
-              >
-                <div className="h-9 w-9 shrink-0 rounded-lg bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center group-hover:bg-sky-200 dark:group-hover:bg-sky-800/40 transition-colors">
-                  <User className="h-4 w-4 text-sky-700 dark:text-sky-400" />
-                </div>
-                <div className="sm:text-center">
-                  <p className="text-sm font-semibold text-foreground leading-none">{t("login.student")}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t("login.studentDemo")}</p>
-                </div>
-              </button>
-
-              {/* Lecturer */}
-              <button
-                type="button"
-                onClick={() => loginAsDemo("maya.cohen@knowledgebank.demo")}
-                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-primary/5 hover:border-primary/40 dark:hover:border-primary/30 transition-all group text-start sm:text-center"
-              >
-                <div className="h-9 w-9 shrink-0 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-                  <BookA className="h-4 w-4 text-primary" />
-                </div>
-                <div className="sm:text-center">
-                  <p className="text-sm font-semibold text-foreground leading-none">{t("login.lecturer")}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t("login.lecturerDemo")}</p>
-                </div>
-              </button>
-
-              {/* Admin */}
-              <button
-                type="button"
-                onClick={() => loginAsDemo("admin@knowledgebank.demo")}
-                className="w-full flex items-center gap-3 sm:flex-col sm:items-center sm:gap-2 px-3 py-3 rounded-lg border border-border bg-card hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950/20 dark:hover:border-amber-700/40 transition-all group text-start sm:text-center"
-              >
-                <div className="h-9 w-9 shrink-0 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center group-hover:bg-amber-200 dark:group-hover:bg-amber-800/40 transition-colors">
-                  <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                </div>
-                <div className="sm:text-center">
-                  <p className="text-sm font-semibold text-foreground leading-none">{t("login.admin")}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t("login.adminDemo")}</p>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground tracking-wider">{t("login.orSignIn")}</span>
-            </div>
-          </div>
-
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
