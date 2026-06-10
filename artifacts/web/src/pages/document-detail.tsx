@@ -25,6 +25,7 @@ import { triggerDownload } from "@/lib/download";
 import PreviewPanel from "@/components/document-detail/PreviewPanel";
 import { previewKindForMime } from "@/lib/preview-kind";
 import MetadataPanel from "@/components/document-detail/MetadataPanel";
+import AiSuggestionsCard from "@/components/document-detail/AiSuggestionsCard";
 import EditMetadataModal from "@/components/document-detail/EditMetadataModal";
 import { RejectDialog } from "@/components/document-detail/RejectDialog";
 import CommentsThread from "@/components/document-detail/CommentsThread";
@@ -296,6 +297,7 @@ export default function DocumentDetail() {
           </p>
           <AddToCollection documentId={doc.id} />
         </div>
+        <AiSuggestionsCard documentId={doc.id} canEdit={canEdit} />
         <MetadataPanel
           doc={doc}
           canEdit={canEdit}
