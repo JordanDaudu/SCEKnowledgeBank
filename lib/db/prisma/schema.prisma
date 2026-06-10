@@ -270,6 +270,13 @@ model Document {
   downloadCount   Int @default(0) @map("download_count")
   favoriteCount   Int @default(0) @map("favorite_count")
 
+  // ─── AI suggestions (design 2026-06-10) ───────────────────────
+  // Uploader-accepted AI-generated summary. Empty string = none.
+  // Never auto-populated; only written when the owner accepts a
+  // pending DocumentAiSuggestion. Distinct from `description`,
+  // which is always human-authored.
+  aiSummary String @default("") @map("ai_summary")
+
   course            Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
   category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   uploader          User                  @relation("DocumentUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
@@ -285,6 +292,7 @@ model Document {
   favorites         DocumentFavorite[]
   collectionItems   StudyCollectionItem[]
   studyProgress     StudyProgress[]
+  aiSuggestion      DocumentAiSuggestion?
 
   @@index([courseId], map: "documents_course_idx")
   @@index([categoryId], map: "documents_category_idx")
@@ -374,6 +382,26 @@ model DocumentTag {
   @@id([documentId, tagId])
   @@index([tagId], map: "document_tags_tag_idx")
   @@map("document_tags")
+}
+
+// AI-generated summary + tag suggestions awaiting uploader review
+// (design 2026-06-10). One live row per document (`documentId` unique);
+// regeneration overwrites in place. `suggestedTagIds` reference Tag rows
+// validated at generation time. Status: pending | accepted | dismissed
+// | failed.
+model DocumentAiSuggestion {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId      String    @unique(map: "document_ai_suggestions_document_unique") @map("document_id") @db.Uuid
+  summary         String    @default("")
+  suggestedTagIds String[]  @default([]) @map("suggested_tag_ids") @db.Uuid
+  status          String    @default("pending")
+  error           String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz()
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_ai_suggestions")
 }
 
 model MaterialViewHistory {
