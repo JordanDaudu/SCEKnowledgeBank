@@ -74,6 +74,12 @@ const envSchema = z.object({
 
   STORAGE_DRIVER: z.enum(["local", "s3", "gcs"]).optional(),
   STORAGE_LOCAL_ROOT: z.string().optional(),
+
+  // ─── AI suggestions (design 2026-06-10) ──────────────────────────
+  // Feature master switch: empty/absent disables the feature entirely
+  // (uploads behave exactly as before; UI hides all AI elements).
+  GEMINI_API_KEY: z.string().optional().default(""),
+  AI_SUGGESTIONS_MODEL: z.string().default("gemini-2.5-flash"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -141,4 +147,6 @@ export const env = {
   storageLocalRoot: e.STORAGE_LOCAL_ROOT
     ? path.resolve(e.STORAGE_LOCAL_ROOT)
     : path.resolve(process.cwd(), ".data/storage"),
+  geminiApiKey: e.GEMINI_API_KEY.trim(),
+  aiSuggestionsModel: e.AI_SUGGESTIONS_MODEL,
 };
