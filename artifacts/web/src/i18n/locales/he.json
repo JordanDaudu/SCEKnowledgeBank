@@ -3,7 +3,8 @@
     "appName": "Knowledge Bank",
     "language": "שפה",
     "logout": "התנתקות",
-    "loading": "טוען…"
+    "loading": "טוען…",
+    "verified": "תורם מאומת"
   },
   "roles": {
     "student": "סטודנט",
@@ -324,6 +325,16 @@
     "viewFulfilled": "צפייה במסמך שטיפל בבקשה",
     "by": "מאת {{name}}",
     "fulfilledEllipsis": "טופלה…",
+    "or": "או",
+    "uploadDocument": "העלאת מסמך",
+    "uploadDocumentHint": "עד {{max}} MB — PDF, Office, תמונות, טקסט או zip. הבקשה תטופל באמצעות הקובץ שהועלה.",
+    "uploading": "מעלה…",
+    "uploadedDocument": "המסמך הועלה",
+    "uploadFailed": "ההעלאה נכשלה",
+    "uploadFailedDesc": "השרת דחה את הקובץ. נסו שוב.",
+    "fileEmpty": "הקובץ ריק.",
+    "fileTooLarge": "הקובץ חורג מהמגבלה של {{max}} MB.",
+    "unsupportedType": "סוג קובץ לא נתמך. מותרים: {{allowed}}",
     "status": {
       "open": "פתוחה",
       "in_progress": "בתהליך",
@@ -552,7 +563,22 @@
       "deletedAt": "נמחק {{date}}",
       "fileCount": "{{count}} קבצים",
       "purgeEligibleTitle": "הסרה לצמיתות (הפיכה לאנונימי)",
-      "purgeNotEligibleTitle": "זמין 30 יום לאחר המחיקה"
+      "purgeNotEligibleTitle": "זמין 30 יום לאחר המחיקה",
+      "delete": "מחיקה",
+      "resetPassword": "איפוס סיסמה",
+      "cancel": "ביטול",
+      "done": "סיום",
+      "copy": "העתקה",
+      "accountDeleted": "החשבון נמחק",
+      "accountDeletedDesc": "החשבון של {{name}} הועבר לחשבונות שנמחקו. ניתן לשחזר אותו תוך 30 יום.",
+      "deleteFailed": "לא ניתן למחוק את החשבון",
+      "deleteConfirmTitle": "למחוק את החשבון הזה?",
+      "deleteConfirmDesc": "החשבון של {{name}} יימחק ויועבר לחשבונות שנמחקו. הקבצים שלו יישמרו, וניתן לשחזר את החשבון תוך 30 יום.",
+      "resetPasswordFailed": "לא ניתן לאפס את הסיסמה",
+      "copyFailed": "לא ניתן להעתיק ללוח",
+      "resetPasswordDoneTitle": "נוצרה סיסמה חדשה",
+      "resetPasswordDoneDesc": "שתפו את הסיסמה החדשה עם {{name}}. הוא יוכל לשנות אותה לאחר ההתחברות.",
+      "resetPasswordHint": "מטעמי אבטחה, הסיסמה מוצגת פעם אחת בלבד. העתיקו אותה כעת — לא ניתן יהיה לאחזר אותה מאוחר יותר."
     },
     "approvals": {
       "title": "אישורי מנהל",

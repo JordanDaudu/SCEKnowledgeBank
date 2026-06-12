@@ -17,4 +17,5 @@ export interface LeaderboardRow {
   score: number;
   level: ReputationLevel;
   topBadges: ReputationBadge[];
+  verified: boolean;
 }

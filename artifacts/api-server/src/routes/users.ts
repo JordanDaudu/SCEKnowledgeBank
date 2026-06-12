@@ -114,6 +114,41 @@ router.post(
   },
 );
 
+// Admin-only: soft-delete any user account. The account moves to the
+// deleted-accounts list (restorable; purgeable after 30 days).
+router.post(
+  "/admin/users/:userId/delete",
+  requireRole("admin"),
+  async (req, res, next) => {
+    try {
+      const { userId } = AdminUserIdParam.parse(req.params);
+      await accountService.adminDeleteAccount(req.authUser!, userId);
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Admin-only: reset a user's password to a freshly generated strong one.
+// Returns the new plaintext password once so the admin can pass it on.
+router.post(
+  "/admin/users/:userId/reset-password",
+  requireRole("admin"),
+  async (req, res, next) => {
+    try {
+      const { userId } = AdminUserIdParam.parse(req.params);
+      const result = await authService.adminResetPassword(
+        req.authUser!.id,
+        userId,
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ─── Admin: deleted accounts (SP3) ─────────────────────────────────
 router.get("/admin/deleted-users", requireRole("admin"), async (_req, res, next) => {
   try {

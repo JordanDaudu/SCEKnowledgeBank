@@ -16,5 +16,6 @@ export interface UserSummary {
   isActive: boolean;
   status: UserSummaryStatus;
   createdAt: Date;
+  verified: boolean;
   reputation?: AuthorReputation | null;
 }

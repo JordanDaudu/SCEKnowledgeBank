@@ -79,6 +79,7 @@ import type {
   RegisterResponse,
   RejectDocumentRequest,
   ReorderCollectionRequest,
+  ResetPasswordResult,
   SearchAutocomplete,
   SearchAutocompleteParams,
   SearchDocumentsFacetsParams,
@@ -6015,6 +6016,177 @@ export const useAdminDisableUser = <
   TContext
 > => {
   return useMutation(getAdminDisableUserMutationOptions(options));
+};
+
+/**
+ * @summary Admin-only soft-delete any user account
+ */
+export const getAdminDeleteUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/delete`;
+};
+
+export const adminDeleteUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminDeleteUserUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminDeleteUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteUser>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminDeleteUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteUser>>
+>;
+
+export type AdminDeleteUserMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only soft-delete any user account
+ */
+export const useAdminDeleteUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminDeleteUserMutationOptions(options));
+};
+
+/**
+ * @summary Admin-only reset a user's password to a new random strong one
+ */
+export const getAdminResetUserPasswordUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/reset-password`;
+};
+
+export const adminResetUserPassword = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<ResetPasswordResult> => {
+  return customFetch<ResetPasswordResult>(
+    getAdminResetUserPasswordUrl(userId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminResetUserPasswordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminResetUserPassword>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminResetUserPassword>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminResetUserPassword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminResetUserPassword>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminResetUserPassword(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminResetUserPasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminResetUserPassword>>
+>;
+
+export type AdminResetUserPasswordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Admin-only reset a user's password to a new random strong one
+ */
+export const useAdminResetUserPassword = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminResetUserPassword>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminResetUserPassword>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminResetUserPasswordMutationOptions(options));
 };
 
 /**

@@ -182,6 +182,7 @@ export async function assembleDocuments(
       isActive: false,
       status: "ACTIVE",
       createdAt: d.createdAt.toISOString(),
+      verified: false,
     };
     const file = filesByDoc.get(d.id);
     // Permission flags are computed per-row using the canonical

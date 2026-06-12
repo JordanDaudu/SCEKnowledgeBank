@@ -42,6 +42,26 @@ export function scoreFromStats(s: ReputationStats): number {
   );
 }
 
+/**
+ * Upload count (strictly) above which a non-staff contributor earns the
+ * "verified" mark. "Uploads" here means publicly-live documents
+ * (published OR approved) — the same set the leaderboard counts.
+ */
+export const VERIFIED_UPLOAD_THRESHOLD = 10;
+
+/**
+ * A user is a "verified contributor" — shown with a check next to their name —
+ * when they are a lecturer (always verified) OR a student/other member who has
+ * contributed more than {@link VERIFIED_UPLOAD_THRESHOLD} live documents.
+ */
+export function isVerifiedContributor(opts: {
+  roles: string[];
+  liveUploads: number;
+}): boolean {
+  if (opts.roles.includes("lecturer")) return true;
+  return opts.liveUploads > VERIFIED_UPLOAD_THRESHOLD;
+}
+
 export interface Level {
   key: "novice" | "contributor" | "scholar" | "sage";
   label: string;

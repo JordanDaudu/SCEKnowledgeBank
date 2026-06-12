@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { randomInt } from "node:crypto";
 import * as usersRepo from "../repositories/users.repo";
 import * as enrollmentsRepo from "../repositories/enrollments.repo";
 import * as auditService from "./audit.service";
@@ -229,4 +230,62 @@ export async function disableUser(
   if (!row) throw badRequest("User not found");
   await auditService.record(actorId, "user.disable", "user", targetUserId);
   return row;
+}
+
+// ─── Admin password reset ─────────────────────────────────────────────
+
+// Character sets used to build a temporary password. Visually ambiguous
+// characters (0/O, 1/l/I) are intentionally omitted so the admin can read
+// the generated password aloud or copy it without confusion.
+const PW_LOWER = "abcdefghijkmnpqrstuvwxyz";
+const PW_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const PW_DIGITS = "23456789";
+
+/**
+ * Generate a strong, random temporary password. Guarantees at least one
+ * lowercase letter, one uppercase letter, and one digit so it always
+ * satisfies {@link PASSWORD_RULES} (letter + number). Uses crypto-grade
+ * randomness via `crypto.randomInt`.
+ */
+export function generateTempPassword(length = 8): string {
+  if (length < 3) throw new Error("Temporary password must be at least 3 chars");
+  const all = PW_LOWER + PW_UPPER + PW_DIGITS;
+  const chars = [
+    PW_LOWER[randomInt(PW_LOWER.length)],
+    PW_UPPER[randomInt(PW_UPPER.length)],
+    PW_DIGITS[randomInt(PW_DIGITS.length)],
+  ];
+  for (let i = chars.length; i < length; i++) {
+    chars.push(all[randomInt(all.length)]);
+  }
+  // Fisher–Yates shuffle so the guaranteed characters aren't always first.
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+/**
+ * Admin-initiated password reset: set a freshly generated strong password
+ * on the target user and return the plaintext once so the admin can hand
+ * it to the user. The plaintext is never stored — only its bcrypt hash.
+ */
+export async function adminResetPassword(
+  actorId: string,
+  targetUserId: string,
+): Promise<{ password: string }> {
+  const target = await usersRepo.findById(targetUserId);
+  if (!target) throw badRequest("User not found");
+  const password = generateTempPassword(8);
+  const passwordHash = await bcrypt.hash(password, 10);
+  await usersRepo.updatePasswordHash(targetUserId, passwordHash);
+  await auditService.record(
+    actorId,
+    "user.password_reset",
+    "user",
+    targetUserId,
+    { byAdmin: true },
+  );
+  return { password };
 }

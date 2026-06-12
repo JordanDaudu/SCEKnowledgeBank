@@ -16,7 +16,8 @@ import { materialTypeStyle } from "@/lib/material-type-style";
 import { apiUrl } from "@/lib/api-url";
 import { renderSnippetHtml } from "@/lib/snippet";
 import { cn } from "@/lib/utils";
-import { Eye, Download, Heart } from "lucide-react";
+import { VerifiedBadge } from "@/components/reputation/VerifiedBadge";
+import { Eye, Download, Heart, User } from "lucide-react";
 
 interface Props {
   items: (Document & { headline?: string })[];
@@ -180,6 +181,15 @@ export default function DocumentCards({
                     favorited={favoritedIds?.has(doc.id) ?? false}
                   />
                 </div>
+
+                {/* Uploader byline */}
+                {doc.uploader && (
+                  <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground min-w-0">
+                    <User className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{doc.uploader.displayName}</span>
+                    {doc.uploader.verified ? <VerifiedBadge /> : null}
+                  </div>
+                )}
 
                 {/* Footer: material type + status + date */}
                 <div className="mt-auto flex justify-between items-center pt-2 gap-2 border-t border-border/50">

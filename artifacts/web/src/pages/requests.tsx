@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { 
-  useListRequests, 
-  useCreateRequest, 
+import { useRef, useState } from "react";
+import {
+  useListRequests,
+  useCreateRequest,
   useVoteRequest,
   useUpdateRequest,
   getListRequestsQueryKey,
   useListCourses,
-  useGetCurrentUser
+  useGetCurrentUser,
+  type UploadResult,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +16,36 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUp, Plus, Clock, CheckCircle2, Link as LinkIcon, Loader2, XCircle } from "lucide-react";
+import { ArrowUp, Plus, Clock, CheckCircle2, Link as LinkIcon, Loader2, XCircle, UploadCloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/lib/format";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { apiEndpoints } from "@/lib/api-url";
+import { VerifiedBadge } from "@/components/reputation/VerifiedBadge";
+
+/* ── Direct-upload constraints (mirror the Upload page) ───────────────── */
+const MAX_UPLOAD_MB = Number(import.meta.env.VITE_MAX_UPLOAD_MB ?? 50);
+const ALLOWED_EXTENSIONS = [
+  "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx",
+  "txt", "md", "csv", "png", "jpg", "jpeg", "zip",
+];
+
+type Translate = (key: string, opts?: Record<string, unknown>) => string;
+
+function validateFulfillFile(file: File, t: Translate): string | null {
+  if (file.size === 0) return t("requests.fileEmpty");
+  if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+    return t("requests.fileTooLarge", { max: MAX_UPLOAD_MB });
+  }
+  const dot = file.name.lastIndexOf(".");
+  const ext = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : "";
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    return t("requests.unsupportedType", { allowed: ALLOWED_EXTENSIONS.join(", ") });
+  }
+  return null;
+}
 
 /* ── Status visual config ────────────────────────────────────────────── */
 const STATUS_CFG: Record<string, {
@@ -64,6 +89,8 @@ export default function Requests() {
   const [isCreating, setIsCreating] = useState(false);
   const [fulfillingId, setFulfillingId] = useState<string | null>(null);
   const [docUrl, setDocUrl] = useState("");
+  const [isUploadingFulfill, setIsUploadingFulfill] = useState(false);
+  const fulfillFileRef = useRef<HTMLInputElement>(null);
   
   const { data: user } = useGetCurrentUser();
   const { data: courses } = useListCourses();
@@ -134,11 +161,9 @@ export default function Requests() {
     });
   };
 
-  const handleFulfill = (id: string) => {
-    let fulfillingDocumentId = docUrl;
-    if (docUrl.includes("/documents/")) {
-      fulfillingDocumentId = docUrl.split("/documents/")[1].split("/")[0];
-    }
+  // Shared terminal step for both fulfill paths (paste URL/ID and direct
+  // upload): point the request at a document and flip it to "fulfilled".
+  const fulfillWith = (id: string, fulfillingDocumentId: string) => {
     updateMutation.mutate({
       id,
       data: { status: "fulfilled", fulfillingDocumentId }
@@ -148,8 +173,73 @@ export default function Requests() {
         setFulfillingId(null);
         setDocUrl("");
         queryClient.invalidateQueries({ queryKey: getListRequestsQueryKey({ status: statusTab }) });
-      }
+      },
+      onError: (err) => {
+        const data = (err as { data?: { error?: { message?: string } } })?.data;
+        toast({
+          variant: "destructive",
+          title: t("requests.updateFailed"),
+          description: data?.error?.message || (err as Error)?.message,
+        });
+      },
     });
+  };
+
+  const handleFulfill = (id: string) => {
+    let fulfillingDocumentId = docUrl;
+    if (docUrl.includes("/documents/")) {
+      fulfillingDocumentId = docUrl.split("/documents/")[1].split("/")[0];
+    }
+    fulfillWith(id, fulfillingDocumentId);
+  };
+
+  // Upload a file straight from the fulfill form: create the document (reusing
+  // the multipart upload endpoint), then fulfill the request with its id. The
+  // request's course is passed along when present so the doc lands in context.
+  const handleUploadFulfill = async (
+    reqId: string,
+    file: File,
+    courseId?: string,
+  ) => {
+    const err = validateFulfillFile(file, t);
+    if (err) {
+      toast({ variant: "destructive", title: t("requests.uploadFailed"), description: err });
+      return;
+    }
+    setIsUploadingFulfill(true);
+    try {
+      const form = new FormData();
+      form.append("files", file);
+      if (courseId) form.append("courseId", courseId);
+      const title = file.name.replace(/\.[^./\\]+$/, "").trim();
+      if (title) form.append("title", title);
+
+      const res = await fetch(apiEndpoints.uploadDocuments(), {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      const data = (await res.json().catch(() => null)) as
+        | (UploadResult & { error?: { message?: string } })
+        | null;
+      if (!res.ok) {
+        throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      }
+      const fileResult = data?.results?.[0];
+      if (!fileResult?.success || !fileResult.document) {
+        throw new Error(fileResult?.error || t("requests.uploadFailedDesc"));
+      }
+      toast({ title: t("requests.uploadedDocument") });
+      fulfillWith(reqId, fileResult.document.id);
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: t("requests.uploadFailed"),
+        description: e instanceof Error ? e.message : t("requests.uploadFailedDesc"),
+      });
+    } finally {
+      setIsUploadingFulfill(false);
+    }
   };
 
   return (
@@ -339,17 +429,55 @@ export default function Requests() {
 
                       {/* Fulfill form */}
                       {fulfillingId === req.id && (
-                        <div className="bg-secondary/50 p-3 rounded-md flex gap-2 items-center mb-3 border border-border/60">
-                          <Input
-                            placeholder={t("requests.fulfillPlaceholder")}
-                            value={docUrl}
-                            onChange={e => setDocUrl(e.target.value)}
-                            className="bg-background text-sm h-8"
+                        <div className="bg-secondary/50 p-3 rounded-md mb-3 border border-border/60 space-y-2.5">
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              placeholder={t("requests.fulfillPlaceholder")}
+                              value={docUrl}
+                              onChange={e => setDocUrl(e.target.value)}
+                              className="bg-background text-sm h-8"
+                              disabled={isUploadingFulfill}
+                            />
+                            <Button size="sm" onClick={() => handleFulfill(req.id)} disabled={!docUrl || updateMutation.isPending || isUploadingFulfill}>
+                              {t("requests.confirm")}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setFulfillingId(null)} disabled={isUploadingFulfill}>{t("requests.cancel")}</Button>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                            <span className="h-px flex-1 bg-border/70" />
+                            {t("requests.or")}
+                            <span className="h-px flex-1 bg-border/70" />
+                          </div>
+
+                          <input
+                            ref={fulfillFileRef}
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleUploadFulfill(req.id, f, req.course?.id);
+                              e.target.value = "";
+                            }}
                           />
-                          <Button size="sm" onClick={() => handleFulfill(req.id)} disabled={!docUrl || updateMutation.isPending}>
-                            {t("requests.confirm")}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full bg-background"
+                            disabled={isUploadingFulfill || updateMutation.isPending}
+                            onClick={() => fulfillFileRef.current?.click()}
+                            data-testid={`fulfill-upload-${req.id}`}
+                          >
+                            {isUploadingFulfill ? (
+                              <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <UploadCloud className="me-2 h-4 w-4" />
+                            )}
+                            {isUploadingFulfill ? t("requests.uploading") : t("requests.uploadDocument")}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => setFulfillingId(null)}>{t("requests.cancel")}</Button>
+                          <p className="text-[11px] text-muted-foreground">
+                            {t("requests.uploadDocumentHint", { max: MAX_UPLOAD_MB })}
+                          </p>
                         </div>
                       )}
 
@@ -368,7 +496,10 @@ export default function Requests() {
                             {req.course.code}
                           </span>
                         )}
-                        <span>{t("requests.by", { name: req.requestedBy.displayName })}</span>
+                        <span className="inline-flex items-center gap-1">
+                          {t("requests.by", { name: req.requestedBy.displayName })}
+                          {req.requestedBy.verified ? <VerifiedBadge /> : null}
+                        </span>
                         <span className="tabular-nums">{formatDateTime(req.createdAt)}</span>
                       </div>
                     </CardContent>

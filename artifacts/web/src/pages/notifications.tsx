@@ -21,6 +21,12 @@ function typeLabel(type: string): string {
       return "replied to your comment";
     case "document.ai_suggestions_ready":
       return "AI suggestions are ready";
+    case "request.fulfilled":
+      return "fulfilled your request";
+    case "request.status":
+      return "updated your request status";
+    case "request.possible_match":
+      return "found a possible match for your request";
     default:
       return type;
   }

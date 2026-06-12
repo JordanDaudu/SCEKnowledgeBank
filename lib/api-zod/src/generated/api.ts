@@ -386,6 +386,7 @@ export const ListDocumentsResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        verified: zod.boolean(),
         reputation: zod
           .object({
             score: zod.number(),
@@ -543,6 +544,7 @@ export const ListDocumentsResponse = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          verified: zod.boolean(),
           reputation: zod
             .object({
               score: zod.number(),
@@ -685,6 +687,7 @@ export const ListRecentDocumentsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -836,6 +839,7 @@ export const ListRecentDocumentsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -977,6 +981,7 @@ export const SearchDocumentsV2Response = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          verified: zod.boolean(),
           reputation: zod
             .object({
               score: zod.number(),
@@ -1134,6 +1139,7 @@ export const SearchDocumentsV2Response = zod.object({
             isActive: zod.boolean(),
             status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
             createdAt: zod.coerce.date(),
+            verified: zod.boolean(),
             reputation: zod
               .object({
                 score: zod.number(),
@@ -1413,6 +1419,7 @@ export const GetDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -1564,6 +1571,7 @@ export const GetDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -1669,6 +1677,7 @@ export const UpdateDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -1820,6 +1829,7 @@ export const UpdateDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -2098,6 +2108,7 @@ export const ListDocumentVersionsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -2170,6 +2181,7 @@ export const RestoreDocumentVersionResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -2223,6 +2235,7 @@ export const ListDocumentCommentsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -2255,6 +2268,7 @@ export const ListDocumentCommentsResponseItem = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        verified: zod.boolean(),
         reputation: zod
           .object({
             score: zod.number(),
@@ -2338,6 +2352,7 @@ export const UpdateCommentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -2370,6 +2385,7 @@ export const UpdateCommentResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        verified: zod.boolean(),
         reputation: zod
           .object({
             score: zod.number(),
@@ -2547,6 +2563,7 @@ export const ListMyFavoritesResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -2698,6 +2715,7 @@ export const ListMyFavoritesResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -2759,6 +2777,7 @@ export const ListRequestsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -2823,6 +2842,7 @@ export const UpdateRequestResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -2873,6 +2893,7 @@ export const VoteRequestResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -2943,6 +2964,7 @@ export const ListUsersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -2975,6 +2997,7 @@ export const ListPendingLecturersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -3013,6 +3036,7 @@ export const ApproveUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -3048,6 +3072,7 @@ export const DisableUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -3079,6 +3104,7 @@ export const AdminListPendingLecturersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -3117,6 +3143,7 @@ export const AdminApproveUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -3152,6 +3179,7 @@ export const AdminDisableUserResponse = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -3170,6 +3198,24 @@ export const AdminDisableUserResponse = zod.object({
         .nullable(),
     })
     .nullish(),
+});
+
+/**
+ * @summary Admin-only soft-delete any user account
+ */
+export const AdminDeleteUserParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Admin-only reset a user's password to a new random strong one
+ */
+export const AdminResetUserPasswordParams = zod.object({
+  userId: zod.coerce.string().uuid(),
+});
+
+export const AdminResetUserPasswordResponse = zod.object({
+  password: zod.string().describe("The newly generated plaintext password"),
 });
 
 /**
@@ -3197,6 +3243,7 @@ export const SearchUsersResponseItem = zod.object({
   isActive: zod.boolean(),
   status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
   createdAt: zod.coerce.date(),
+  verified: zod.boolean(),
   reputation: zod
     .object({
       score: zod.number(),
@@ -3297,6 +3344,7 @@ export const ListPendingReviewDocumentsResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        verified: zod.boolean(),
         reputation: zod
           .object({
             score: zod.number(),
@@ -3454,6 +3502,7 @@ export const ListPendingReviewDocumentsResponse = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          verified: zod.boolean(),
           reputation: zod
             .object({
               score: zod.number(),
@@ -3554,6 +3603,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -3711,6 +3761,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -3806,6 +3857,7 @@ export const ApproveDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -3957,6 +4009,7 @@ export const ApproveDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -4064,6 +4117,7 @@ export const RejectDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -4215,6 +4269,7 @@ export const RejectDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -4327,6 +4382,7 @@ export const ListPendingAdminApprovalDocumentsResponse = zod.object({
         isActive: zod.boolean(),
         status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
         createdAt: zod.coerce.date(),
+        verified: zod.boolean(),
         reputation: zod
           .object({
             score: zod.number(),
@@ -4484,6 +4540,7 @@ export const ListPendingAdminApprovalDocumentsResponse = zod.object({
           isActive: zod.boolean(),
           status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
           createdAt: zod.coerce.date(),
+          verified: zod.boolean(),
           reputation: zod
             .object({
               score: zod.number(),
@@ -4584,6 +4641,7 @@ export const AdminApproveDocumentResponse = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -4737,6 +4795,7 @@ export const AdminApproveDocumentResponse = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -4810,6 +4869,7 @@ export const ListNotificationsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -5304,6 +5364,7 @@ export const GetCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -5461,6 +5522,7 @@ export const GetCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -5626,6 +5688,7 @@ export const UpdateCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -5783,6 +5846,7 @@ export const UpdateCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -5942,6 +6006,7 @@ export const AddCollectionItemResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -6099,6 +6164,7 @@ export const AddCollectionItemResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -6254,6 +6320,7 @@ export const SetCollectionItemNoteResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -6411,6 +6478,7 @@ export const SetCollectionItemNoteResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -6562,6 +6630,7 @@ export const RemoveCollectionItemResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -6719,6 +6788,7 @@ export const RemoveCollectionItemResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -6873,6 +6943,7 @@ export const ReorderCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -7030,6 +7101,7 @@ export const ReorderCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -7389,6 +7461,7 @@ export const GetPublicCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -7546,6 +7619,7 @@ export const GetPublicCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -7699,6 +7773,7 @@ export const FollowCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -7856,6 +7931,7 @@ export const FollowCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -8009,6 +8085,7 @@ export const UnfollowCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -8166,6 +8243,7 @@ export const UnfollowCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -8319,6 +8397,7 @@ export const LikeCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -8476,6 +8555,7 @@ export const LikeCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -8629,6 +8709,7 @@ export const UnlikeCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -8786,6 +8867,7 @@ export const UnlikeCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -8945,6 +9027,7 @@ export const RateCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -9102,6 +9185,7 @@ export const RateCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -9255,6 +9339,7 @@ export const ClearCollectionRatingResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -9412,6 +9497,7 @@ export const ClearCollectionRatingResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -9688,6 +9774,7 @@ export const HideCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -9845,6 +9932,7 @@ export const HideCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -9998,6 +10086,7 @@ export const UnhideCollectionResponse = zod
               isActive: zod.boolean(),
               status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
               createdAt: zod.coerce.date(),
+              verified: zod.boolean(),
               reputation: zod
                 .object({
                   score: zod.number(),
@@ -10155,6 +10244,7 @@ export const UnhideCollectionResponse = zod
                 isActive: zod.boolean(),
                 status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
                 createdAt: zod.coerce.date(),
+                verified: zod.boolean(),
                 reputation: zod
                   .object({
                     score: zod.number(),
@@ -10281,6 +10371,7 @@ export const ListContinueStudyingResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -10434,6 +10525,7 @@ export const ListContinueStudyingResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -10528,6 +10620,7 @@ export const ListRecommendationsResponseItem = zod.object({
     isActive: zod.boolean(),
     status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
     createdAt: zod.coerce.date(),
+    verified: zod.boolean(),
     reputation: zod
       .object({
         score: zod.number(),
@@ -10679,6 +10772,7 @@ export const ListRecommendationsResponseItem = zod.object({
       isActive: zod.boolean(),
       status: zod.enum(["ACTIVE", "PENDING_APPROVAL", "DISABLED"]),
       createdAt: zod.coerce.date(),
+      verified: zod.boolean(),
       reputation: zod
         .object({
           score: zod.number(),
@@ -10753,6 +10847,7 @@ export const GetLeaderboardResponse = zod.object({
           icon: zod.string(),
         }),
       ),
+      verified: zod.boolean(),
     }),
   ),
   generatedAt: zod.coerce.date(),

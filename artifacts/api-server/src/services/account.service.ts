@@ -31,6 +31,36 @@ export async function deleteOwnAccount(user: AuthenticatedUser): Promise<void> {
   }
 }
 
+/**
+ * Admin-initiated soft delete of another user's account. Mirrors
+ * {@link deleteOwnAccount} but is performed on behalf of a target user:
+ * the account is soft-deleted (it moves to the "Deleted Accounts" list
+ * where it can be restored, or purged after 30 days) and its files are
+ * preserved. Admins cannot delete themselves or other admins here.
+ */
+export async function adminDeleteAccount(
+  admin: AuthenticatedUser,
+  userId: string,
+): Promise<void> {
+  if (userId === admin.id) {
+    throw badRequest("You cannot delete your own account from user management");
+  }
+  const [target] = await usersRepo.findManyWithRolesByIds([userId]);
+  if (!target) throw notFound("Account not found");
+  if (target.roles.includes("admin")) {
+    throw badRequest("Admin accounts cannot be deleted");
+  }
+  const lifecycle = await usersRepo.findLifecycleById(userId);
+  if (lifecycle?.deletedAt) throw conflict("Account is already deleted");
+
+  const fileCount = await docsRepo.countDocuments({ uploaderId: userId, visibility: undefined });
+  await usersRepo.softDeleteUser(userId);
+  await auditService.record(admin.id, "account.deleted", "user", userId, {
+    fileCount,
+    byAdmin: true,
+  });
+}
+
 export async function restoreAccount(
   admin: AuthenticatedUser,
   userId: string,

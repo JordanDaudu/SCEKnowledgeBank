@@ -10,6 +10,7 @@ vi.mock("../repositories/users.repo", () => ({
   findActiveUserIdsOrderedByCreatedAt: vi.fn(),
   createWithRole: vi.fn(),
   updateStatus: vi.fn(),
+  updatePasswordHash: vi.fn(),
 }));
 
 vi.mock("../repositories/enrollments.repo", () => ({
@@ -36,6 +37,9 @@ import {
   register,
   approveUser,
   disableUser,
+  generateTempPassword,
+  adminResetPassword,
+  PASSWORD_RULES,
 } from "./auth.service";
 
 const findByEmail = vi.mocked(usersRepo.findByEmail);
@@ -47,6 +51,8 @@ const findRoleNameById = vi.mocked(usersRepo.findRoleNameById);
 const findRoleIdByName = vi.mocked(usersRepo.findRoleIdByName);
 const createWithRole = vi.mocked(usersRepo.createWithRole);
 const updateStatus = vi.mocked(usersRepo.updateStatus);
+const findById = vi.mocked(usersRepo.findById);
+const updatePasswordHash = vi.mocked(usersRepo.updatePasswordHash);
 const upsertEnrollments = vi.mocked(enrollmentsRepo.upsertEnrollments);
 const bcryptCompare = vi.mocked(bcrypt.compare);
 const bcryptHash = vi.mocked(bcrypt.hash);
@@ -368,5 +374,63 @@ describe("approve/disable", () => {
     await expect(approveUser("ghost", "actor")).rejects.toMatchObject({
       status: 400,
     });
+  });
+});
+
+describe("generateTempPassword", () => {
+  it("produces a password of the requested length", () => {
+    expect(generateTempPassword(8)).toHaveLength(8);
+    expect(generateTempPassword(12)).toHaveLength(12);
+  });
+
+  it("always satisfies the platform password rules (letter + digit)", () => {
+    // Run many iterations: the generator guarantees a letter and a digit,
+    // so every output must pass the regex used at registration/login.
+    for (let i = 0; i < 200; i++) {
+      const pw = generateTempPassword(8);
+      expect(pw.length).toBeGreaterThanOrEqual(PASSWORD_RULES.minLength);
+      expect(PASSWORD_RULES.regex.test(pw)).toBe(true);
+    }
+  });
+
+  it("never emits visually ambiguous characters (0 O 1 l I)", () => {
+    for (let i = 0; i < 200; i++) {
+      expect(generateTempPassword(8)).not.toMatch(/[0O1lI]/);
+    }
+  });
+
+  it("produces varied output (not a constant)", () => {
+    const seen = new Set(
+      Array.from({ length: 20 }, () => generateTempPassword(8)),
+    );
+    expect(seen.size).toBeGreaterThan(1);
+  });
+});
+
+describe("adminResetPassword", () => {
+  it("hashes a fresh password, stores it, and returns the plaintext", async () => {
+    findById.mockResolvedValueOnce({ ...baseUserRow, id: "target" } as never);
+
+    const result = await adminResetPassword("admin-1", "target");
+
+    expect(result.password).toHaveLength(8);
+    expect(PASSWORD_RULES.regex.test(result.password)).toBe(true);
+    expect(bcryptHash).toHaveBeenCalledWith(result.password, 10);
+    expect(updatePasswordHash).toHaveBeenCalledWith("target", "hashed-pw");
+    expect(auditRecord).toHaveBeenCalledWith(
+      "admin-1",
+      "user.password_reset",
+      "user",
+      "target",
+      { byAdmin: true },
+    );
+  });
+
+  it("throws 400 when the target user does not exist", async () => {
+    findById.mockResolvedValueOnce(null);
+    await expect(adminResetPassword("admin-1", "ghost")).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(updatePasswordHash).not.toHaveBeenCalled();
   });
 });

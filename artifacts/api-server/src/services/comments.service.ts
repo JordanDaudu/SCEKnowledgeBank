@@ -19,6 +19,7 @@ export interface CommentAuthorDTO {
   roles: string[];
   isActive: boolean;
   createdAt: string;
+  verified?: boolean;
 }
 
 export interface CommentReactionDTO {
@@ -69,6 +70,7 @@ function toDTO(
       roles: [],
       isActive: false,
       createdAt: r.createdAt.toISOString(),
+      verified: false,
     },
     createdAt: r.createdAt.toISOString(),
     replies: [],

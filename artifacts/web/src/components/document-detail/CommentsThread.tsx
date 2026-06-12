@@ -19,6 +19,7 @@ import { formatDateTime } from "@/lib/format";
 import { useTranslation } from "react-i18next";
 import MentionPicker from "./MentionPicker";
 import ReactionRow from "./ReactionRow";
+import { VerifiedBadge } from "@/components/reputation/VerifiedBadge";
 
 interface Props {
   documentId: string;
@@ -92,7 +93,10 @@ function CommentNode(props: CommentNodeProps & CommentNodeExtras) {
             <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
               {comment.author.displayName.charAt(0)}
             </div>
-            <span className="text-sm font-medium">{comment.author.displayName}</span>
+            <span className="text-sm font-medium flex items-center gap-1">
+              {comment.author.displayName}
+              {comment.author.verified ? <VerifiedBadge /> : null}
+            </span>
             <span className="text-xs text-muted-foreground">
               {formatDateTime(comment.createdAt)}
               {comment.editedAt && (

@@ -13,6 +13,7 @@ import {
   scoreFromStats,
   levelForScore,
   earnedBadgeKeys,
+  isVerifiedContributor,
   BADGES,
   type ReputationStats,
   type Level,
@@ -59,6 +60,17 @@ export interface UserReputation {
   stats: ReputationStats;
   badges: BadgeView[];
   nextBadges: BadgeView[];
+}
+
+/**
+ * Batched count of each user's publicly-live uploads, used by user-summary
+ * building to derive the "verified" mark without paying for the full stats
+ * computation. Thin pass-through to the repo so the layering stays clean.
+ */
+export async function liveUploadCountsForUsers(
+  userIds: string[],
+): Promise<Map<string, number>> {
+  return repo.countLiveUploadsByUsers(userIds);
 }
 
 export async function getUserReputation(userId: string): Promise<UserReputation> {
@@ -115,6 +127,8 @@ export interface LeaderboardRow {
   score: number;
   level: Level;
   topBadges: BadgeView[];
+  /** Lecturer, or a member with more than the verified-upload threshold. */
+  verified: boolean;
 }
 
 export interface Leaderboard {
@@ -146,6 +160,10 @@ export async function getLeaderboard(
         score,
         level: levelForScore(score),
         topBadges: earned.slice(0, 3).map(badgeView),
+        verified: isVerifiedContributor({
+          roles: c.roles,
+          liveUploads: stats.publishedUploads,
+        }),
       };
     });
     scored.sort((a, b) => b.score - a.score || a.displayName.localeCompare(b.displayName));

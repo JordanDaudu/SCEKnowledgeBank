@@ -1156,6 +1156,30 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/UserSummary" }
 
+  /admin/users/{userId}/delete:
+    post:
+      operationId: adminDeleteUser
+      tags: [admin]
+      summary: Admin-only soft-delete any user account
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Account deleted }
+
+  /admin/users/{userId}/reset-password:
+    post:
+      operationId: adminResetUserPassword
+      tags: [admin]
+      summary: Admin-only reset a user's password to a new random strong one
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The newly generated temporary password
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResetPasswordResult" }
+
   /users/search:
     get:
       operationId: searchUsers
@@ -1934,7 +1958,7 @@ components:
 
     LeaderboardRow:
       type: object
-      required: [rank, userId, displayName, username, avatarUrl, score, level, topBadges]
+      required: [rank, userId, displayName, username, avatarUrl, score, level, topBadges, verified]
       properties:
         rank: { type: integer }
         userId: { type: string, format: uuid }
@@ -1946,6 +1970,7 @@ components:
         topBadges:
           type: array
           items: { $ref: "#/components/schemas/ReputationBadge" }
+        verified: { type: boolean }
 
     Leaderboard:
       type: object
@@ -2002,6 +2027,11 @@ components:
         anonymizedAt: { type: string, format: date-time, nullable: true }
         fileCount: { type: integer }
         eligibleForPurge: { type: boolean }
+    ResetPasswordResult:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, description: The newly generated plaintext password, returned once. }
     OrphanedFile:
       type: object
       required: [id, title, materialType, courseCode, createdAt]
@@ -2040,7 +2070,7 @@ components:
 
     UserSummary:
       type: object
-      required: [id, email, displayName, roles, isActive, status, createdAt]
+      required: [id, email, displayName, roles, isActive, status, createdAt, verified]
       properties:
         id: { type: string, format: uuid }
         email: { type: string }
@@ -2053,6 +2083,9 @@ components:
           type: string
           enum: [ACTIVE, PENDING_APPROVAL, DISABLED]
         createdAt: { type: string, format: date-time }
+        # Verified contributor: a lecturer, or a member past the upload
+        # threshold. Rendered as a check next to the display name.
+        verified: { type: boolean }
         # Optional author-credibility block; populated only where requested
         # (e.g. on document uploaders). Absent/null on most user summaries.
         reputation:

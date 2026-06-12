@@ -74,5 +74,7 @@ describe("getLeaderboard", () => {
     const lb = await getLeaderboard({ limit: 50 });
     expect(Array.isArray(lb.rows)).toBe(true);
     lb.rows.forEach((r, i) => expect(r.rank).toBe(i + 1));
+    // Every row carries a boolean verified mark (lecturer or past threshold).
+    lb.rows.forEach((r) => expect(typeof r.verified).toBe("boolean"));
   });
 });
