@@ -320,11 +320,19 @@ export default function Home() {
       {/* Hero — frosted glass panel floating over the low-poly knowledge
           banner, with a one-time "idea ignition" reveal (see .hero-knowledge
           in index.css). All photo/glow/spark layers are decorative. */}
-      <section className="hero-knowledge relative isolate overflow-hidden -mx-4 px-4 py-14 sm:py-20 rounded-b-[2.5rem] border-b border-white/10">
-        <div aria-hidden="true" className="hero-knowledge__photo pointer-events-none absolute inset-0" />
-        <div aria-hidden="true" className="hero-knowledge__dim pointer-events-none absolute inset-0" />
-        <div aria-hidden="true" className="hero-knowledge__glow pointer-events-none absolute inset-0" />
-        <div aria-hidden="true" className="hero-knowledge__sparks pointer-events-none absolute inset-0" />
+      <section className="hero-knowledge relative -mx-4 px-4 py-14 sm:py-20 rounded-b-[2.5rem] border-b border-white/10">
+        {/* Decorative layers clipped to the rounded hero on their OWN wrapper,
+            so the section itself doesn't clip the search suggestions dropdown
+            that overflows below the glass card. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-[2.5rem]"
+        >
+          <div className="hero-knowledge__photo absolute inset-0" />
+          <div className="hero-knowledge__dim absolute inset-0" />
+          <div className="hero-knowledge__glow absolute inset-0" />
+          <div className="hero-knowledge__sparks absolute inset-0" />
+        </div>
 
         <div className="hero-knowledge__card relative z-10 max-w-2xl mx-auto text-center space-y-5 rounded-3xl border border-white/15 bg-white/[0.06] px-6 py-8 sm:px-10 sm:py-10 backdrop-blur-xl shadow-[0_12px_48px_-12px_rgba(0,0,0,0.65)]">
           <h1 className="text-3xl sm:text-4xl font-serif font-bold text-white tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]">
