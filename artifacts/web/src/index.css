@@ -303,3 +303,97 @@
     }
   }
 }
+
+@layer utilities {
+  /* ── Powered search focus ────────────────────────────────────────────
+     The hero search is the "spark": on focus it emits a soft blue glow
+     halo (the bulb's colour), tying the interaction to the page concept. */
+  .hero-search {
+    border-radius: 0.75rem;
+    transition: box-shadow 320ms ease;
+  }
+  .hero-search:focus-within {
+    box-shadow:
+      0 0 0 4px rgba(125, 185, 255, 0.18),
+      0 0 30px 2px rgba(125, 185, 255, 0.4);
+    animation: hero-search-pulse 2.6s ease-in-out infinite;
+  }
+  @keyframes hero-search-pulse {
+    0%, 100% {
+      box-shadow:
+        0 0 0 4px rgba(125, 185, 255, 0.16),
+        0 0 24px 2px rgba(125, 185, 255, 0.32);
+    }
+    50% {
+      box-shadow:
+        0 0 0 5px rgba(125, 185, 255, 0.22),
+        0 0 36px 4px rgba(125, 185, 255, 0.5);
+    }
+  }
+
+  /* ── Light-thread seam ───────────────────────────────────────────────
+     A thin glowing thread where the dark hero meets the light page, with
+     a highlight that slowly travels along it — echoes the underline beneath
+     "Knowledge" in the banner art and stitches the two zones together. */
+  .hero-seam {
+    position: relative;
+    height: 2px;
+    width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(125, 185, 255, 0.45) 50%,
+      transparent
+    );
+  }
+  .hero-seam::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 36%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(200, 225, 255, 0.95),
+      transparent
+    );
+    animation: hero-seam-shine 5.5s ease-in-out infinite;
+  }
+  @keyframes hero-seam-shine {
+    0% { transform: translateX(-120%); }
+    65%, 100% { transform: translateX(360%); }
+  }
+
+  /* ── Scroll reveal ───────────────────────────────────────────────────
+     Sections fade + rise as they enter the viewport, reusing the hero's
+     easing so the whole page "powers on" with one consistent choreography. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 640ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 640ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-search:focus-within {
+      animation: none;
+    }
+    .hero-seam::after {
+      animation: none;
+      opacity: 0;
+    }
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+}

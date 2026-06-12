@@ -13,6 +13,8 @@ import { TrendingDocuments } from "@/components/dashboard/trending-documents";
 import { ContinueStudyingWidget } from "@/components/dashboard/continue-studying-widget";
 import { ReputationHomeWidget } from "@/components/dashboard/reputation-widget";
 import { AdminInsights } from "@/components/dashboard/admin-insights";
+import { StatsBand } from "@/components/dashboard/stats-band";
+import { Reveal } from "@/components/reveal";
 import DocumentCards from "@/components/browse/DocumentCards";
 import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -332,10 +334,19 @@ export default function Home() {
             {t("home.heroSubtitle")}
           </p>
           <div className="pt-2 max-w-2xl mx-auto">
-            <SearchBar autoFocus />
+            <SearchBar autoFocus className="hero-search" />
           </div>
         </div>
       </section>
+
+      {/* Light-thread seam stitching the dark hero to the light page, with the
+          living stats band showing the platform's scale just beneath it. */}
+      <div className="max-w-6xl mx-auto px-4 -mt-3">
+        <div aria-hidden="true" className="hero-seam" />
+        <div className="mt-5">
+          <StatsBand />
+        </div>
+      </div>
 
       <div className="max-w-6xl mx-auto">
         {/* ── Utility zone: tools + contextual status, kept visually light
@@ -368,6 +379,7 @@ export default function Home() {
               by larger top spacing and a clear header hierarchy. ────────── */}
         <div className="mt-12 space-y-10">
           {/* Continue reading — promoted primary band */}
+          <Reveal>
           <section>
             <SectionHeader
               icon={Clock}
@@ -397,8 +409,10 @@ export default function Home() {
               </div>
             )}
           </section>
+          </Reveal>
 
           {/* Latest additions — secondary band */}
+          <Reveal>
           <section>
             <SectionHeader
               icon={Library}
@@ -422,12 +436,19 @@ export default function Home() {
               </div>
             )}
           </section>
+          </Reveal>
 
           {/* Trending assets (Phase 8 / deferred Phase 2) — secondary band */}
-          <TrendingDocuments />
+          <Reveal>
+            <TrendingDocuments />
+          </Reveal>
 
           {/* Recent activity — admin only (activity logs live in Analytics) */}
-          {user && isAdmin && <RecentActivity />}
+          {user && isAdmin && (
+            <Reveal>
+              <RecentActivity />
+            </Reveal>
+          )}
         </div>
       </div>
     </div>
