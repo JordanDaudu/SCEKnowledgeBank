@@ -44,6 +44,8 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CourseManager } from "@/components/admin/course-manager";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import {
@@ -240,6 +242,17 @@ export default function AdminUsers() {
         </p>
       </div>
 
+      <Tabs defaultValue="users" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="users" data-testid="tab-users">
+            {t("admin.tabUsers")}
+          </TabsTrigger>
+          <TabsTrigger value="courses" data-testid="tab-courses">
+            {t("admin.tabCourses")}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-8">
       <Card data-testid="card-pending-lecturers">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -578,6 +591,12 @@ export default function AdminUsers() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="courses">
+          <CourseManager />
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog
         open={deleteTarget !== null}

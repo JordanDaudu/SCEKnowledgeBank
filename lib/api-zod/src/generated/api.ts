@@ -2939,6 +2939,58 @@ export const ListCoursesResponseItem = zod.object({
 });
 export const ListCoursesResponse = zod.array(ListCoursesResponseItem);
 
+/**
+ * @summary Admin-only — create a new course in the catalog
+ */
+export const createCourseBodyCodeMax = 32;
+
+export const createCourseBodyTitleMax = 200;
+
+export const createCourseBodyLecturerNameMax = 120;
+
+export const CreateCourseBody = zod.object({
+  code: zod.string().min(1).max(createCourseBodyCodeMax),
+  title: zod.string().min(1).max(createCourseBodyTitleMax),
+  lecturerName: zod.string().min(1).max(createCourseBodyLecturerNameMax),
+});
+
+/**
+ * @summary Admin-only — update a course
+ */
+export const UpdateCourseParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const updateCourseBodyCodeMax = 32;
+
+export const updateCourseBodyTitleMax = 200;
+
+export const updateCourseBodyLecturerNameMax = 120;
+
+export const UpdateCourseBody = zod.object({
+  code: zod.string().min(1).max(updateCourseBodyCodeMax).optional(),
+  title: zod.string().min(1).max(updateCourseBodyTitleMax).optional(),
+  lecturerName: zod
+    .string()
+    .min(1)
+    .max(updateCourseBodyLecturerNameMax)
+    .optional(),
+});
+
+export const UpdateCourseResponse = zod.object({
+  id: zod.string().uuid(),
+  code: zod.string(),
+  title: zod.string(),
+  lecturerName: zod.string(),
+});
+
+/**
+ * @summary Admin-only — delete a course (documents are unlinked, not deleted)
+ */
+export const DeleteCourseParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
 export const ListCategoriesResponseItem = zod.object({
   id: zod.string().uuid(),
   name: zod.string(),

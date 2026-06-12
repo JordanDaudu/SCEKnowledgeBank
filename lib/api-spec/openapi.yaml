@@ -1031,6 +1031,68 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Course" }
+    post:
+      operationId: createCourse
+      tags: [taxonomy]
+      summary: Admin-only — create a new course in the catalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCourseRequest" }
+      responses:
+        "201":
+          description: Created course
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+        "409":
+          description: A course with that code already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+
+  /courses/{id}:
+    patch:
+      operationId: updateCourse
+      tags: [taxonomy]
+      summary: Admin-only — update a course
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCourseRequest" }
+      responses:
+        "200":
+          description: Updated course
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Course" }
+        "404":
+          description: Course not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: A course with that code already exists
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    delete:
+      operationId: deleteCourse
+      tags: [taxonomy]
+      summary: Admin-only — delete a course (documents are unlinked, not deleted)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Course deleted }
+        "404":
+          description: Course not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
 
   /categories:
     get:
@@ -2138,6 +2200,21 @@ components:
         code: { type: string }
         title: { type: string }
         lecturerName: { type: string }
+
+    CreateCourseRequest:
+      type: object
+      required: [code, title, lecturerName]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 32 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        lecturerName: { type: string, minLength: 1, maxLength: 120 }
+
+    UpdateCourseRequest:
+      type: object
+      properties:
+        code: { type: string, minLength: 1, maxLength: 32 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        lecturerName: { type: string, minLength: 1, maxLength: 120 }
 
     Category:
       type: object

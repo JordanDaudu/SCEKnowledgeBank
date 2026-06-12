@@ -11,6 +11,8 @@
 #   migrate-and-seed   (default in migrate image) — apply the schema, then run
 #                      the seed once (gated by a sentinel under /data/storage)
 #                      and exit. Used by the api-init compose service.
+#   backfill-pdf-text  — re-extract text for PDFs missing it and exit. Runs the
+#                      bundled maintenance script; needs the DB + storage volume.
 #   <anything else>    — exec the given command verbatim.
 set -eu
 
@@ -46,6 +48,10 @@ case "${1:-start}" in
     else
       echo "[entrypoint] seed sentinel ${SEED_SENTINEL} present; skipping seed"
     fi
+    ;;
+  backfill-pdf-text)
+    echo "[entrypoint] backfilling extracted text for PDFs missing it"
+    exec node --enable-source-maps ./artifacts/api-server/dist/scripts/backfill-pdf-text.mjs
     ;;
   *)
     exec "$@"

@@ -232,6 +232,42 @@ export interface Course {
   lecturerName: string;
 }
 
+export interface CreateCourseRequest {
+  /**
+   * @minLength 1
+   * @maxLength 32
+   */
+  code: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  title: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  lecturerName: string;
+}
+
+export interface UpdateCourseRequest {
+  /**
+   * @minLength 1
+   * @maxLength 32
+   */
+  code?: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  title?: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  lecturerName?: string;
+}
+
 export interface Category {
   id: string;
   name: string;

@@ -15,7 +15,14 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
 
   await esbuild({
-    entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+    entryPoints: [
+      path.resolve(artifactDir, "src/index.ts"),
+      // One-off maintenance scripts, bundled into the image so they can run as
+      // Cloud Run Jobs against prod (Neon + the GCS volume mount). esbuild's
+      // outbase is the common ancestor `src/`, so this emits
+      // dist/scripts/backfill-pdf-text.mjs. See docker-entrypoint.sh.
+      path.resolve(artifactDir, "src/scripts/backfill-pdf-text.ts"),
+    ],
     platform: "node",
     bundle: true,
     format: "esm",

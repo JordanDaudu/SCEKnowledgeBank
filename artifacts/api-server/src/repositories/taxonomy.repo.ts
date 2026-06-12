@@ -109,3 +109,30 @@ export async function findCourseCodesByIds(
   for (const r of rows) map.set(r.id, r.code);
   return map;
 }
+
+export async function findCourseByCode(code: string): Promise<CourseRow | null> {
+  return db.course.findUnique({ where: { code } });
+}
+
+export async function findCourseById(id: string): Promise<CourseRow | null> {
+  return db.course.findUnique({ where: { id } });
+}
+
+export async function createCourse(data: {
+  code: string;
+  title: string;
+  lecturerName: string;
+}): Promise<CourseRow> {
+  return db.course.create({ data });
+}
+
+export async function updateCourse(
+  id: string,
+  data: Partial<{ code: string; title: string; lecturerName: string }>,
+): Promise<CourseRow> {
+  return db.course.update({ where: { id }, data });
+}
+
+export async function deleteCourse(id: string): Promise<void> {
+  await db.course.delete({ where: { id } });
+}

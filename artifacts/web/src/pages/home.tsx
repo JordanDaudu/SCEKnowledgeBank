@@ -13,6 +13,8 @@ import { TrendingDocuments } from "@/components/dashboard/trending-documents";
 import { ContinueStudyingWidget } from "@/components/dashboard/continue-studying-widget";
 import { ReputationHomeWidget } from "@/components/dashboard/reputation-widget";
 import { AdminInsights } from "@/components/dashboard/admin-insights";
+import { StatsBand } from "@/components/dashboard/stats-band";
+import { Reveal } from "@/components/reveal";
 import DocumentCards from "@/components/browse/DocumentCards";
 import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -315,20 +317,44 @@ export default function Home() {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Hero */}
-      <section className="bg-gradient-to-b from-primary/8 via-primary/4 to-transparent -mx-4 px-4 py-8 sm:py-12 rounded-b-[2.5rem] border-b border-primary/10">
-        <div className="max-w-3xl mx-auto text-center space-y-5">
-          <h1 className="text-3xl sm:text-4xl font-serif font-bold text-foreground tracking-tight">
+      {/* Hero — frosted glass panel floating over the low-poly knowledge
+          banner, with a one-time "idea ignition" reveal (see .hero-knowledge
+          in index.css). All photo/glow/spark layers are decorative. */}
+      <section className="hero-knowledge relative -mx-4 px-4 py-14 sm:py-20 rounded-b-[2.5rem] border-b border-white/10">
+        {/* Decorative layers clipped to the rounded hero on their OWN wrapper,
+            so the section itself doesn't clip the search suggestions dropdown
+            that overflows below the glass card. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-[2.5rem]"
+        >
+          <div className="hero-knowledge__photo absolute inset-0" />
+          <div className="hero-knowledge__dim absolute inset-0" />
+          <div className="hero-knowledge__glow absolute inset-0" />
+          <div className="hero-knowledge__sparks absolute inset-0" />
+        </div>
+
+        <div className="hero-knowledge__card relative z-10 max-w-2xl mx-auto text-center space-y-5 rounded-3xl border border-white/15 bg-white/[0.06] px-6 py-8 sm:px-10 sm:py-10 backdrop-blur-xl shadow-[0_12px_48px_-12px_rgba(0,0,0,0.65)]">
+          <h1 className="text-3xl sm:text-4xl font-serif font-bold text-white tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]">
             {t("home.heroTitle")}
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-blue-100/85 max-w-2xl mx-auto">
             {t("home.heroSubtitle")}
           </p>
           <div className="pt-2 max-w-2xl mx-auto">
-            <SearchBar autoFocus />
+            <SearchBar autoFocus className="hero-search" />
           </div>
         </div>
       </section>
+
+      {/* Light-thread seam stitching the dark hero to the light page, with the
+          living stats band showing the platform's scale just beneath it. */}
+      <div className="max-w-6xl mx-auto px-4 -mt-3">
+        <div aria-hidden="true" className="hero-seam" />
+        <div className="mt-5">
+          <StatsBand />
+        </div>
+      </div>
 
       <div className="max-w-6xl mx-auto">
         {/* ── Utility zone: tools + contextual status, kept visually light
@@ -361,6 +387,7 @@ export default function Home() {
               by larger top spacing and a clear header hierarchy. ────────── */}
         <div className="mt-12 space-y-10">
           {/* Continue reading — promoted primary band */}
+          <Reveal>
           <section>
             <SectionHeader
               icon={Clock}
@@ -390,8 +417,10 @@ export default function Home() {
               </div>
             )}
           </section>
+          </Reveal>
 
           {/* Latest additions — secondary band */}
+          <Reveal>
           <section>
             <SectionHeader
               icon={Library}
@@ -415,12 +444,19 @@ export default function Home() {
               </div>
             )}
           </section>
+          </Reveal>
 
           {/* Trending assets (Phase 8 / deferred Phase 2) — secondary band */}
-          <TrendingDocuments />
+          <Reveal>
+            <TrendingDocuments />
+          </Reveal>
 
           {/* Recent activity — admin only (activity logs live in Analytics) */}
-          {user && isAdmin && <RecentActivity />}
+          {user && isAdmin && (
+            <Reveal>
+              <RecentActivity />
+            </Reveal>
+          )}
         </div>
       </div>
     </div>
