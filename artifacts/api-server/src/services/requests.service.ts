@@ -228,12 +228,21 @@ export async function updateRequest(
   // their request through the workflow. Fire-and-forget; same
   // sync-throw-safe pattern as comment.create.
   if (statusChanged && r.requestedBy !== user.id) {
+    // A request being *fulfilled* is the milestone the author cares about
+    // most, so it gets a dedicated type/message and — when a fulfilling
+    // document is attached — a link straight to that document. Every other
+    // transition keeps the generic status notification.
+    const isFulfilled = body.status === "fulfilled";
+    const fulfillingDocId =
+      body.fulfillingDocumentId !== undefined
+        ? body.fulfillingDocumentId
+        : r.fulfillingDocumentId;
     void Promise.resolve()
       .then(() =>
         notificationsService.notify({
           recipientId: r.requestedBy,
           actorId: user.id,
-          type: "request.status",
+          type: isFulfilled ? "request.fulfilled" : "request.status",
           subjectType: "material_request",
           // Encode the new status into the subject so each distinct
           // transition is unique under the notification dedupe key
@@ -241,8 +250,13 @@ export async function updateRequest(
           // the move open→in_progress→fulfilled would only ever notify
           // the author once.
           subjectId: `${id}:${body.status}`,
-          body: `Status changed to ${body.status}`,
-          url: `/requests#${id}`,
+          body: isFulfilled
+            ? `Your request "${r.title}" has been fulfilled`
+            : `Status changed to ${body.status}`,
+          url:
+            isFulfilled && fulfillingDocId
+              ? `/documents/${fulfillingDocId}`
+              : `/requests#${id}`,
         }),
       )
       .catch((err) => logger.warn({ err }, "request.status notify threw"));

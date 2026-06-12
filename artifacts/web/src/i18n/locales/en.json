@@ -3,7 +3,8 @@
     "appName": "Knowledge Bank",
     "language": "Language",
     "logout": "Log out",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "verified": "Verified contributor"
   },
   "roles": {
     "student": "student",
@@ -324,6 +325,16 @@
     "viewFulfilled": "View fulfilled document",
     "by": "by {{name}}",
     "fulfilledEllipsis": "Fulfilled…",
+    "or": "or",
+    "uploadDocument": "Upload a document",
+    "uploadDocumentHint": "Max {{max}} MB — PDF, Office, images, text, or zip. The request is fulfilled with the uploaded file.",
+    "uploading": "Uploading…",
+    "uploadedDocument": "Document uploaded",
+    "uploadFailed": "Upload failed",
+    "uploadFailedDesc": "The server rejected the file. Please try again.",
+    "fileEmpty": "That file is empty.",
+    "fileTooLarge": "File exceeds the {{max}} MB limit.",
+    "unsupportedType": "Unsupported file type. Allowed: {{allowed}}",
     "status": {
       "open": "Open",
       "in_progress": "In Progress",
@@ -552,7 +563,22 @@
       "deletedAt": "deleted {{date}}",
       "fileCount": "{{count}} file(s)",
       "purgeEligibleTitle": "Permanently remove (anonymize)",
-      "purgeNotEligibleTitle": "Eligible 30 days after deletion"
+      "purgeNotEligibleTitle": "Eligible 30 days after deletion",
+      "delete": "Delete",
+      "resetPassword": "Reset password",
+      "cancel": "Cancel",
+      "done": "Done",
+      "copy": "Copy",
+      "accountDeleted": "Account deleted",
+      "accountDeletedDesc": "{{name}}'s account was moved to Deleted Accounts. You can restore it within 30 days.",
+      "deleteFailed": "Could not delete account",
+      "deleteConfirmTitle": "Delete this account?",
+      "deleteConfirmDesc": "{{name}}'s account will be deleted and moved to Deleted Accounts. Their files are kept, and you can restore the account within 30 days.",
+      "resetPasswordFailed": "Could not reset password",
+      "copyFailed": "Could not copy to clipboard",
+      "resetPasswordDoneTitle": "New password generated",
+      "resetPasswordDoneDesc": "Share this new password with {{name}}. They can change it after signing in.",
+      "resetPasswordHint": "For security, this password is shown only once. Copy it now — it cannot be retrieved later."
     },
     "approvals": {
       "title": "Admin approvals",

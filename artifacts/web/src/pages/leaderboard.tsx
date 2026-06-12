@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReputationBadge } from "@/components/reputation/ReputationBadge";
 import { BadgeChip } from "@/components/reputation/BadgeChip";
+import { VerifiedBadge } from "@/components/reputation/VerifiedBadge";
 import { apiUrl } from "@/lib/api-url";
 import { cn } from "@/lib/utils";
 
@@ -54,10 +55,11 @@ function LeaderboardRowItem({
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">
-          {row.displayName}
+        <p className="truncate text-sm font-medium flex items-center gap-1">
+          <span className="truncate">{row.displayName}</span>
+          {row.verified ? <VerifiedBadge /> : null}
           {isMe ? (
-            <span className="ml-1 text-xs text-primary">({t("leaderboard.you")})</span>
+            <span className="ml-1 text-xs text-primary shrink-0">({t("leaderboard.you")})</span>
           ) : null}
         </p>
         <ReputationBadge level={row.level} showScore={false} />

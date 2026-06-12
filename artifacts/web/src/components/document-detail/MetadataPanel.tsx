@@ -7,6 +7,7 @@ import { formatMaterialType } from "@/lib/material-types";
 import { useTranslation } from "react-i18next";
 import { StatusBadge } from "./StatusBadge";
 import { ReputationBadge } from "@/components/reputation/ReputationBadge";
+import { VerifiedBadge } from "@/components/reputation/VerifiedBadge";
 
 interface Props {
   doc: DocumentDetailDto;
@@ -191,7 +192,10 @@ export default function MetadataPanel({
       <div className="flex items-center justify-between text-sm text-muted-foreground mb-6 pb-6 border-b">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">
-            <span className="flex items-center gap-1"><User className="h-3 w-3" /> {doc.uploader.displayName}</span>
+            <span className="flex items-center gap-1">
+              <User className="h-3 w-3" /> {doc.uploader.displayName}
+              {doc.uploader.verified ? <VerifiedBadge /> : null}
+            </span>
             {doc.uploader.reputation ? (
               <ReputationBadge
                 level={doc.uploader.reputation.level}

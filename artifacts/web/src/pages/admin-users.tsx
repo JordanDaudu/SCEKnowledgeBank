@@ -9,8 +9,11 @@ import {
   getListDeletedAccountsQueryKey,
   useRestoreAccount,
   usePurgeAccount,
+  useAdminDeleteUser,
+  useAdminResetUserPassword,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { formatDateTime } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -23,6 +26,24 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import {
@@ -34,6 +55,10 @@ import {
   XCircle,
   Clock,
   Loader2,
+  Trash2,
+  KeyRound,
+  Copy,
+  Check,
 } from "lucide-react";
 
 function StatusBadge({ status }: { status?: string }) {
@@ -89,6 +114,11 @@ export default function AdminUsers() {
   });
   const restoreMut = useRestoreAccount();
   const purgeMut = usePurgeAccount();
+  const deleteMutation = useAdminDeleteUser();
+  const resetPwMutation = useAdminResetUserPassword();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const refreshDeleted = () =>
     queryClient.invalidateQueries({ queryKey: getListDeletedAccountsQueryKey() });
 
@@ -141,8 +171,66 @@ export default function AdminUsers() {
     );
   };
 
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    const { id, name } = deleteTarget;
+    deleteMutation.mutate(
+      { userId: id },
+      {
+        onSuccess: () => {
+          toast({
+            title: t("admin.users.accountDeleted"),
+            description: t("admin.users.accountDeletedDesc", { name }),
+          });
+          setDeleteTarget(null);
+          invalidate();
+          refreshDeleted();
+        },
+        onError: (e: any) => {
+          toast({
+            variant: "destructive",
+            title: t("admin.users.deleteFailed"),
+            description: e?.data?.error?.message ?? t("admin.users.tryAgain"),
+          });
+          setDeleteTarget(null);
+        },
+      },
+    );
+  };
+
+  const handleResetPassword = (id: string, name: string) => {
+    resetPwMutation.mutate(
+      { userId: id },
+      {
+        onSuccess: (data) => {
+          setCopied(false);
+          setResetResult({ name, password: data.password });
+        },
+        onError: (e: any) =>
+          toast({
+            variant: "destructive",
+            title: t("admin.users.resetPasswordFailed"),
+            description: e?.data?.error?.message ?? t("admin.users.tryAgain"),
+          }),
+      },
+    );
+  };
+
+  const handleCopyPassword = async () => {
+    if (!resetResult) return;
+    try {
+      await navigator.clipboard.writeText(resetResult.password);
+      setCopied(true);
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("admin.users.copyFailed"),
+      });
+    }
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-8" data-testid="page-admin-users">
+    <div className="max-w-7xl mx-auto space-y-8" data-testid="page-admin-users">
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">
           {t("admin.users.title")}
@@ -286,7 +374,11 @@ export default function AdminUsers() {
                       (approveMutation.isPending &&
                         approveMutation.variables?.id === user.id) ||
                       (disableMutation.isPending &&
-                        disableMutation.variables?.id === user.id);
+                        disableMutation.variables?.id === user.id) ||
+                      (deleteMutation.isPending &&
+                        deleteMutation.variables?.userId === user.id) ||
+                      (resetPwMutation.isPending &&
+                        resetPwMutation.variables?.userId === user.id);
                     return (
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">
@@ -312,7 +404,7 @@ export default function AdminUsers() {
                         <TableCell>
                           <StatusBadge status={user.status} />
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                           {formatDateTime(user.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
@@ -320,32 +412,68 @@ export default function AdminUsers() {
                             <span className="text-xs text-muted-foreground">
                               —
                             </span>
-                          ) : disabled ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                handleApprove(user.id, user.displayName)
-                              }
-                              disabled={busy}
-                              data-testid={`reenable-${user.id}`}
-                            >
-                              <CheckCircle2 className="me-1 h-3 w-3 text-green-600" />
-                              {t("admin.users.reEnable")}
-                            </Button>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                handleDisable(user.id, user.displayName)
-                              }
-                              disabled={busy}
-                              data-testid={`disable-${user.id}`}
-                            >
-                              <XCircle className="me-1 h-3 w-3 text-destructive" />
-                              {t("admin.users.disable")}
-                            </Button>
+                            <div className="flex justify-end gap-2 whitespace-nowrap">
+                              {disabled ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleApprove(user.id, user.displayName)
+                                  }
+                                  disabled={busy}
+                                  data-testid={`reenable-${user.id}`}
+                                >
+                                  <CheckCircle2 className="me-1 h-3 w-3 text-green-600" />
+                                  {t("admin.users.reEnable")}
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    handleDisable(user.id, user.displayName)
+                                  }
+                                  disabled={busy}
+                                  data-testid={`disable-${user.id}`}
+                                >
+                                  <XCircle className="me-1 h-3 w-3 text-destructive" />
+                                  {t("admin.users.disable")}
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleResetPassword(user.id, user.displayName)
+                                }
+                                disabled={busy}
+                                data-testid={`reset-password-${user.id}`}
+                              >
+                                {resetPwMutation.isPending &&
+                                resetPwMutation.variables?.userId === user.id ? (
+                                  <Loader2 className="me-1 h-3 w-3 animate-spin" />
+                                ) : (
+                                  <KeyRound className="me-1 h-3 w-3" />
+                                )}
+                                {t("admin.users.resetPassword")}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  setDeleteTarget({
+                                    id: user.id,
+                                    name: user.displayName,
+                                  })
+                                }
+                                disabled={busy}
+                                data-testid={`delete-${user.id}`}
+                              >
+                                <Trash2 className="me-1 h-3 w-3 text-destructive" />
+                                {t("admin.users.delete")}
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -450,6 +578,86 @@ export default function AdminUsers() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent data-testid="delete-account-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin.users.deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("admin.users.deleteConfirmDesc", { name: deleteTarget?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("admin.users.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="confirm-delete"
+            >
+              {deleteMutation.isPending && (
+                <Loader2 className="me-1 h-3 w-3 animate-spin" />
+              )}
+              {t("admin.users.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={resetResult !== null}
+        onOpenChange={(open) => {
+          if (!open) setResetResult(null);
+        }}
+      >
+        <DialogContent data-testid="reset-password-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("admin.users.resetPasswordDoneTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("admin.users.resetPasswordDoneDesc", { name: resetResult?.name ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <code
+              className="flex-1 rounded-md border bg-muted px-3 py-2 font-mono text-lg tracking-widest"
+              data-testid="new-password"
+            >
+              {resetResult?.password}
+            </code>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleCopyPassword}
+              title={t("admin.users.copy")}
+              data-testid="copy-password"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-600" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("admin.users.resetPasswordHint")}
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setResetResult(null)}>
+              {t("admin.users.done")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

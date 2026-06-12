@@ -119,6 +119,7 @@ export * from "./reputationBadge";
 export * from "./reputationLevel";
 export * from "./reputationLevelKey";
 export * from "./reputationStats";
+export * from "./resetPasswordResult";
 export * from "./searchAutocomplete";
 export * from "./searchAutocompleteParams";
 export * from "./searchDocumentsFacetsParams";

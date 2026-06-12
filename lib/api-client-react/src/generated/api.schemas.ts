@@ -63,6 +63,7 @@ export interface LeaderboardRow {
   score: number;
   level: ReputationLevel;
   topBadges: ReputationBadge[];
+  verified: boolean;
 }
 
 export interface Leaderboard {
@@ -118,6 +119,11 @@ export interface DeletedAccount {
   eligibleForPurge: boolean;
 }
 
+export interface ResetPasswordResult {
+  /** The newly generated plaintext password */
+  password: string;
+}
+
 export interface OrphanedFile {
   id: string;
   title: string;
@@ -160,6 +166,7 @@ export interface UserSummary {
   isActive: boolean;
   status: UserSummaryStatus;
   createdAt: string;
+  verified: boolean;
   reputation?: AuthorReputation | null;
 }
 

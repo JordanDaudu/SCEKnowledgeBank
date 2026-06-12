@@ -28,6 +28,7 @@ vi.mock("./permissions.service", () => ({
 }));
 
 import * as requestsRepo from "../repositories/requests.repo";
+import * as docsRepo from "../repositories/documents.repo";
 import * as notificationsService from "./notifications.service";
 import { updateRequest, REQUEST_STATUSES } from "./requests.service";
 import { HttpError } from "../lib/errors";
@@ -35,6 +36,7 @@ import type { AuthenticatedUser } from "../middlewares/auth";
 
 const findAliveById = vi.mocked(requestsRepo.findAliveById);
 const updateRequestById = vi.mocked(requestsRepo.updateRequestById);
+const findByIdAlive = vi.mocked(docsRepo.findByIdAlive);
 const notify = vi.mocked(notificationsService.notify);
 
 const user: AuthenticatedUser = {
@@ -127,5 +129,37 @@ describe("requests.service status transitions", () => {
     await updateRequest("r1", { status: "open" }, user);
     await Promise.resolve();
     expect(notify).not.toHaveBeenCalled();
+  });
+
+  it("sends a dedicated request.fulfilled message linking to the fulfilling document", async () => {
+    findByIdAlive.mockResolvedValue({ id: "doc1" } as never);
+    await updateRequest(
+      "r1",
+      { status: "fulfilled", fulfillingDocumentId: "doc1" },
+      user,
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "request.fulfilled",
+        recipientId: "author",
+        actorId: "actor",
+        url: "/documents/doc1",
+        body: expect.stringContaining("has been fulfilled"),
+      }),
+    );
+  });
+
+  it("falls back to the requests page when fulfilled without a document", async () => {
+    await updateRequest("r1", { status: "fulfilled" }, user);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "request.fulfilled",
+        url: "/requests#r1",
+      }),
+    );
   });
 });

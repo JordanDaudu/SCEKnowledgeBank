@@ -3,6 +3,8 @@ import {
   scoreFromStats,
   levelForScore,
   earnedBadgeKeys,
+  isVerifiedContributor,
+  VERIFIED_UPLOAD_THRESHOLD,
   type ReputationStats,
 } from "./reputation";
 
@@ -78,5 +80,31 @@ describe("earnedBadgeKeys", () => {
 
   it("awards nothing for a blank user", () => {
     expect(earnedBadgeKeys(ZERO)).toEqual([]);
+  });
+});
+
+describe("isVerifiedContributor", () => {
+  it("verifies any lecturer regardless of uploads", () => {
+    expect(isVerifiedContributor({ roles: ["lecturer"], liveUploads: 0 })).toBe(true);
+    expect(isVerifiedContributor({ roles: ["student", "lecturer"], liveUploads: 0 })).toBe(true);
+  });
+
+  it("verifies a student strictly above the upload threshold", () => {
+    expect(
+      isVerifiedContributor({ roles: ["student"], liveUploads: VERIFIED_UPLOAD_THRESHOLD + 1 }),
+    ).toBe(true);
+  });
+
+  it("does NOT verify a student at or below the threshold", () => {
+    expect(
+      isVerifiedContributor({ roles: ["student"], liveUploads: VERIFIED_UPLOAD_THRESHOLD }),
+    ).toBe(false);
+    expect(isVerifiedContributor({ roles: ["student"], liveUploads: 3 })).toBe(false);
+  });
+
+  it("uses more-than-10 as the threshold", () => {
+    expect(VERIFIED_UPLOAD_THRESHOLD).toBe(10);
+    expect(isVerifiedContributor({ roles: ["student"], liveUploads: 10 })).toBe(false);
+    expect(isVerifiedContributor({ roles: ["student"], liveUploads: 11 })).toBe(true);
   });
 });

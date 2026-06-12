@@ -38,6 +38,12 @@ function typeLabel(type: string): string {
       return "approved your document";
     case "document.rejected":
       return "rejected your document";
+    case "request.fulfilled":
+      return "fulfilled your request";
+    case "request.status":
+      return "updated your request status";
+    case "request.possible_match":
+      return "found a possible match for your request";
     default:
       return type;
   }

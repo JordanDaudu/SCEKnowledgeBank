@@ -312,6 +312,16 @@ export async function findByUsername(
   });
 }
 
+export async function updatePasswordHash(
+  id: string,
+  passwordHash: string,
+): Promise<void> {
+  await db.user.update({
+    where: { id },
+    data: { passwordHash, updatedAt: new Date() },
+  });
+}
+
 export async function updateUsername(id: string, username: string): Promise<void> {
   await db.user.update({
     where: { id },
