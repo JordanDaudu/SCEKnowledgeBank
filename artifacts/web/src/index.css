@@ -172,4 +172,134 @@
     color: hsl(214 18% 70%);
     border-color: hsl(215 14% 30%);
   }
+
+  /* ── Hero: "idea ignition" over the knowledge banner ─────────────────
+     A frosted glass card floats over the dark low-poly book + bulb photo.
+     On load the scene "powers on": the photo flickers up from dim, a glow
+     blooms over the bulb, sparks burst upward once, then everything settles
+     calm. Layers are stacked (photo → dim → glow → sparks) behind the card. */
+  .hero-knowledge {
+    background-color: hsl(222 47% 8%); /* navy fallback to blend rounded edges */
+  }
+
+  .hero-knowledge__photo {
+    background-image: url("/hero-knowledge.jpg");
+    background-size: cover;
+    background-position: right center;
+    background-repeat: no-repeat;
+    animation: hero-ignite-photo 2200ms ease-out both;
+  }
+
+  /* Vignette + overall darken so the glass card and white text stay legible
+     while the bulb on the right keeps its glow. */
+  .hero-knowledge__dim {
+    background:
+      radial-gradient(120% 130% at 76% 28%, transparent 26%, rgba(5, 10, 24, 0.6) 100%),
+      linear-gradient(0deg, rgba(5, 10, 24, 0.42), rgba(5, 10, 24, 0.42));
+  }
+
+  /* Soft blue bloom anchored over the bulb. */
+  .hero-knowledge__glow {
+    background: radial-gradient(
+      closest-side,
+      rgba(125, 185, 255, 0.55),
+      rgba(125, 185, 255, 0) 70%
+    );
+    background-repeat: no-repeat;
+    background-position: 76% 26%;
+    background-size: 46% 82%;
+    mix-blend-mode: screen;
+    /* Ignite once, then breathe softly forever (starts where ignite settles). */
+    animation:
+      hero-ignite-glow 2200ms ease-out both,
+      hero-glow-breathe 5s ease-in-out 2200ms infinite;
+  }
+
+  /* A handful of embers that rise from the bulb during ignition. */
+  .hero-knowledge__sparks {
+    background-image:
+      radial-gradient(2px 2px at 70% 60%, rgba(190, 215, 255, 0.95), transparent),
+      radial-gradient(2px 2px at 78% 54%, rgba(180, 210, 255, 0.85), transparent),
+      radial-gradient(1.5px 1.5px at 74% 66%, rgba(205, 228, 255, 0.95), transparent),
+      radial-gradient(2px 2px at 82% 61%, rgba(160, 200, 255, 0.8), transparent),
+      radial-gradient(1.5px 1.5px at 72% 49%, rgba(205, 228, 255, 0.85), transparent);
+    background-repeat: no-repeat;
+    mix-blend-mode: screen;
+    /* Burst once on ignition, then drift embers upward on a gentle loop. */
+    animation:
+      hero-ignite-sparks 2400ms ease-out both,
+      hero-embers-drift 6s ease-in-out 2400ms infinite;
+  }
+
+  .hero-knowledge__card {
+    animation: hero-card-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 380ms both;
+  }
+
+  /* Power-on flicker: dim+desaturated → flash → dip → settle to full. */
+  @keyframes hero-ignite-photo {
+    0%   { opacity: 0;    filter: brightness(0.35) saturate(0.6); }
+    16%  { opacity: 1;    filter: brightness(0.5)  saturate(0.7); }
+    24%  { opacity: 0.72; filter: brightness(0.32) saturate(0.6); }
+    33%  { opacity: 1;    filter: brightness(1.18) saturate(1.12); }
+    42%  { opacity: 0.9;  filter: brightness(0.72) saturate(0.92); }
+    100% { opacity: 1;    filter: brightness(1)    saturate(1); }
+  }
+
+  @keyframes hero-ignite-glow {
+    0%   { opacity: 0;   transform: scale(0.6); }
+    30%  { opacity: 0.2; }
+    34%  { opacity: 0.95; transform: scale(1.15); }
+    45%  { opacity: 0.4; }
+    100% { opacity: 0.6; transform: scale(1); }
+  }
+
+  @keyframes hero-ignite-sparks {
+    0%, 28% { opacity: 0; transform: translateY(12px); }
+    36%     { opacity: 1; }
+    100%    { opacity: 0; transform: translateY(-44px); }
+  }
+
+  /* Ambient loop: the bulb's halo breathes brighter/dimmer (settles at 0.6). */
+  @keyframes hero-glow-breathe {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50%      { opacity: 0.85; transform: scale(1.06); }
+  }
+
+  /* Ambient loop: embers rise from the bulb and fade, over and over. */
+  @keyframes hero-embers-drift {
+    0%   { opacity: 0;   transform: translateY(14px); }
+    25%  { opacity: 0.9; }
+    70%  { opacity: 0.55; }
+    100% { opacity: 0;   transform: translateY(-50px); }
+  }
+
+  @keyframes hero-card-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Reduced motion: skip the ignition entirely, present the settled scene. */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-knowledge__photo,
+    .hero-knowledge__glow,
+    .hero-knowledge__sparks,
+    .hero-knowledge__card {
+      animation: none;
+    }
+    .hero-knowledge__photo {
+      opacity: 1;
+      filter: none;
+    }
+    .hero-knowledge__glow {
+      opacity: 0.6;
+      transform: none;
+    }
+    .hero-knowledge__sparks {
+      opacity: 0;
+    }
+    .hero-knowledge__card {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }

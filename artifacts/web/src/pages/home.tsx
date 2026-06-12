@@ -315,13 +315,20 @@ export default function Home() {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Hero */}
-      <section className="bg-gradient-to-b from-primary/8 via-primary/4 to-transparent -mx-4 px-4 py-8 sm:py-12 rounded-b-[2.5rem] border-b border-primary/10">
-        <div className="max-w-3xl mx-auto text-center space-y-5">
-          <h1 className="text-3xl sm:text-4xl font-serif font-bold text-foreground tracking-tight">
+      {/* Hero — frosted glass panel floating over the low-poly knowledge
+          banner, with a one-time "idea ignition" reveal (see .hero-knowledge
+          in index.css). All photo/glow/spark layers are decorative. */}
+      <section className="hero-knowledge relative isolate overflow-hidden -mx-4 px-4 py-14 sm:py-20 rounded-b-[2.5rem] border-b border-white/10">
+        <div aria-hidden="true" className="hero-knowledge__photo pointer-events-none absolute inset-0" />
+        <div aria-hidden="true" className="hero-knowledge__dim pointer-events-none absolute inset-0" />
+        <div aria-hidden="true" className="hero-knowledge__glow pointer-events-none absolute inset-0" />
+        <div aria-hidden="true" className="hero-knowledge__sparks pointer-events-none absolute inset-0" />
+
+        <div className="hero-knowledge__card relative z-10 max-w-2xl mx-auto text-center space-y-5 rounded-3xl border border-white/15 bg-white/[0.06] px-6 py-8 sm:px-10 sm:py-10 backdrop-blur-xl shadow-[0_12px_48px_-12px_rgba(0,0,0,0.65)]">
+          <h1 className="text-3xl sm:text-4xl font-serif font-bold text-white tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]">
             {t("home.heroTitle")}
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-blue-100/85 max-w-2xl mx-auto">
             {t("home.heroSubtitle")}
           </p>
           <div className="pt-2 max-w-2xl mx-auto">
