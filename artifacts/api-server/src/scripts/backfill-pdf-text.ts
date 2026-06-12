@@ -15,6 +15,8 @@
  *
  * Run:  pnpm --filter @workspace/api-server exec tsx src/scripts/backfill-pdf-text.ts
  */
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { db } from "@workspace/db";
 import { getStorage } from "../lib/storage";
 import { extractMetadata } from "../services/documents/metadata.service";
@@ -81,8 +83,14 @@ export async function backfillPdfText(): Promise<BackfillPdfTextResult> {
   return result;
 }
 
-// Direct-run guard (tsx). Mirrors backfill-badges.ts.
-if (process.argv[1] && import.meta.url === `file://${process.argv[1].replace(/\\/g, "/")}`) {
+// Direct-run guard. True whether invoked with an absolute or relative path,
+// on Windows or Linux: tsx passes an absolute path, but the Docker entrypoint
+// runs the bundled .mjs via a relative path. Resolve both sides to an absolute
+// filesystem path before comparing (a bare string compare silently no-ops on
+// the relative-path invocation, which is exactly the Cloud Run Job case).
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
+const modulePath = fileURLToPath(import.meta.url);
+if (invokedPath && invokedPath === modulePath) {
   backfillPdfText()
     .then((r) => {
       // eslint-disable-next-line no-console

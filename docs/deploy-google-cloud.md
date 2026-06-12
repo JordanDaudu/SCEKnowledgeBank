@@ -606,6 +606,57 @@ Use Option B1 for a quick demo and Option B2 when you want a real domain.
 
 ---
 
+## Appendix C — One-off maintenance jobs (PDF text backfill)
+
+Some maintenance tasks must run **inside** the deployed environment because they
+need both the database and the uploads bucket. They ship inside the API runtime
+image as bundled scripts and are exposed as named entrypoint commands (see
+`artifacts/api-server/docker-entrypoint.sh`), so you run them as a Cloud Run Job
+using the **same image, secrets, env, and GCS volume mount** as the API service.
+
+### PDF text backfill (`backfill-pdf-text`)
+
+PDFs uploaded before the `pdf-parse` externalization fix (`aa0662a`) were stored
+with empty extracted text, which hides the AI-suggestions card on those PDFs.
+This job re-reads each affected PDF from the bucket, re-extracts its text, and
+writes it back. It is **idempotent** (only touches PDFs still missing text),
+makes **no** external/AI calls, and is safe to re-run.
+
+```powershell
+# Uses the already-built & pushed API runtime image ($API_IMAGE from §6).
+# Reuses the same secrets (§5) and the uploads bucket (§5) mounted at
+# /data/storage, exactly like the API service (§8).
+gcloud run jobs create kb-backfill-pdf-text `
+  --image=$API_IMAGE `
+  --region=$REGION `
+  --set-secrets="DATABASE_URL=kb-database-url:latest,SESSION_SECRET=kb-session-secret:latest,SIGNED_URL_SECRET=kb-signed-url-secret:latest" `
+  --set-env-vars="NODE_ENV=production,STORAGE_DRIVER=local,STORAGE_LOCAL_ROOT=/data/storage" `
+  --add-volume="name=uploads,type=cloud-storage,bucket=$BUCKET" `
+  --add-volume-mount="volume=uploads,mount-path=/data/storage" `
+  --args="backfill-pdf-text" `
+  --max-retries=1 `
+  --task-timeout=600s
+
+# Run it and wait for the summary in the logs
+gcloud run jobs execute kb-backfill-pdf-text --region=$REGION --wait
+```
+
+It prints e.g. `PDF text backfill complete: 121 updated, 0 skipped (no text
+layer), 0 errors, of 121 candidates.` Scanned PDFs with no text layer are
+reported as `skipped` and left unchanged.
+
+Notes:
+- **Cloud SQL vs Neon:** if your database is **Cloud SQL** (this guide's default),
+  add `--set-cloudsql-instances=$INSTANCE_CONNECTION_NAME`. For a **Neon** database
+  the `DATABASE_URL` secret is a direct connection string and no such flag is
+  needed.
+- `--args="backfill-pdf-text"` replaces the image's default `start` command; the
+  entrypoint then runs `node dist/scripts/backfill-pdf-text.mjs`.
+- After a successful run, re-running the job is a no-op (0 candidates). You can
+  delete the job with `gcloud run jobs delete kb-backfill-pdf-text --region=$REGION`.
+
+---
+
 ## Quick reference — environment variables
 
 API service / migrate job:
