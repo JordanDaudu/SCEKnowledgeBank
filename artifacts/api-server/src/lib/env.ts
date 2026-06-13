@@ -80,6 +80,32 @@ const envSchema = z.object({
   // (uploads behave exactly as before; UI hides all AI elements).
   GEMINI_API_KEY: z.string().optional().default(""),
   AI_SUGGESTIONS_MODEL: z.string().default("gemini-2.5-flash"),
+
+  // ─── Rate limiting (design 2026-06-13) ───────────────────────────
+  // Master switch; set to "false" to disable all limiters (e.g. load
+  // tests). Anything other than the literal "false" leaves it enabled.
+  RATE_LIMIT_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => (v ?? "true").trim().toLowerCase() !== "false"),
+  RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_LOGIN_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(900_000), // 15 min
+  RATE_LIMIT_REGISTER_MAX: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_REGISTER_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3_600_000), // 1 hour
+  RATE_LIMIT_AI_MAX: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_AI_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60_000), // 1 min
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -149,4 +175,14 @@ export const env = {
     : path.resolve(process.cwd(), ".data/storage"),
   geminiApiKey: e.GEMINI_API_KEY.trim(),
   aiSuggestionsModel: e.AI_SUGGESTIONS_MODEL,
+  // True only under vitest / NODE_ENV=test. Used to disable rate
+  // limiters so HTTP-level tests aren't throttled.
+  isTest: normalizedNodeEnv === "test",
+  rateLimitEnabled: e.RATE_LIMIT_ENABLED,
+  rateLimitLoginMax: e.RATE_LIMIT_LOGIN_MAX,
+  rateLimitLoginWindowMs: e.RATE_LIMIT_LOGIN_WINDOW_MS,
+  rateLimitRegisterMax: e.RATE_LIMIT_REGISTER_MAX,
+  rateLimitRegisterWindowMs: e.RATE_LIMIT_REGISTER_WINDOW_MS,
+  rateLimitAiMax: e.RATE_LIMIT_AI_MAX,
+  rateLimitAiWindowMs: e.RATE_LIMIT_AI_WINDOW_MS,
 };
