@@ -102,7 +102,11 @@ export default function BrowseFilters(props: Props) {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[360px] max-h-[70vh] overflow-y-auto" align="end">
+        <PopoverContent
+          align="end"
+          collisionPadding={12}
+          className="w-[calc(100vw_-_2rem)] sm:w-[360px] max-h-[80vh] overflow-y-auto"
+        >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="font-medium text-sm">{t("browse.filters.refine")}</h4>
