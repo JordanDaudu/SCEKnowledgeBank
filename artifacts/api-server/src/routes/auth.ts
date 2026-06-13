@@ -4,6 +4,10 @@ import { LoginBody } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import * as authService from "../services/auth.service";
 import { currentUserDto } from "../lib/current-user-dto";
+import {
+  loginRateLimiter,
+  registerRateLimiter,
+} from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
 
@@ -24,7 +28,7 @@ const RegisterBody = z.object({
   teachingCourseIds: z.array(z.string().uuid()).max(50).optional(),
 });
 
-router.post("/register", async (req, res, next) => {
+router.post("/register", registerRateLimiter, async (req, res, next) => {
   try {
     const body = RegisterBody.parse(req.body);
     const result = await authService.register(body);
@@ -59,7 +63,7 @@ router.post("/register", async (req, res, next) => {
   }
 });
 
-router.post("/login", async (req, res, next) => {
+router.post("/login", loginRateLimiter, async (req, res, next) => {
   try {
     const body = LoginBody.parse(req.body);
     const { userId, user } = await authService.login(body.email, body.password);

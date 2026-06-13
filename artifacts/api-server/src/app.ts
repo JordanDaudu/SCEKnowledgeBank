@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -12,6 +13,19 @@ import { env } from "./lib/env";
 const app: Express = express();
 
 app.set("trust proxy", 1);
+
+// Security headers. CSP is left OFF (it would break the Vite SPA; can be
+// reintroduced later in report-only mode). Cross-origin resource policy is
+// relaxed to "cross-origin" because the web app (a different origin) loads
+// document preview/thumbnail streams from this API; helmet's default
+// "same-origin" would block those.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 
 app.use(
   pinoHttp({

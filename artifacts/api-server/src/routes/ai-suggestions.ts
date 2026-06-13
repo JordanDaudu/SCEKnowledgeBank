@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/auth";
+import { aiGenerateRateLimiter } from "../middlewares/rate-limit";
 import * as aiSuggestionsService from "../services/ai-suggestions.service";
 import { AiSuggestionError } from "../services/ai-suggestions.service";
 
@@ -101,6 +102,7 @@ router.post(
 router.post(
   "/documents/:id/ai-suggestions/generate",
   requireAuth,
+  aiGenerateRateLimiter,
   async (req, res, next) => {
     try {
       const { id } = IdParams.parse(req.params);
