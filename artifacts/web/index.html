@@ -3,16 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <title>Knowledge Bank</title>
-    <meta name="description" content="Knowledge Bank — built on Replit. Update this description to reflect the app." />
+    <title>SCE Knowledge Bank — Course Materials &amp; Study Resources</title>
+    <meta name="description" content="SCE Knowledge Bank is a shared library of course materials, lecture notes, exams, and study resources for SCE students and lecturers." />
     <meta name="robots" content="index, follow" />
-    <meta property="og:title" content="Knowledge Bank" />
-    <meta property="og:description" content="Knowledge Bank — built on Replit. Update this description to reflect the app." />
+    <link rel="canonical" href="https://kb-web-zaubgdpnyq-ew.a.run.app/" />
+    <meta property="og:site_name" content="SCE Knowledge Bank" />
+    <meta property="og:title" content="SCE Knowledge Bank" />
+    <meta property="og:description" content="A shared library of course materials, lecture notes, exams, and study resources for SCE students and lecturers." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kb-web-zaubgdpnyq-ew.a.run.app/" />
+    <meta property="og:image" content="https://kb-web-zaubgdpnyq-ew.a.run.app/opengraph.jpg" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Knowledge Bank" />
-    <meta name="twitter:description" content="Knowledge Bank — built on Replit. Update this description to reflect the app." />
+    <meta name="twitter:title" content="SCE Knowledge Bank" />
+    <meta name="twitter:description" content="A shared library of course materials, lecture notes, exams, and study resources for SCE students and lecturers." />
+    <meta name="twitter:image" content="https://kb-web-zaubgdpnyq-ew.a.run.app/opengraph.jpg" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- WebSite structured data so search engines can surface the app and
+         enable a sitelinks search box. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "SCE Knowledge Bank",
+        "url": "https://kb-web-zaubgdpnyq-ew.a.run.app/",
+        "description": "A shared library of course materials, lecture notes, exams, and study resources for SCE students and lecturers."
+      }
+    </script>
+    <style>
+      /* Accessible skip link: visually hidden until it receives keyboard focus,
+         then it pins to the top-left so keyboard users can jump past the nav. */
+      .skip-link {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 1000;
+        padding: 0.5rem 1rem;
+        background: #0f172a;
+        color: #fff;
+        border-radius: 0 0 0.375rem 0;
+        text-decoration: none;
+      }
+      .skip-link:focus {
+        left: 0;
+      }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,7 +62,7 @@
             ((!t || t === "system") &&
               window.matchMedia("(prefers-color-scheme: dark)").matches);
           if (dark) document.documentElement.classList.add("dark");
-        } catch (e) {}
+        } catch {}
       })();
     </script>
     <script>
@@ -42,11 +76,12 @@
           var el = document.documentElement;
           el.setAttribute("lang", he ? "he" : "en");
           el.setAttribute("dir", he ? "rtl" : "ltr");
-        } catch (e) {}
+        } catch {}
       })();
     </script>
   </head>
   <body>
+    <a href="#main" class="skip-link">Skip to main content</a>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

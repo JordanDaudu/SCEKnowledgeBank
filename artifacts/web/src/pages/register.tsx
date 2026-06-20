@@ -27,7 +27,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
   CardFooter,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -126,7 +125,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+    <div id="main" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden outline-none">
       <div className="absolute top-0 left-0 w-full h-[40vh] bg-primary/5 rounded-b-[100%] border-b border-primary/10 pointer-events-none" />
 
       <Card className="w-full max-w-lg relative z-10 shadow-xl border-border/50">
@@ -134,9 +133,9 @@ export default function Register() {
           <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg rotate-3">
             <Logo className="h-9 w-9 text-primary-foreground -rotate-3" />
           </div>
-          <CardTitle className="font-serif text-3xl mb-2">
+          <h1 className="font-serif text-3xl mb-2 font-semibold leading-none tracking-tight">
             Create your account
-          </CardTitle>
+          </h1>
           <CardDescription className="text-base">
             Join the university's scholarly reading room.
           </CardDescription>

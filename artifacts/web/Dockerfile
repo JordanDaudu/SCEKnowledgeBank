@@ -54,6 +54,9 @@ FROM nginx:${NGINX_VERSION} AS runtime
 # SPA-style fallback to index.html.
 COPY --from=builder /app/artifacts/web/dist/public /usr/share/nginx/html
 COPY artifacts/web/nginx.conf /etc/nginx/conf.d/default.conf
+# Shared security-headers snippet, included by default.conf. Kept outside
+# conf.d/ so nginx doesn't also try to load it as a standalone server config.
+COPY artifacts/web/security-headers.conf /etc/nginx/security-headers.conf
 
 EXPOSE 80
 

@@ -39,7 +39,9 @@ export default defineConfig({
     // favorites) is handled separately via IndexedDB in Phase 2.
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      // "script-defer" injects the registerSW.js <script> with a `defer`
+      // attribute so it no longer blocks first render.
+      injectRegister: "script-defer",
       includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
         name: "Knowledge Bank",
@@ -100,6 +102,37 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Split the single ~1.3MB app bundle into cacheable vendor chunks so no one
+    // file blows past the 500KB performance threshold and big, rarely-changing
+    // dependencies stay cached across deploys.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          // Heavy, preview-only libraries get their own chunks so they never
+          // bloat the shared vendor bundle (and can be cached independently).
+          if (/[\\/]xlsx[\\/]/.test(id)) return "xlsx-vendor";
+          if (/[\\/]docx-preview[\\/]/.test(id)) return "docx-vendor";
+          if (/recharts|d3-|victory|internmap/.test(id)) return "charts-vendor";
+          if (id.includes("framer-motion")) return "motion-vendor";
+          // Core framework + routing. use-sync-external-store is a React shim;
+          // keeping it with React avoids a circular chunk reference.
+          if (/[\\/](react|react-dom|scheduler|wouter|use-sync-external-store)[\\/]/.test(id))
+            return "react-vendor";
+          if (id.includes("@radix-ui")) return "radix-vendor";
+          if (id.includes("@tanstack")) return "query-vendor";
+          if (id.includes("lucide-react")) return "icons-vendor";
+          if (/i18next|react-i18next/.test(id)) return "i18n-vendor";
+          if (/react-hook-form|@hookform|zod/.test(id)) return "form-vendor";
+          // Everything else: one chunk per top-level package so no single file
+          // dominates the bundle.
+          const m = id.replace(/\\/g, "/").match(/node_modules\/(@[^/]+\/[^/]+|[^/]+)/);
+          if (m) return `vendor-${m[1].replace(/[@/]/g, "-").replace(/^-/, "")}`;
+          return "vendor";
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port,
