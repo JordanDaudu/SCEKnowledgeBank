@@ -19,7 +19,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
 interface LoginValues {
@@ -79,7 +79,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+    <div id="main" tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden outline-none">
       {/* Background: soft top arc */}
       <div className="absolute top-0 left-0 w-full h-[45vh] bg-gradient-to-b from-primary/8 via-primary/4 to-transparent pointer-events-none" />
       {/* Background: subtle bottom-right glow */}
@@ -90,7 +90,7 @@ export default function Login() {
           <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-5 shadow-lg rotate-3">
             <Logo className="h-9 w-9 text-primary-foreground -rotate-3" />
           </div>
-          <CardTitle className="font-serif text-3xl mb-1.5">{t("common.appName")}</CardTitle>
+          <h1 className="font-serif text-3xl mb-1.5 font-semibold leading-none tracking-tight">{t("common.appName")}</h1>
           <CardDescription className="text-base leading-relaxed">
             {t("login.tagline")}
           </CardDescription>

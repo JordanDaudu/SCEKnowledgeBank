@@ -340,7 +340,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 container mx-auto px-4 py-6 sm:py-8">
+      <main id="main" tabIndex={-1} className="flex-1 container mx-auto px-4 py-6 sm:py-8 outline-none">
         {children}
       </main>
     </div>
