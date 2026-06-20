@@ -102,32 +102,40 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    // Split the single ~1.3MB app bundle into cacheable vendor chunks so no one
-    // file blows past the 500KB performance threshold and big, rarely-changing
-    // dependencies stay cached across deploys.
+    // Chunking is a balance between two competing performance budgets the CQC
+    // scanner enforces: no single file should blow past the ~500KB size
+    // threshold, but the page must not load more than ~10 JS files either.
+    // So we keep the few large, slow-changing dependencies in their own
+    // cacheable chunks and collapse the long tail of small packages into a
+    // single shared vendor chunk (an earlier per-package strategy produced 30+
+    // requests and tripped the "too many JS files" budget).
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
-          // Heavy, preview-only libraries get their own chunks so they never
-          // bloat the shared vendor bundle (and can be cached independently).
+          // Preview-only heavy libraries are dynamically imported (see
+          // DocxPreview / SheetPreview), so they already split into async
+          // chunks that stay off the initial page load. jszip is shared by
+          // both xlsx and docx-preview — give it its own async chunk so a DOCX
+          // preview doesn't drag in the much larger xlsx chunk (and vice
+          // versa), and so it never lands on the homepage.
+          if (/[\\/]jszip[\\/]/.test(id)) return "jszip-vendor";
           if (/[\\/]xlsx[\\/]/.test(id)) return "xlsx-vendor";
           if (/[\\/]docx-preview[\\/]/.test(id)) return "docx-vendor";
-          if (/recharts|d3-|victory|internmap/.test(id)) return "charts-vendor";
-          if (id.includes("framer-motion")) return "motion-vendor";
+          // Recharts (+ its d3/lodash deps) is the heaviest static chunk;
+          // isolate it so it caches independently and never pushes the shared
+          // vendor chunk over the size threshold.
+          if (/[\\/]recharts[\\/]/.test(id)) return "charts-vendor";
           // Core framework + routing. use-sync-external-store is a React shim;
           // keeping it with React avoids a circular chunk reference.
           if (/[\\/](react|react-dom|scheduler|wouter|use-sync-external-store)[\\/]/.test(id))
             return "react-vendor";
+          // Radix UI is large and changes rarely — its own cacheable chunk.
           if (id.includes("@radix-ui")) return "radix-vendor";
-          if (id.includes("@tanstack")) return "query-vendor";
-          if (id.includes("lucide-react")) return "icons-vendor";
-          if (/i18next|react-i18next/.test(id)) return "i18n-vendor";
-          if (/react-hook-form|@hookform|zod/.test(id)) return "form-vendor";
-          // Everything else: one chunk per top-level package so no single file
-          // dominates the bundle.
-          const m = id.replace(/\\/g, "/").match(/node_modules\/(@[^/]+\/[^/]+|[^/]+)/);
-          if (m) return `vendor-${m[1].replace(/[@/]/g, "-").replace(/^-/, "")}`;
+          // Everything else — tanstack, lucide, i18next, react-hook-form/zod,
+          // floating-ui, and the long tail of small deps — collapses into ONE
+          // shared vendor chunk. This keeps the initial request count low while
+          // each individual chunk stays well under the per-file size limit.
           return "vendor";
         },
       },
